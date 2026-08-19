@@ -1,0 +1,90 @@
+{
+  "project": "NCLT document automation workspace",
+  "context": "SaaS app / legal operations workflow",
+  "theme": {
+    "default": "light",
+    "rationale": "Long legal drafting sessions benefit from paper-like surfaces and high legibility; add a restrained dark mode for evening work.",
+    "dark_mode": "class-based toggle, preserve contrast and solid surfaces"
+  },
+  "discovery": {
+    "audience": ["chartered accountants", "insolvency professionals", "legal operations staff"],
+    "primary_tasks": ["select a fixed template", "enter case facts", "review generated document", "export Word or PDF", "reopen recent work"],
+    "success_actions": ["start document", "complete required fields", "preview", "download DOCX", "download PDF"],
+    "emotional_tone": "quiet authority, dependable, paper-to-digital craftsmanship",
+    "product_boundary": "Fixed-template filling only. No AI-assisted drafting in v1."
+  },
+  "research": {
+    "references": [
+      {"source": "SaaSFrame / 2026 dashboard patterns", "descriptor": "calm default views, modular panels, progressive disclosure, visible trust states", "url": "https://www.saasframe.io/blog/the-anatomy-of-high-performance-saas-dashboard-design-2026-trends-patterns"},
+      {"source": "SaaSFrame workflow docs", "descriptor": "step-based workflow creation with visual/form editors and approval states", "url": "https://docs.saasframe.org/user-guide/workflows/creating-workflows/"},
+      {"source": "Admin dashboard pattern research", "descriptor": "single north-star action, clear empty states, role-based views, responsive modular blocks", "url": "https://adminlte.io/blog/saas-dashboard-design-examples/"}
+    ],
+    "fusion": "Swiss legal forms + editorial book typography + architectural wayfinding. The result should feel like a carefully indexed case file, not a generic SaaS dashboard."
+  },
+  "typography": {
+    "heading_font": "IBM Plex Serif",
+    "body_font": "IBM Plex Sans",
+    "mono_font": "IBM Plex Mono",
+    "rules": ["Headings use tight tracking and 500/600 weight, never Inter.", "Body is 15-16px with relaxed line height.", "Labels are uppercase, 11px, tracking-[0.18em].", "Use serif only for document titles and major moments; keep controls sans for scanability."]
+  },
+  "colors": {
+    "archetype": "Swiss & high-contrast with warm paper tint",
+    "background": "#F4F1EA",
+    "surface": "#FFFDF8",
+    "surface_alt": "#E9E5DC",
+    "ink": "#20252B",
+    "muted_ink": "#5D6268",
+    "border": "#D3CEC3",
+    "primary": "#1D4ED8",
+    "primary_hover": "#173EA8",
+    "signal_red": "#B42318",
+    "success": "#28704B",
+    "warning": "#9A6700",
+    "rules": ["Use blue only for primary actions and active navigation.", "Use red only for errors or urgent case flags.", "Never use pure black, pure gray, teal, or full-screen gradients.", "Text and controls must meet WCAG AA; use dark ink on paper surfaces."]
+  },
+  "layouts": {
+    "app_shell": "Desktop: fixed left rail 248px, content canvas, optional right preview panel. Mobile: top bar plus bottom navigation or sheet rail.",
+    "dashboard": "Dense 12-column grid with 24px gaps: hero action spans 7 columns, recent documents spans 5, templates span 8, case status/feed spans 4. Leave generous vertical breathing room.",
+    "generator": "Three-step horizontal progress on desktop and vertical progress on mobile: 01 Template, 02 Case details, 03 Review & export.",
+    "preview": "Split workspace: form on warm white left, document paper preview on right. On mobile use tabs or a preview drawer.",
+    "grid_rules": ["Use mobile-first grid-cols-1.", "Direct children must be grid items.", "Use border-grid divisions, not floating card soup.", "Containers with borders require p-6 or p-8."]
+  },
+  "grids": {
+    "dashboard_mode": "high-density 1/3/4-column responsive grid",
+    "template_library": "1 column mobile, 2 columns tablet, 3 columns desktop; vary featured template span.",
+    "document_preview": "8/4 split on large screens, stacked on mobile",
+    "spacing": "Use gap-6 or gap-8, section padding py-12 to py-20, avoid cramped p-4 defaults."
+  },
+  "components": [
+    {"name": "AppShell", "component_path": "/app/frontend/src/App.js", "behavior": "persistent navigation, active route, user identity"},
+    {"name": "TemplateLibrary", "component_path": "/app/frontend/src/components/TemplateLibrary.js", "behavior": "search/filter fixed templates, featured template, recent usage"},
+    {"name": "CaseDetailsForm", "component_path": "/app/frontend/src/components/CaseDetailsForm.js", "behavior": "guided sections, required validation, optional notes, save draft"},
+    {"name": "DocumentPreview", "component_path": "/app/frontend/src/components/DocumentPreview.js", "behavior": "paper preview, page count, zoom, field completeness state"},
+    {"name": "ExportActions", "component_path": "/app/frontend/src/components/ExportActions.js", "behavior": "Word and PDF buttons, loading state, success toast via Sonner"},
+    {"name": "RecentDocuments", "component_path": "/app/frontend/src/components/RecentDocuments.js", "behavior": "sortable recent generated documents with status and reopen action"}
+  ],
+  "visual_enhancers": ["Subtle paper grain via CSS pseudo-element at very low opacity", "thin architectural registration lines around the preview", "small red case-file index marks for urgency", "solid glass-like sticky header only where content scrolls under it: bg-[#FFFDF8]/90 backdrop-blur-xl border-b", "custom scrollbar with warm tinted track/thumb", "no decorative gradient backgrounds"],
+  "motion": {
+    "entrance": "staggered opacity and translate-y-2 for sections, 180-240ms",
+    "interaction": "specific transitions for color, opacity, transform; button press scale-[0.98], row hover lift 1px",
+    "preview": "field completion softly highlights corresponding preview region",
+    "loading": "skeleton shimmer for document preview and export progress",
+    "reduced_motion": "disable stagger, shimmer, lift, and preview movement under prefers-reduced-motion"
+  },
+  "accessibility": {
+    "requirements": ["Every button, link, input, select trigger, menu, error, status, balance, and confirmation requires data-testid in kebab-case.", "Use visible labels and required markers; never rely on placeholder text.", "Keyboard focus uses 2px primary ring with offset.", "Use Shadcn Input, Textarea, Select, Dialog, DropdownMenu, Tabs and Sonner rather than native advanced interactions.", "Announce export success/error with aria-live.", "Do not rely on color alone for document status; include text/icon."]
+  },
+  "media": {
+    "strategy": "No stock photography required. Use typographic document thumbnails and CSS paper textures; this is a work tool, not a marketing page.",
+    "image_urls": []
+  },
+  "3d_libraries": {"use": false, "reason": "Clarity and document fidelity are more valuable than immersion for legal drafting."},
+  "implementation": {
+    "files_are_js": true,
+    "framework": "React JavaScript + Tailwind + shadcn/ui primitives",
+    "api": "Connect template data and export endpoints to FastAPI; keep export actions clearly loading/error-aware.",
+    "mocked": "Template records, preview rendering, and Word/PDF export may be MOCKED in the first UI pass until backend endpoints are wired; label mocked behavior in development and do not imply completed export.",
+    "testing": "Add stable data-testid attributes to all key interactive and informational elements."
+  },
+  "GENERAL UI UX DESIGN GUIDELINES": ["Avoid generic centered layouts and dashboard card grids.", "Keep navigation visible on desktop: brand, Workspace, Templates, Recent, Settings, primary New document CTA.", "Use asymmetry and hierarchy while preserving left-aligned reading flow.", "Use solid accessible surfaces; never complete transparent backgrounds behind content.", "Use hover, focus, active, loading, error, and success states for every interaction.", "Use generous spacing and crisp 1px borders; avoid excessive shadows and rounded cards.", "No AI emoji icons; use lucide-react or existing shadcn icon conventions.", "Use Sonner for toasts."]
+}
