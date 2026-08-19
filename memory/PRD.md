@@ -24,7 +24,8 @@ Chartered accountant working NCLT / insolvency cases makes recurring documents w
 Voting Agenda · Constitution of CoC · Notice of 1st CoC · Notice of 2nd CoC · LOC Filing & CoC Report.
 
 ## Completed
-- 2026-02: Auth (JWT + bcrypt + lockout), inline editable table editor with CSV import, /export?token= for browser downloads, admin seed, deployment health-check pass. Testing agent: 100% backend + 100% frontend.
+- 2026-02 (v1): Auth (JWT + bcrypt + lockout), inline editable table editor with CSV import, /export?token= for browser downloads, admin seed, deployment health-check pass. Testing agent: 100% backend + 100% frontend.
+- 2026-02 (v2): Template Uploader (drop a DOCX → detects `{{placeholders}}`, user labels fields/tables, saves to library). Save Case Drafts (persist partial matter, resume from Drafts view). Backend endpoints: `/api/templates/inspect`, `POST/DELETE /api/templates`, `/api/drafts` CRUD. Testing agent iteration 3: 14/14 backend + 100% frontend.
 
 ## Backlog
 - P1: Persist "case profiles" so a user can reopen a partially filled case and its table data.

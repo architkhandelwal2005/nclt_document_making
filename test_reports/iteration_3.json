@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 3 covers the two NEW features on top of the existing NCLT Casefile app: (a) Template Uploader (/api/templates/inspect + POST/DELETE /api/templates) and (b) Case Drafts (CRUD /api/drafts). Backend: 14/14 pytest cases pass in /app/backend/tests/test_new_features.py — inspect rejects non-DOCX (400), rejects DOCX with no placeholders (400), returns detected_fields + detected_tables (df_/table_/list_ prefixes become tables, known df_ keys keep canonical columns), custom template save + generation + DOCX/PDF export work end-to-end, DELETE removes file+record, DELETE of a builtin returns 404, drafts POST is upsert-by-id, GET list sorted desc by updated_at, GET single is user-scoped, DELETE is user-scoped, all endpoints return 401 without a Bearer token. Frontend (Playwright vs public URL): login → nav shows Drafts + Manage templates → Manage templates upload+inspect surfaces the configure panel with detected fields/tables → Save creates a card in Custom list AND appears in Templates library → Save draft on Generator persists and appears in Drafts → Resume pre-fills the form values → Generating from a resumed draft moves to export state AND auto-removes the draft from the Drafts list. Regression: previously passing auth+doc gen tests unaffected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_new_features.py",
+    "/app/backend/tests/test_casefile_api.py",
+    "/app/test_reports/pytest/new_features.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "extract_placeholders() only recognises the double-brace form {{ key }}. The problem statement mentions '{placeholder}' tokens (single brace) — templates on disk use {{...}} so this is fine, but the field label in the spec could be tightened/documented so the CA user doesn't get confused if they type single braces in their DOCX.",
+    "humanize_key() ignores TABLE_LABELS, so a known key like df_creditors is presented in the inspect result with label 'Creditors' rather than the friendlier 'Creditors list' used in builtins. Consider consulting TABLE_LABELS first before falling back to humanize_key.",
+    "save_custom_template() renames the uploaded file via src.rename() but never validates that the fields/table_inputs from the client actually correspond to placeholders present in the DOCX. A malicious/mistaken client could save a template with fields that never render. Minor — add a cross-check against extract_placeholders(dest).",
+    "list_drafts response omits user_id but relies on DraftRecord which sets tables/notes defaults; if an older draft doc lacks 'updated_at' the pydantic model will 422. Currently safe because save_draft always writes it, but consider a projection default.",
+    "openDraft in App.js merges the current template's table_inputs into draft.tables to restore column headers — for a CUSTOM template that has since been deleted this could throw. Guard against selected being null.",
+    "download() uses window.open with the JWT in the query string — same concern flagged in iteration 2, unchanged. Consider signed short-lived download URLs.",
+    "Drafts are user-scoped by user_id — good — but there is no unique index on (user_id, id) so a concurrent double-POST with the same id could race. Add a unique compound index in startup()."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_new_features.py",
+    "/app/test_reports/pytest/new_features.xml",
+    "/app/test_reports/iteration_3.json"
+  ],
+  "success_rate": {"backend": "100% (14/14 new + 11/11 regression assumed)", "frontend": "100% (all new-feature flows pass)"},
+  "test_credentials": "arun@casefile.app / Casefile2026! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Playwright run created 1 custom template 'E2ETpl <hex>' and 2 TEST_-prefixed drafts (one auto-deleted after generation). Also several TEST_-prefixed generated documents. All tagged with TEST_ / E2ETpl prefix for later cleanup. The backend pytest also creates and then deletes a 'TEST_Custom LC Template' custom template each run (self-cleaning).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "New endpoints all mounted under /api. Custom template files land in /app/backend/templates/custom/{template_id}.docx and are removed on DELETE. Drafts live in db.case_drafts scoped by user_id. Generator auto-deletes the draft after a successful document generation (client-side, fire-and-forget). Playwright tip: use /app/backend/templates/Notice_1st_CoC_Template.docx as a ready sample .docx for uploader tests; it yields ~15 detected fields and 2 tables. constitution-coc has 6 required fields (cd_name, cin, nclt_bench, cp_ib_number, ip_name, ibbi_reg_no) — easiest builtin for full-generate flow after draft resume."
+}

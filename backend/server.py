@@ -5,18 +5,19 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import io
 import logging
 import os
 import re
+import shutil
 import uuid
 
 import bcrypt
 import jwt
 from docx import Document
 from docx.shared import Inches
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -27,9 +28,11 @@ from starlette.middleware.cors import CORSMiddleware
 
 client = AsyncIOMotorClient(os.environ["MONGO_URL"])
 db = client[os.environ["DB_NAME"]]
-app = FastAPI(title="Casefile Document API", version="1.1.0")
+app = FastAPI(title="Casefile Document API", version="1.2.0")
 api_router = APIRouter(prefix="/api")
 TEMPLATE_DIR = ROOT_DIR / "templates"
+CUSTOM_TEMPLATE_DIR = TEMPLATE_DIR / "custom"
+CUSTOM_TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
 
 JWT_ALGORITHM = "HS256"
 JWT_SECRET = os.environ["JWT_SECRET"]
@@ -106,6 +109,57 @@ class TokenOut(BaseModel):
     user: UserOut
 
 
+# ---------------- Custom template & draft models ----------------
+class TemplateFieldSpec(BaseModel):
+    key: str
+    label: str
+    section: str = "Details"
+    required: bool = False
+    placeholder: str = ""
+
+
+class TemplateTableSpec(BaseModel):
+    key: str
+    label: str
+    columns: List[str]
+
+
+class CustomTemplateSpec(BaseModel):
+    upload_id: str
+    name: str
+    category: str = "Custom"
+    description: str = ""
+    fields: List[TemplateFieldSpec]
+    table_inputs: List[TemplateTableSpec] = Field(default_factory=list)
+
+
+class InspectResult(BaseModel):
+    upload_id: str
+    detected_fields: List[TemplateFieldSpec]
+    detected_tables: List[TemplateTableSpec]
+
+
+class DraftInput(BaseModel):
+    id: Optional[str] = None
+    name: str
+    template_id: str
+    values: Dict[str, str] = Field(default_factory=dict)
+    tables: Dict[str, List[List[str]]] = Field(default_factory=dict)
+    notes: str = ""
+
+
+class DraftRecord(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    name: str
+    template_id: str
+    template_name: str
+    values: Dict[str, str]
+    tables: Dict[str, List[List[str]]] = Field(default_factory=dict)
+    notes: str = ""
+    updated_at: str
+
+
 # ---------------- Document models ----------------
 class TemplateRecord(BaseModel):
     id: str
@@ -114,6 +168,7 @@ class TemplateRecord(BaseModel):
     description: str
     fields: List[dict]
     table_inputs: List[dict]
+    source: str = "builtin"
 
 
 class DocumentInput(BaseModel):
@@ -188,6 +243,70 @@ def template_records():
 
 
 TEMPLATES = template_records()
+
+
+def default_columns_for_key(key: str) -> List[str]:
+    if key in TABLE_LABELS:
+        return TABLE_LABELS[key][1]
+    return ["Sr. No.", "Description", "Value"]
+
+
+def humanize_key(key: str) -> str:
+    if key in TABLE_LABELS:
+        return TABLE_LABELS[key][0]
+    stripped = re.sub(r"^df_", "", key)
+    return re.sub(r"[_\-]+", " ", stripped).strip().title() or key
+
+
+def extract_placeholders(docx_path) -> List[str]:
+    doc = Document(str(docx_path))
+    pattern = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
+    seen: List[str] = []
+    for container in [doc] + [section.header for section in doc.sections] + [section.footer for section in doc.sections]:
+        for paragraph in iter_paragraphs(container):
+            for match in pattern.finditer(paragraph.text):
+                key = match.group(1).strip()
+                if key and key not in seen:
+                    seen.append(key)
+    return seen
+
+
+def _expand_custom_template(record: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": record["id"],
+        "name": record["name"],
+        "category": record.get("category", "Custom"),
+        "description": record.get("description", ""),
+        "fields": record.get("fields", []),
+        "table_inputs": record.get("table_inputs", []),
+        "filename": record["filename"],
+        "source": "custom",
+        "field_keys": [f["key"] for f in record.get("fields", [])] + [t["key"] for t in record.get("table_inputs", [])],
+    }
+
+
+def _builtin_public(template: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: value for key, value in template.items() if key not in {"filename", "field_keys"}} | {"source": "builtin"}
+
+
+async def list_all_templates() -> List[Dict[str, Any]]:
+    custom = await db.custom_templates.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return [_builtin_public(t) for t in TEMPLATES] + [
+        {key: value for key, value in _expand_custom_template(c).items() if key not in {"filename", "field_keys"}}
+        for c in custom
+    ]
+
+
+async def resolve_template(template_id: str) -> Optional[Dict[str, Any]]:
+    for template in TEMPLATES:
+        if template["id"] == template_id:
+            return {**template, "source": "builtin", "template_dir": TEMPLATE_DIR}
+    record = await db.custom_templates.find_one({"id": template_id}, {"_id": 0})
+    if not record:
+        return None
+    expanded = _expand_custom_template(record)
+    expanded["template_dir"] = CUSTOM_TEMPLATE_DIR
+    return expanded
 
 
 def canonical_placeholder(raw):
@@ -290,7 +409,8 @@ def add_data_table(paragraph, rows):
 
 
 def build_docx(template, values, tables, notes):
-    doc = Document(str(TEMPLATE_DIR / template["filename"]))
+    template_dir = template.get("template_dir", TEMPLATE_DIR)
+    doc = Document(str(template_dir / template["filename"]))
     replacements = {key: value for key, value in values.items() if value is not None}
     for container in [doc] + [section.header for section in doc.sections] + [section.footer for section in doc.sections]:
         for paragraph in list(iter_paragraphs(container)):
@@ -308,7 +428,8 @@ def build_docx(template, values, tables, notes):
 
 
 def doc_text(template, values, tables, notes):
-    doc = Document(str(TEMPLATE_DIR / template["filename"]))
+    template_dir = template.get("template_dir", TEMPLATE_DIR)
+    doc = Document(str(template_dir / template["filename"]))
     chunks = []
     for container in [doc] + [section.header for section in doc.sections] + [section.footer for section in doc.sections]:
         for paragraph in iter_paragraphs(container):
@@ -364,7 +485,114 @@ async def root():
 
 @api_router.get("/templates", response_model=List[TemplateRecord])
 async def get_templates(current=Depends(get_current_user)):
-    return [{key: value for key, value in template.items() if key not in {"filename", "field_keys"}} for template in TEMPLATES]
+    return await list_all_templates()
+
+
+@api_router.post("/templates/inspect", response_model=InspectResult)
+async def inspect_template(file: UploadFile = File(...), current=Depends(get_current_user)):
+    if not (file.filename or "").lower().endswith(".docx"):
+        raise HTTPException(status_code=400, detail="Only .docx files are supported")
+    upload_id = str(uuid.uuid4())
+    dest = CUSTOM_TEMPLATE_DIR / f"upload-{upload_id}.docx"
+    with dest.open("wb") as sink:
+        shutil.copyfileobj(file.file, sink)
+    try:
+        keys = extract_placeholders(dest)
+    except Exception as exc:  # noqa: BLE001
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"Could not read DOCX: {exc}")
+    if not keys:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="No {{placeholders}} were found in this document")
+    detected_fields: List[TemplateFieldSpec] = []
+    detected_tables: List[TemplateTableSpec] = []
+    for key in keys:
+        if key.startswith("df_") or key.lower().startswith(("table_", "list_")):
+            detected_tables.append(TemplateTableSpec(key=key, label=humanize_key(key), columns=default_columns_for_key(key)))
+        else:
+            canonical = CANONICAL_FIELDS.get(canonical_placeholder(key))
+            if canonical:
+                detected_fields.append(TemplateFieldSpec(key=canonical_placeholder(key), label=canonical[0], section=canonical[1], required=canonical[2], placeholder=f"Enter {canonical[0].lower()}"))
+            else:
+                detected_fields.append(TemplateFieldSpec(key=key, label=humanize_key(key), section="Details", required=False, placeholder=f"Enter {humanize_key(key).lower()}"))
+    return InspectResult(upload_id=upload_id, detected_fields=detected_fields, detected_tables=detected_tables)
+
+
+@api_router.post("/templates", response_model=TemplateRecord)
+async def save_custom_template(spec: CustomTemplateSpec, current=Depends(get_current_user)):
+    src = CUSTOM_TEMPLATE_DIR / f"upload-{spec.upload_id}.docx"
+    if not src.exists():
+        raise HTTPException(status_code=404, detail="Upload not found. Please re-upload the template.")
+    template_id = f"custom-{uuid.uuid4().hex[:10]}"
+    filename = f"{template_id}.docx"
+    src.rename(CUSTOM_TEMPLATE_DIR / filename)
+    record = {
+        "id": template_id,
+        "name": spec.name.strip() or "Custom template",
+        "category": spec.category.strip() or "Custom",
+        "description": spec.description.strip(),
+        "fields": [f.model_dump() for f in spec.fields],
+        "table_inputs": [t.model_dump() for t in spec.table_inputs],
+        "filename": filename,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": current["id"],
+    }
+    await db.custom_templates.insert_one(record)
+    expanded = _expand_custom_template(record)
+    return {key: value for key, value in expanded.items() if key not in {"filename", "field_keys", "template_dir"}}
+
+
+@api_router.delete("/templates/{template_id}")
+async def delete_custom_template(template_id: str, current=Depends(get_current_user)):
+    record = await db.custom_templates.find_one({"id": template_id}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="Custom template not found")
+    (CUSTOM_TEMPLATE_DIR / record["filename"]).unlink(missing_ok=True)
+    await db.custom_templates.delete_one({"id": template_id})
+    return {"ok": True}
+
+
+# ---------------- Draft routes ----------------
+@api_router.get("/drafts", response_model=List[DraftRecord])
+async def list_drafts(current=Depends(get_current_user)):
+    return await db.case_drafts.find({"user_id": current["id"]}, {"_id": 0, "user_id": 0}).sort("updated_at", -1).to_list(100)
+
+
+@api_router.get("/drafts/{draft_id}", response_model=DraftRecord)
+async def get_draft(draft_id: str, current=Depends(get_current_user)):
+    record = await db.case_drafts.find_one({"id": draft_id, "user_id": current["id"]}, {"_id": 0, "user_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return record
+
+
+@api_router.post("/drafts", response_model=DraftRecord)
+async def save_draft(payload: DraftInput, current=Depends(get_current_user)):
+    template = await resolve_template(payload.template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    draft_id = payload.id or str(uuid.uuid4())
+    record = {
+        "id": draft_id,
+        "name": payload.name.strip() or f"Draft {datetime.now(timezone.utc).strftime('%d %b %Y')}",
+        "template_id": template["id"],
+        "template_name": template["name"],
+        "values": {k: str(v) for k, v in payload.values.items()},
+        "tables": payload.tables,
+        "notes": payload.notes,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "user_id": current["id"],
+    }
+    await db.case_drafts.update_one({"id": draft_id, "user_id": current["id"]}, {"$set": record}, upsert=True)
+    return {k: v for k, v in record.items() if k != "user_id"}
+
+
+@api_router.delete("/drafts/{draft_id}")
+async def delete_draft(draft_id: str, current=Depends(get_current_user)):
+    result = await db.case_drafts.delete_one({"id": draft_id, "user_id": current["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return {"ok": True}
 
 
 @api_router.get("/documents", response_model=List[GeneratedDocument])
@@ -374,19 +602,22 @@ async def get_documents(current=Depends(get_current_user)):
 
 @api_router.post("/documents", response_model=GeneratedDocument)
 async def generate_document(input: DocumentInput, current=Depends(get_current_user)):
-    template = next((item for item in TEMPLATES if item["id"] == input.template_id), None)
+    template = await resolve_template(input.template_id)
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
-    missing = [CANONICAL_FIELDS[key][0] for key in template["field_keys"] if key in CANONICAL_FIELDS and CANONICAL_FIELDS[key][2] and not str(input.values.get(key, "")).strip()]
-    if missing:
-        raise HTTPException(status_code=422, detail=f"Required fields missing: {', '.join(missing)}")
+    missing_labels: List[str] = []
+    for field in template.get("fields", []):
+        if field.get("required") and not str(input.values.get(field["key"], "")).strip():
+            missing_labels.append(field.get("label") or field["key"])
+    if missing_labels:
+        raise HTTPException(status_code=422, detail=f"Required fields missing: {', '.join(missing_labels)}")
     values = {key: str(value).strip() for key, value in input.values.items()}
     cleaned_tables = {k: [[str(c) for c in row] for row in rows if any(str(c).strip() for c in row)] for k, rows in input.tables.items() if rows}
     record = GeneratedDocument(
         id=str(uuid.uuid4()),
         template_id=template["id"],
         template_name=template["name"],
-        company_name=values.get("cd_name", "Untitled matter"),
+        company_name=values.get("cd_name") or values.get("company_name") or "Untitled matter",
         status="Ready",
         created_at=datetime.now(timezone.utc).isoformat(),
         values=values,
@@ -400,9 +631,11 @@ async def generate_document(input: DocumentInput, current=Depends(get_current_us
 @api_router.get("/documents/{document_id}/download/{file_format}")
 async def download_document(document_id: str, file_format: str, current=Depends(get_current_user)):
     item = await db.generated_documents.find_one({"id": document_id}, {"_id": 0})
-    template = next((entry for entry in TEMPLATES if entry["id"] == (item or {}).get("template_id")), None)
-    if not item or not template or file_format not in {"docx", "pdf"}:
+    if not item or file_format not in {"docx", "pdf"}:
         raise HTTPException(status_code=404, detail="Document or format not found")
+    template = await resolve_template(item.get("template_id"))
+    if not template:
+        raise HTTPException(status_code=404, detail="Template no longer available")
     safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", item["company_name"]).strip("-")[:50] or "casefile-document"
     if file_format == "docx":
         stream = io.BytesIO(build_docx(template, item["values"], item.get("tables", {}), item.get("notes", "")))
