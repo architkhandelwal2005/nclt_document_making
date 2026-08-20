@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import "@/App.css";
 import axios from "axios";
 import {
-  FileText, LayoutDashboard, Settings, Clock3, Plus, Download,
+  FileText, LayoutDashboard, Settings, Plus, Download,
   ArrowRight, Search, CheckCircle2, ChevronLeft, LogOut, Upload,
   Trash2, PlusCircle, Lock, Save, BookmarkPlus, Layers, FileUp,
   X,
@@ -11,6 +11,13 @@ import { toast, Toaster } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TOKEN_KEY = "casefile.token";
+const DRAFTS_KEY = "casefile.drafts";
+
+const readDrafts = () => {
+  try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || "[]"); }
+  catch { return []; }
+};
+const writeDrafts = (list) => localStorage.setItem(DRAFTS_KEY, JSON.stringify(list));
 
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -76,7 +83,6 @@ function App() {
   const [checking, setChecking] = useState(true);
   const [view, setView] = useState("workspace");
   const [templates, setTemplates] = useState([]);
-  const [documents, setDocuments] = useState([]);
   const [drafts, setDrafts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [step, setStep] = useState(1);
@@ -96,9 +102,10 @@ function App() {
   }, []);
 
   const loadWorkspace = useCallback(() => {
-    Promise.all([axios.get(`${API}/templates`), axios.get(`${API}/documents`), axios.get(`${API}/drafts`)])
-      .then(([t, d, dr]) => { setTemplates(t.data); setDocuments(d.data); setDrafts(dr.data); })
+    axios.get(`${API}/templates`)
+      .then(({ data }) => { setTemplates(data); })
       .catch(() => toast.error("Could not connect to the workspace"));
+    setDrafts(readDrafts());
   }, []);
 
   useEffect(() => { if (user) loadWorkspace(); }, [user, loadWorkspace]);
@@ -115,10 +122,9 @@ function App() {
     setStep(2); setView("new");
   };
 
-  const openDraft = async (draft) => {
+  const openDraft = (draft) => {
     const template = templates.find(t => t.id === draft.template_id);
     if (!template) { toast.error("Template for this draft is no longer available"); return; }
-    // Merge template-defined tables with saved rows so column headers persist
     const mergedTables = {};
     (template.table_inputs || []).forEach(t => {
       mergedTables[t.key] = draft.tables?.[t.key]?.length ? draft.tables[t.key] : [t.columns, ...Array.from({ length: 2 }, () => t.columns.map(() => ""))];
@@ -132,30 +138,39 @@ function App() {
     setStep(2); setView("new");
   };
 
-  const saveDraft = async () => {
+  const saveDraft = () => {
     try {
       const cleanTables = {};
       Object.entries(tables).forEach(([k, rows]) => {
         const nonEmpty = rows.filter((row, idx) => idx === 0 || row.some(c => String(c || "").trim()));
         if (nonEmpty.length > 1) cleanTables[k] = nonEmpty;
       });
-      const { data } = await axios.post(`${API}/drafts`, { id: draftId, name: draftName || `Draft ${new Date().toLocaleDateString()}`, template_id: selected.id, values, tables: cleanTables, notes });
-      setDraftId(data.id);
-      setDrafts([data, ...drafts.filter(d => d.id !== data.id)]);
+      const id = draftId || (crypto.randomUUID ? crypto.randomUUID() : `d-${Date.now()}`);
+      const record = {
+        id,
+        name: draftName || `Draft ${new Date().toLocaleDateString()}`,
+        template_id: selected.id,
+        template_name: selected.name,
+        values,
+        tables: cleanTables,
+        notes,
+        updated_at: new Date().toISOString(),
+      };
+      const list = [record, ...readDrafts().filter(d => d.id !== id)];
+      writeDrafts(list);
+      setDrafts(list);
+      setDraftId(id);
       toast.success("Draft saved");
     } catch (e) {
-      toast.error(formatDetail(e.response?.data?.detail) || "Could not save draft");
+      toast.error("Could not save draft");
     }
   };
 
-  const deleteDraft = async (id) => {
-    try {
-      await axios.delete(`${API}/drafts/${id}`);
-      setDrafts(drafts.filter(d => d.id !== id));
-      toast.success("Draft removed");
-    } catch (e) {
-      toast.error("Could not delete draft");
-    }
+  const deleteDraft = (id) => {
+    const list = readDrafts().filter(d => d.id !== id);
+    writeDrafts(list);
+    setDrafts(list);
+    toast.success("Draft removed");
   };
 
   const deleteTemplate = async (id) => {
@@ -176,12 +191,14 @@ function App() {
         if (nonEmpty.length > 1) cleanTables[k] = nonEmpty;
       });
       const { data } = await axios.post(`${API}/documents`, { template_id: selected.id, values, tables: cleanTables, notes });
-      setDocuments([data, ...documents]);
       setSelected({ ...selected, generated: data });
       setStep(3);
       toast.success("Document ready to export");
       // Auto-remove draft if it was opened
-      if (draftId) { axios.delete(`${API}/drafts/${draftId}`).catch(() => {}); setDrafts(drafts.filter(d => d.id !== draftId)); setDraftId(null); }
+      if (draftId) {
+        const list = readDrafts().filter(d => d.id !== draftId);
+        writeDrafts(list); setDrafts(list); setDraftId(null);
+      }
     } catch (e) {
       toast.error(formatDetail(e.response?.data?.detail) || "Please complete the required fields");
     }
@@ -194,7 +211,7 @@ function App() {
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
-    setUser(null); setView("workspace"); setTemplates([]); setDocuments([]); setDrafts([]);
+    setUser(null); setView("workspace"); setTemplates([]); setDrafts([]);
     toast.success("Signed out");
   };
 
@@ -205,13 +222,12 @@ function App() {
     { id: "workspace", label: "Workspace", icon: LayoutDashboard },
     { id: "templates", label: "Templates", icon: FileText },
     { id: "drafts", label: "Drafts", icon: BookmarkPlus },
-    { id: "recent", label: "Recent documents", icon: Clock3 },
     { id: "upload", label: "Manage templates", icon: Layers },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
   const initials = user.name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
-  const title = { new: "New document", templates: "Template library", drafts: "Saved drafts", recent: "Recent documents", upload: "Manage templates", settings: "Settings" }[view] || "Workspace";
+  const title = { new: "New document", templates: "Template library", drafts: "Saved drafts", upload: "Manage templates", settings: "Settings" }[view] || "Workspace";
 
   return (
     <div className="app-shell">
@@ -252,7 +268,7 @@ function App() {
         ) : view === "upload" ? (
           <TemplateUploader onSaved={(t) => { setTemplates([...templates, t]); toast.success(`${t.name} added`); }} customTemplates={templates.filter(t => t.source === "custom")} onDelete={deleteTemplate} />
         ) : (
-          <Workspace view={view} templates={filtered} documents={documents} drafts={drafts} query={query} setQuery={setQuery} onStart={start} onOpenDraft={openDraft} onNew={() => setView("templates")} setView={setView} user={user} onDeleteTemplate={deleteTemplate} />
+          <Workspace view={view} templates={filtered} drafts={drafts} query={query} setQuery={setQuery} onStart={start} onOpenDraft={openDraft} onNew={() => setView("templates")} setView={setView} user={user} onDeleteTemplate={deleteTemplate} />
         )}
       </main>
       <Toaster position="bottom-right" />
@@ -260,7 +276,7 @@ function App() {
   );
 }
 
-function Workspace({ view, templates, documents, drafts, query, setQuery, onStart, onOpenDraft, onNew, setView, user, onDeleteTemplate }) {
+function Workspace({ view, templates, drafts, query, setQuery, onStart, onOpenDraft, onNew, setView, user, onDeleteTemplate }) {
   return (
     <section className="workspace">
       <div className="workspace-intro">
@@ -268,8 +284,7 @@ function Workspace({ view, templates, documents, drafts, query, setQuery, onStar
           <p className="kicker">{view === "workspace" ? `WELCOME, ${user.name.toUpperCase()}` : "YOUR LIBRARY"}</p>
           <h2>
             {view === "workspace" ? "Keep your casework moving." :
-              view === "templates" ? "Start from a trusted format." :
-              view === "recent" ? "Your generated documents." : "Workspace preferences."}
+              view === "templates" ? "Start from a trusted format." : "Workspace preferences."}
           </h2>
           <p className="intro-copy">
             {view === "workspace" ? "Turn familiar NCLT and insolvency formats into finished documents in minutes." :
@@ -292,10 +307,9 @@ function Workspace({ view, templates, documents, drafts, query, setQuery, onStar
             <div><dt>Email</dt><dd>{user.email}</dd></div>
             <div><dt>Role</dt><dd>{user.role}</dd></div>
           </dl>
-          <p className="settings-hint">Templates are managed from the Manage templates screen.</p>
+          <p className="settings-hint">Documents are generated on demand and never stored — download the Word or PDF file once and you&apos;re done. Drafts are kept privately in this browser only.</p>
         </div>
-      ) : view === "recent" ? <Recent documents={documents} />
-      : (
+      ) : (
         <>
           <div className="section-heading">
             <div>
@@ -317,15 +331,6 @@ function Workspace({ view, templates, documents, drafts, query, setQuery, onStar
                 <button className="text-button" data-testid="view-drafts-button" onClick={() => setView("drafts")}>View all <ArrowRight size={15} /></button>
               </div>
               <DraftsList drafts={drafts.slice(0, 3)} onOpen={onOpenDraft} />
-            </div>
-          )}
-          {view === "workspace" && (
-            <div className="recent-strip">
-              <div className="section-heading">
-                <div><p className="kicker">ACTIVITY</p><h3>Recent documents</h3></div>
-                <button className="text-button" data-testid="view-recent-button" onClick={() => setView("recent")}>View all <ArrowRight size={15} /></button>
-              </div>
-              <Recent documents={documents.slice(0, 3)} />
             </div>
           )}
         </>
@@ -359,26 +364,6 @@ function TemplateCard({ template, onStart, onDelete }) {
         </button>
       </div>
     </article>
-  );
-}
-
-function Recent({ documents }) {
-  return (
-    <div className="recent-list">
-      {documents.length ? documents.map(d => (
-        <div className="recent-row" key={d.id} data-testid={`recent-document-${d.id}`}>
-          <div className="file-icon"><FileText size={18} /></div>
-          <div><b>{d.company_name}</b><span>{d.template_name} · {new Date(d.created_at).toLocaleDateString()}</span></div>
-          <em><CheckCircle2 size={14} />{d.status}</em>
-        </div>
-      )) : (
-        <div className="empty-state">
-          <FileText size={24} />
-          <b>No generated documents yet</b>
-          <span>Choose a template to create your first case document.</span>
-        </div>
-      )}
-    </div>
   );
 }
 

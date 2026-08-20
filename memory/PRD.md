@@ -26,6 +26,7 @@ Voting Agenda · Constitution of CoC · Notice of 1st CoC · Notice of 2nd CoC �
 ## Completed
 - 2026-02 (v1): Auth (JWT + bcrypt + lockout), inline editable table editor with CSV import, /export?token= for browser downloads, admin seed, deployment health-check pass. Testing agent: 100% backend + 100% frontend.
 - 2026-02 (v2): Template Uploader (drop a DOCX → detects `{{placeholders}}`, user labels fields/tables, saves to library). Save Case Drafts (persist partial matter, resume from Drafts view). Backend endpoints: `/api/templates/inspect`, `POST/DELETE /api/templates`, `/api/drafts` CRUD. Testing agent iteration 3: 14/14 backend + 100% frontend.
+- 2026-02 (v3): **Removed MongoDB entirely.** Generated documents live in an in-memory TTL cache (30 min) and are streamed on download. Custom templates persisted as `.docx` + `.json` files on disk under `templates/custom/`. Drafts moved to browser `localStorage`. Admin login checks env-based credentials with bcrypt (no user table). Login attempts tracked in memory. Removes need for MongoDB Atlas — the app can now be hosted on just Render (backend) + Vercel (frontend) free tiers.
 
 ## Backlog
 - P1: Persist "case profiles" so a user can reopen a partially filled case and its table data.

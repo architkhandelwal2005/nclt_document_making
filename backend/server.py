@@ -7,6 +7,7 @@ load_dotenv(ROOT_DIR / ".env")
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 import io
+import json
 import logging
 import os
 import re
@@ -17,19 +18,17 @@ import bcrypt
 import jwt
 from docx import Document
 from docx.shared import Inches
-from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 from starlette.middleware.cors import CORSMiddleware
 
-client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-db = client[os.environ["DB_NAME"]]
-app = FastAPI(title="Casefile Document API", version="1.2.0")
+app = FastAPI(title="Casefile Document API", version="2.0.0")
 api_router = APIRouter(prefix="/api")
+
 TEMPLATE_DIR = ROOT_DIR / "templates"
 CUSTOM_TEMPLATE_DIR = TEMPLATE_DIR / "custom"
 CUSTOM_TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -39,6 +38,17 @@ JWT_SECRET = os.environ["JWT_SECRET"]
 ACCESS_TOKEN_MINUTES = 60 * 12
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
+DOC_CACHE_TTL_MINUTES = 30
+
+ADMIN_EMAIL = os.environ["ADMIN_EMAIL"].lower().strip()
+ADMIN_NAME = os.environ.get("ADMIN_NAME", "Casefile Admin")
+ADMIN_ID = "admin"
+ADMIN_PASSWORD_HASH = bcrypt.hashpw(os.environ["ADMIN_PASSWORD"].encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+# In-memory state (resets on restart)
+LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
+DOC_CACHE: Dict[str, Dict[str, Any]] = {}
+
 
 CANONICAL_FIELDS = {
     "cd_name": ("Corporate debtor name", "Corporate debtor", True),
@@ -90,7 +100,7 @@ TEMPLATE_CONFIG = [
 ]
 
 
-# ---------------- Auth models ----------------
+# ---------------- Models ----------------
 class LoginInput(BaseModel):
     email: EmailStr
     password: str
@@ -109,7 +119,6 @@ class TokenOut(BaseModel):
     user: UserOut
 
 
-# ---------------- Custom template & draft models ----------------
 class TemplateFieldSpec(BaseModel):
     key: str
     label: str
@@ -139,28 +148,6 @@ class InspectResult(BaseModel):
     detected_tables: List[TemplateTableSpec]
 
 
-class DraftInput(BaseModel):
-    id: Optional[str] = None
-    name: str
-    template_id: str
-    values: Dict[str, str] = Field(default_factory=dict)
-    tables: Dict[str, List[List[str]]] = Field(default_factory=dict)
-    notes: str = ""
-
-
-class DraftRecord(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str
-    name: str
-    template_id: str
-    template_name: str
-    values: Dict[str, str]
-    tables: Dict[str, List[List[str]]] = Field(default_factory=dict)
-    notes: str = ""
-    updated_at: str
-
-
-# ---------------- Document models ----------------
 class TemplateRecord(BaseModel):
     id: str
     name: str
@@ -191,18 +178,7 @@ class GeneratedDocument(BaseModel):
     notes: str = ""
 
 
-# ---------------- Auth helpers ----------------
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    try:
-        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
-    except ValueError:
-        return False
-
-
+# ---------------- Auth ----------------
 def create_access_token(user_id: str, email: str) -> str:
     payload = {
         "sub": user_id,
@@ -213,7 +189,11 @@ def create_access_token(user_id: str, email: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-async def get_current_user(request: Request) -> dict:
+def admin_user() -> Dict[str, str]:
+    return {"id": ADMIN_ID, "email": ADMIN_EMAIL, "name": ADMIN_NAME, "role": "admin"}
+
+
+async def get_current_user(request: Request) -> Dict[str, str]:
     auth_header = request.headers.get("Authorization", "")
     token = auth_header[7:] if auth_header.startswith("Bearer ") else request.cookies.get("access_token")
     if not token:
@@ -224,12 +204,9 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid session token")
-    user = await db.users.find_one({"id": payload.get("sub")})
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    user.pop("_id", None)
-    user.pop("password_hash", None)
-    return user
+    if payload.get("sub") != ADMIN_ID:
+        raise HTTPException(status_code=401, detail="Unknown user")
+    return admin_user()
 
 
 # ---------------- Template records ----------------
@@ -258,58 +235,7 @@ def humanize_key(key: str) -> str:
     return re.sub(r"[_\-]+", " ", stripped).strip().title() or key
 
 
-def extract_placeholders(docx_path) -> List[str]:
-    doc = Document(str(docx_path))
-    pattern = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
-    seen: List[str] = []
-    for container in [doc] + [section.header for section in doc.sections] + [section.footer for section in doc.sections]:
-        for paragraph in iter_paragraphs(container):
-            for match in pattern.finditer(paragraph.text):
-                key = match.group(1).strip()
-                if key and key not in seen:
-                    seen.append(key)
-    return seen
-
-
-def _expand_custom_template(record: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "id": record["id"],
-        "name": record["name"],
-        "category": record.get("category", "Custom"),
-        "description": record.get("description", ""),
-        "fields": record.get("fields", []),
-        "table_inputs": record.get("table_inputs", []),
-        "filename": record["filename"],
-        "source": "custom",
-        "field_keys": [f["key"] for f in record.get("fields", [])] + [t["key"] for t in record.get("table_inputs", [])],
-    }
-
-
-def _builtin_public(template: Dict[str, Any]) -> Dict[str, Any]:
-    return {key: value for key, value in template.items() if key not in {"filename", "field_keys"}} | {"source": "builtin"}
-
-
-async def list_all_templates() -> List[Dict[str, Any]]:
-    custom = await db.custom_templates.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
-    return [_builtin_public(t) for t in TEMPLATES] + [
-        {key: value for key, value in _expand_custom_template(c).items() if key not in {"filename", "field_keys"}}
-        for c in custom
-    ]
-
-
-async def resolve_template(template_id: str) -> Optional[Dict[str, Any]]:
-    for template in TEMPLATES:
-        if template["id"] == template_id:
-            return {**template, "source": "builtin", "template_dir": TEMPLATE_DIR}
-    record = await db.custom_templates.find_one({"id": template_id}, {"_id": 0})
-    if not record:
-        return None
-    expanded = _expand_custom_template(record)
-    expanded["template_dir"] = CUSTOM_TEMPLATE_DIR
-    return expanded
-
-
-def canonical_placeholder(raw):
+def canonical_placeholder(raw: str) -> str:
     key = re.sub(r"[^a-z0-9]", "", raw.lower())
     aliases = {re.sub(r"[^a-z0-9]", "", k.lower()): k for k in list(CANONICAL_FIELDS) + list(TABLE_LABELS)}
     return aliases.get(key, raw)
@@ -322,6 +248,19 @@ def iter_paragraphs(container):
         for row in table.rows:
             for cell in row.cells:
                 yield from iter_paragraphs(cell)
+
+
+def extract_placeholders(docx_path) -> List[str]:
+    doc = Document(str(docx_path))
+    pattern = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
+    seen: List[str] = []
+    for container in [doc] + [section.header for section in doc.sections] + [section.footer for section in doc.sections]:
+        for paragraph in iter_paragraphs(container):
+            for match in pattern.finditer(paragraph.text):
+                key = match.group(1).strip()
+                if key and key not in seen:
+                    seen.append(key)
+    return seen
 
 
 def replace_paragraph(paragraph, values):
@@ -443,28 +382,103 @@ def doc_text(template, values, tables, notes):
     return chunks
 
 
+# ---------------- Custom template file storage ----------------
+def _load_custom_template(template_id: str) -> Optional[Dict[str, Any]]:
+    meta = CUSTOM_TEMPLATE_DIR / f"{template_id}.json"
+    if not meta.exists():
+        return None
+    try:
+        return json.loads(meta.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _all_custom_templates() -> List[Dict[str, Any]]:
+    records = []
+    for meta in CUSTOM_TEMPLATE_DIR.glob("*.json"):
+        try:
+            records.append(json.loads(meta.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            continue
+    records.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+    return records
+
+
+def _expand_custom_template(record: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": record["id"],
+        "name": record["name"],
+        "category": record.get("category", "Custom"),
+        "description": record.get("description", ""),
+        "fields": record.get("fields", []),
+        "table_inputs": record.get("table_inputs", []),
+        "filename": record["filename"],
+        "source": "custom",
+        "field_keys": [f["key"] for f in record.get("fields", [])] + [t["key"] for t in record.get("table_inputs", [])],
+    }
+
+
+def _builtin_public(template: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: value for key, value in template.items() if key not in {"filename", "field_keys"}} | {"source": "builtin"}
+
+
+def list_all_templates() -> List[Dict[str, Any]]:
+    return [_builtin_public(t) for t in TEMPLATES] + [
+        {key: value for key, value in _expand_custom_template(c).items() if key not in {"filename", "field_keys"}}
+        for c in _all_custom_templates()
+    ]
+
+
+def resolve_template(template_id: str) -> Optional[Dict[str, Any]]:
+    for template in TEMPLATES:
+        if template["id"] == template_id:
+            return {**template, "source": "builtin", "template_dir": TEMPLATE_DIR}
+    record = _load_custom_template(template_id)
+    if not record:
+        return None
+    expanded = _expand_custom_template(record)
+    expanded["template_dir"] = CUSTOM_TEMPLATE_DIR
+    return expanded
+
+
+# ---------------- Doc cache helpers ----------------
+def _cache_prune():
+    now = datetime.now(timezone.utc)
+    for key in [k for k, v in DOC_CACHE.items() if v["expires_at"] < now]:
+        DOC_CACHE.pop(key, None)
+
+
+def _cache_put(record: Dict[str, Any]) -> None:
+    _cache_prune()
+    DOC_CACHE[record["id"]] = {**record, "expires_at": datetime.now(timezone.utc) + timedelta(minutes=DOC_CACHE_TTL_MINUTES)}
+
+
+def _cache_get(doc_id: str) -> Optional[Dict[str, Any]]:
+    _cache_prune()
+    return DOC_CACHE.get(doc_id)
+
+
 # ---------------- Auth routes ----------------
 @api_router.post("/auth/login", response_model=TokenOut)
 async def login(payload: LoginInput, request: Request):
     email = payload.email.lower().strip()
     ip = request.client.host if request.client else "unknown"
     identifier = f"{ip}:{email}"
-    attempt = await db.login_attempts.find_one({"identifier": identifier})
-    if attempt and attempt.get("locked_until") and attempt["locked_until"] > datetime.now(timezone.utc):
+    now = datetime.now(timezone.utc)
+    attempt = LOGIN_ATTEMPTS.get(identifier)
+    if attempt and attempt.get("locked_until") and attempt["locked_until"] > now:
         raise HTTPException(status_code=429, detail="Too many failed attempts. Try again shortly.")
-    user = await db.users.find_one({"email": email})
-    if not user or not verify_password(payload.password, user.get("password_hash", "")):
+    email_ok = email == ADMIN_EMAIL
+    password_ok = email_ok and bcrypt.checkpw(payload.password.encode("utf-8"), ADMIN_PASSWORD_HASH.encode("utf-8"))
+    if not password_ok:
         count = (attempt.get("count", 0) if attempt else 0) + 1
-        locked = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES) if count >= MAX_FAILED_ATTEMPTS else None
-        await db.login_attempts.update_one({"identifier": identifier}, {"$set": {"count": count, "locked_until": locked}}, upsert=True)
+        locked = now + timedelta(minutes=LOCKOUT_MINUTES) if count >= MAX_FAILED_ATTEMPTS else None
+        LOGIN_ATTEMPTS[identifier] = {"count": count, "locked_until": locked}
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    await db.login_attempts.delete_one({"identifier": identifier})
+    LOGIN_ATTEMPTS.pop(identifier, None)
+    user = admin_user()
     token = create_access_token(user["id"], user["email"])
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": {"id": user["id"], "email": user["email"], "name": user["name"], "role": user["role"]},
-    }
+    return {"access_token": token, "token_type": "bearer", "user": user}
 
 
 @api_router.post("/auth/logout")
@@ -474,18 +488,19 @@ async def logout(current=Depends(get_current_user)):
 
 @api_router.get("/auth/me", response_model=UserOut)
 async def me(current=Depends(get_current_user)):
-    return {"id": current["id"], "email": current["email"], "name": current["name"], "role": current["role"]}
+    return current
 
 
-# ---------------- Document routes (protected) ----------------
+# ---------------- Root ----------------
 @api_router.get("/")
 async def root():
     return {"message": "Casefile document API ready"}
 
 
+# ---------------- Template routes ----------------
 @api_router.get("/templates", response_model=List[TemplateRecord])
 async def get_templates(current=Depends(get_current_user)):
-    return await list_all_templates()
+    return list_all_templates()
 
 
 @api_router.post("/templates/inspect", response_model=InspectResult)
@@ -535,105 +550,56 @@ async def save_custom_template(spec: CustomTemplateSpec, current=Depends(get_cur
         "table_inputs": [t.model_dump() for t in spec.table_inputs],
         "filename": filename,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "created_by": current["id"],
     }
-    await db.custom_templates.insert_one(record)
+    (CUSTOM_TEMPLATE_DIR / f"{template_id}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     expanded = _expand_custom_template(record)
     return {key: value for key, value in expanded.items() if key not in {"filename", "field_keys", "template_dir"}}
 
 
 @api_router.delete("/templates/{template_id}")
 async def delete_custom_template(template_id: str, current=Depends(get_current_user)):
-    record = await db.custom_templates.find_one({"id": template_id}, {"_id": 0})
+    record = _load_custom_template(template_id)
     if not record:
         raise HTTPException(status_code=404, detail="Custom template not found")
     (CUSTOM_TEMPLATE_DIR / record["filename"]).unlink(missing_ok=True)
-    await db.custom_templates.delete_one({"id": template_id})
+    (CUSTOM_TEMPLATE_DIR / f"{template_id}.json").unlink(missing_ok=True)
     return {"ok": True}
 
 
-# ---------------- Draft routes ----------------
-@api_router.get("/drafts", response_model=List[DraftRecord])
-async def list_drafts(current=Depends(get_current_user)):
-    return await db.case_drafts.find({"user_id": current["id"]}, {"_id": 0, "user_id": 0}).sort("updated_at", -1).to_list(100)
-
-
-@api_router.get("/drafts/{draft_id}", response_model=DraftRecord)
-async def get_draft(draft_id: str, current=Depends(get_current_user)):
-    record = await db.case_drafts.find_one({"id": draft_id, "user_id": current["id"]}, {"_id": 0, "user_id": 0})
-    if not record:
-        raise HTTPException(status_code=404, detail="Draft not found")
-    return record
-
-
-@api_router.post("/drafts", response_model=DraftRecord)
-async def save_draft(payload: DraftInput, current=Depends(get_current_user)):
-    template = await resolve_template(payload.template_id)
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-    draft_id = payload.id or str(uuid.uuid4())
-    record = {
-        "id": draft_id,
-        "name": payload.name.strip() or f"Draft {datetime.now(timezone.utc).strftime('%d %b %Y')}",
-        "template_id": template["id"],
-        "template_name": template["name"],
-        "values": {k: str(v) for k, v in payload.values.items()},
-        "tables": payload.tables,
-        "notes": payload.notes,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "user_id": current["id"],
-    }
-    await db.case_drafts.update_one({"id": draft_id, "user_id": current["id"]}, {"$set": record}, upsert=True)
-    return {k: v for k, v in record.items() if k != "user_id"}
-
-
-@api_router.delete("/drafts/{draft_id}")
-async def delete_draft(draft_id: str, current=Depends(get_current_user)):
-    result = await db.case_drafts.delete_one({"id": draft_id, "user_id": current["id"]})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Draft not found")
-    return {"ok": True}
-
-
-@api_router.get("/documents", response_model=List[GeneratedDocument])
-async def get_documents(current=Depends(get_current_user)):
-    return await db.generated_documents.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
-
-
+# ---------------- Document generation (cache-only, no DB) ----------------
 @api_router.post("/documents", response_model=GeneratedDocument)
-async def generate_document(input: DocumentInput, current=Depends(get_current_user)):
-    template = await resolve_template(input.template_id)
+async def generate_document(payload: DocumentInput, current=Depends(get_current_user)):
+    template = resolve_template(payload.template_id)
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
     missing_labels: List[str] = []
     for field in template.get("fields", []):
-        if field.get("required") and not str(input.values.get(field["key"], "")).strip():
+        if field.get("required") and not str(payload.values.get(field["key"], "")).strip():
             missing_labels.append(field.get("label") or field["key"])
     if missing_labels:
         raise HTTPException(status_code=422, detail=f"Required fields missing: {', '.join(missing_labels)}")
-    values = {key: str(value).strip() for key, value in input.values.items()}
-    cleaned_tables = {k: [[str(c) for c in row] for row in rows if any(str(c).strip() for c in row)] for k, rows in input.tables.items() if rows}
-    record = GeneratedDocument(
-        id=str(uuid.uuid4()),
-        template_id=template["id"],
-        template_name=template["name"],
-        company_name=values.get("cd_name") or values.get("company_name") or "Untitled matter",
-        status="Ready",
-        created_at=datetime.now(timezone.utc).isoformat(),
-        values=values,
-        tables=cleaned_tables,
-        notes=input.notes,
-    )
-    await db.generated_documents.insert_one(record.model_dump())
+    values = {key: str(value).strip() for key, value in payload.values.items()}
+    cleaned_tables = {k: [[str(c) for c in row] for row in rows if any(str(c).strip() for c in row)] for k, rows in payload.tables.items() if rows}
+    record = {
+        "id": str(uuid.uuid4()),
+        "template_id": template["id"],
+        "template_name": template["name"],
+        "company_name": values.get("cd_name") or "Untitled matter",
+        "status": "Ready",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "values": values,
+        "tables": cleaned_tables,
+        "notes": payload.notes,
+    }
+    _cache_put(record)
     return record
 
 
-@api_router.get("/documents/{document_id}/download/{file_format}")
-async def download_document(document_id: str, file_format: str, current=Depends(get_current_user)):
-    item = await db.generated_documents.find_one({"id": document_id}, {"_id": 0})
+def _render(doc_id: str, file_format: str) -> StreamingResponse:
+    item = _cache_get(doc_id)
     if not item or file_format not in {"docx", "pdf"}:
-        raise HTTPException(status_code=404, detail="Document or format not found")
-    template = await resolve_template(item.get("template_id"))
+        raise HTTPException(status_code=404, detail="Document not ready. Please generate again.")
+    template = resolve_template(item["template_id"])
     if not template:
         raise HTTPException(status_code=404, detail="Template no longer available")
     safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", item["company_name"]).strip("-")[:50] or "casefile-document"
@@ -671,18 +637,20 @@ async def download_document(document_id: str, file_format: str, current=Depends(
     return StreamingResponse(stream, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{safe_name}-{template["id"]}.pdf"'})
 
 
-# ---------------- Download as authenticated GET can't send Authorization header from window.open
-# Provide token-in-query fallback for browser-triggered downloads.
+@api_router.get("/documents/{document_id}/download/{file_format}")
+async def download_document(document_id: str, file_format: str, current=Depends(get_current_user)):
+    return _render(document_id, file_format)
+
+
 @api_router.get("/documents/{document_id}/export/{file_format}")
 async def export_document(document_id: str, file_format: str, token: str):
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
-    user = await db.users.find_one({"id": payload.get("sub")})
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return await download_document(document_id, file_format, current=user)
+    if payload.get("sub") != ADMIN_ID:
+        raise HTTPException(status_code=401, detail="Unknown user")
+    return _render(document_id, file_format)
 
 
 app.include_router(api_router)
@@ -695,30 +663,4 @@ app.add_middleware(
 )
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-
-
-@app.on_event("startup")
-async def startup():
-    await db.users.create_index("email", unique=True)
-    await db.login_attempts.create_index("identifier", unique=True)
-    admin_email = os.environ["ADMIN_EMAIL"].lower().strip()
-    admin_password = os.environ["ADMIN_PASSWORD"]
-    existing = await db.users.find_one({"email": admin_email})
-    if not existing:
-        await db.users.insert_one({
-            "id": str(uuid.uuid4()),
-            "email": admin_email,
-            "password_hash": hash_password(admin_password),
-            "name": "Arun Kumar",
-            "role": "admin",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        logger.info("Admin user seeded: %s", admin_email)
-    elif not verify_password(admin_password, existing.get("password_hash", "")):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
-        logger.info("Admin password refreshed")
-
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+logger.info("Casefile API ready. Admin: %s", ADMIN_EMAIL)
