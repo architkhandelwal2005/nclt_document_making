@@ -14,6 +14,15 @@ import re
 import shutil
 import uuid
 
+import certifi
+from pymongo import MongoClient
+import base64
+
+MONGODB_URI = os.environ.get("MONGODB_URI", "")
+mongo_client = MongoClient(MONGODB_URI, tlsCAFile=certifi.where()) if MONGODB_URI else None
+db = mongo_client.casefile_db if mongo_client else None
+
+
 import bcrypt
 import jwt
 from docx import Document
@@ -348,8 +357,11 @@ def add_data_table(paragraph, rows):
 
 
 def build_docx(template, values, tables, notes):
-    template_dir = template.get("template_dir", TEMPLATE_DIR)
-    doc = Document(str(template_dir / template["filename"]))
+    if template.get("source") == "custom" and template.get("docx_data"):
+        doc = Document(io.BytesIO(template["docx_data"]))
+    else:
+        template_dir = template.get("template_dir", TEMPLATE_DIR)
+        doc = Document(str(template_dir / template["filename"]))
     replacements = {key: value for key, value in values.items() if value is not None}
     for container in [doc] + [section.header for section in doc.sections] + [section.footer for section in doc.sections]:
         for paragraph in list(iter_paragraphs(container)):
@@ -367,8 +379,11 @@ def build_docx(template, values, tables, notes):
 
 
 def doc_text(template, values, tables, notes):
-    template_dir = template.get("template_dir", TEMPLATE_DIR)
-    doc = Document(str(template_dir / template["filename"]))
+    if template.get("source") == "custom" and template.get("docx_data"):
+        doc = Document(io.BytesIO(template["docx_data"]))
+    else:
+        template_dir = template.get("template_dir", TEMPLATE_DIR)
+        doc = Document(str(template_dir / template["filename"]))
     chunks = []
     for container in [doc] + [section.header for section in doc.sections] + [section.footer for section in doc.sections]:
         for paragraph in iter_paragraphs(container):
@@ -383,17 +398,11 @@ def doc_text(template, values, tables, notes):
 
 
 # ---------------- Custom template file storage ----------------
-def _load_custom_template(template_id: str) -> Optional[Dict[str, Any]]:
-    meta = CUSTOM_TEMPLATE_DIR / f"{template_id}.json"
-    if not meta.exists():
-        return None
-    try:
-        return json.loads(meta.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-
 
 def _all_custom_templates() -> List[Dict[str, Any]]:
+    if db is not None:
+        return list(db.templates.find({}, {"docx_data": 0, "_id": 0}))
+    
     records = []
     for meta in CUSTOM_TEMPLATE_DIR.glob("*.json"):
         try:
@@ -402,6 +411,19 @@ def _all_custom_templates() -> List[Dict[str, Any]]:
             continue
     records.sort(key=lambda r: r.get("created_at", ""), reverse=True)
     return records
+
+def _load_custom_template(template_id: str) -> Optional[Dict[str, Any]]:
+    if db is not None:
+        t = db.templates.find_one({"id": template_id}, {"_id": 0})
+        return t
+
+    meta = CUSTOM_TEMPLATE_DIR / f"{template_id}.json"
+    if not meta.exists():
+        return None
+    try:
+        return json.loads(meta.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def _expand_custom_template(record: Dict[str, Any]) -> Dict[str, Any]:
@@ -491,6 +513,54 @@ async def me(current=Depends(get_current_user)):
     return current
 
 
+
+# ---------------- Mongo Models ----------------
+class MatterInput(BaseModel):
+    name: str
+    values: Dict[str, str] = Field(default_factory=dict)
+    tables: Dict[str, List[List[str]]] = Field(default_factory=dict)
+
+# ---------------- Mongo Routes ----------------
+@api_router.get("/matters")
+async def get_matters(current=Depends(get_current_user)):
+    if not db: return []
+    matters = list(db.matters.find())
+    for m in matters: m['_id'] = str(m['_id'])
+    return matters
+
+@api_router.post("/matters")
+async def create_matter(payload: MatterInput, current=Depends(get_current_user)):
+    if not db: raise HTTPException(status_code=500, detail="Database not configured")
+    matter = {"id": str(uuid.uuid4()), "name": payload.name, "values": payload.values, "tables": payload.tables, "created_at": datetime.now(timezone.utc).isoformat()}
+    db.matters.insert_one(matter)
+    matter['_id'] = str(matter['_id'])
+    return matter
+
+@api_router.put("/matters/{matter_id}")
+async def update_matter(matter_id: str, payload: MatterInput, current=Depends(get_current_user)):
+    if not db: raise HTTPException(status_code=500, detail="Database not configured")
+    db.matters.update_one({"id": matter_id}, {"$set": {"name": payload.name, "values": payload.values, "tables": payload.tables, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"ok": True}
+
+@api_router.delete("/matters/{matter_id}")
+async def delete_matter(matter_id: str, current=Depends(get_current_user)):
+    if not db: raise HTTPException(status_code=500, detail="Database not configured")
+    db.matters.delete_one({"id": matter_id})
+    return {"ok": True}
+
+@api_router.get("/profile")
+async def get_profile(current=Depends(get_current_user)):
+    if not db: return {}
+    profile = db.profiles.find_one({"user_id": current["id"]})
+    if profile: profile['_id'] = str(profile['_id'])
+    return profile or {}
+
+@api_router.put("/profile")
+async def update_profile(payload: Dict[str, Any], current=Depends(get_current_user)):
+    if not db: raise HTTPException(status_code=500, detail="Database not configured")
+    db.profiles.update_one({"user_id": current["id"]}, {"$set": payload}, upsert=True)
+    return {"ok": True}
+
 # ---------------- Root ----------------
 @api_router.get("/")
 async def root():
@@ -540,7 +610,9 @@ async def save_custom_template(spec: CustomTemplateSpec, current=Depends(get_cur
         raise HTTPException(status_code=404, detail="Upload not found. Please re-upload the template.")
     template_id = f"custom-{uuid.uuid4().hex[:10]}"
     filename = f"{template_id}.docx"
-    src.rename(CUSTOM_TEMPLATE_DIR / filename)
+    
+    docx_bytes = src.read_bytes()
+    
     record = {
         "id": template_id,
         "name": spec.name.strip() or "Custom template",
@@ -551,19 +623,32 @@ async def save_custom_template(spec: CustomTemplateSpec, current=Depends(get_cur
         "filename": filename,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    (CUSTOM_TEMPLATE_DIR / f"{template_id}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+    
+    if db is not None:
+        db.templates.insert_one({**record, "docx_data": docx_bytes})
+        src.unlink(missing_ok=True)
+    else:
+        src.rename(CUSTOM_TEMPLATE_DIR / filename)
+        (CUSTOM_TEMPLATE_DIR / f"{template_id}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+        
     expanded = _expand_custom_template(record)
-    return {key: value for key, value in expanded.items() if key not in {"filename", "field_keys", "template_dir"}}
+    return {key: value for key, value in expanded.items() if key not in {"filename", "field_keys", "template_dir", "docx_data"}}
+
 
 
 @api_router.delete("/templates/{template_id}")
 async def delete_custom_template(template_id: str, current=Depends(get_current_user)):
+    if db is not None:
+        db.templates.delete_one({"id": template_id})
+        return {"ok": True}
+        
     record = _load_custom_template(template_id)
     if not record:
         raise HTTPException(status_code=404, detail="Custom template not found")
     (CUSTOM_TEMPLATE_DIR / record["filename"]).unlink(missing_ok=True)
     (CUSTOM_TEMPLATE_DIR / f"{template_id}.json").unlink(missing_ok=True)
     return {"ok": True}
+
 
 
 # ---------------- Document generation (cache-only, no DB) ----------------

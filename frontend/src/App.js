@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import {\n  Briefcase, UserCircle, useEffect, useMemo, useState, useCallback } from "react";
 import "@/App.css";
 import axios from "axios";
-import {
+import {\n  Briefcase, UserCircle,
   FileText, LayoutDashboard, Settings, Plus, Download,
   ArrowRight, Search, CheckCircle2, ChevronLeft, LogOut, Upload,
   Trash2, PlusCircle, Lock, Save, BookmarkPlus, Layers, FileUp,
   X,
 } from "lucide-react";
-import { toast, Toaster } from "sonner";
+import {\n  Briefcase, UserCircle, toast, Toaster } from "sonner";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const TOKEN_KEY = "casefile.token";
@@ -91,7 +91,7 @@ function App() {
   const [notes, setNotes] = useState("");
   const [draftId, setDraftId] = useState(null);
   const [draftName, setDraftName] = useState("");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState("");\n  const [matters, setMatters] = useState([]);\n  const [profile, setProfile] = useState({});
 
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -105,7 +105,7 @@ function App() {
     axios.get(`${API}/templates`)
       .then(({ data }) => { setTemplates(data); })
       .catch(() => toast.error("Could not connect to the workspace"));
-    setDrafts(readDrafts());
+    setDrafts(readDrafts());\n    axios.get(`${API}/matters`).then(({ data }) => setMatters(data)).catch(() => {});\n    axios.get(`${API}/profile`).then(({ data }) => setProfile(data)).catch(() => {});
   }, []);
 
   useEffect(() => { if (user) loadWorkspace(); }, [user, loadWorkspace]);
@@ -117,7 +117,7 @@ function App() {
     (template.table_inputs || []).forEach(t => {
       initialTables[t.key] = [t.columns, ...Array.from({ length: 2 }, () => t.columns.map(() => ""))];
     });
-    setSelected(template); setValues({}); setTables(initialTables); setNotes("");
+    setSelected(template); setValues(profile || {}); setTables(initialTables); setNotes("");
     setDraftId(null); setDraftName(`${template.name} — ${new Date().toLocaleDateString()}`);
     setStep(2); setView("new");
   };
@@ -261,7 +261,10 @@ function App() {
           </div>
           <div className="top-status"><span className="status-dot" />All changes saved</div>
         </header>
-        {view === "new" ? (
+        
+          {view === "matters" ? <MattersView matters={matters} setMatters={setMatters} /> :
+           view === "profile" ? <ProfileView profile={profile} setProfile={setProfile} /> :
+view === "new" ? (
           <Generator selected={selected} step={step} values={values} setValues={setValues} tables={tables} setTables={setTables} notes={notes} setNotes={setNotes} draftName={draftName} setDraftName={setDraftName} draftId={draftId} onGenerate={generate} onBack={() => setView("templates")} onDownload={download} onSaveDraft={saveDraft} />
         ) : view === "drafts" ? (
           <DraftsView drafts={drafts} onOpen={openDraft} onDelete={deleteDraft} onNew={() => setView("templates")} />
@@ -487,7 +490,35 @@ function Generator({ selected, step, values, setValues, tables, setTables, notes
         <button className="back-button" data-testid="generator-back-button" onClick={onBack}><ChevronLeft size={18} />Templates</button>
         <div><p className="kicker">{selected.category}{draftId ? " · RESUMING DRAFT" : ""}</p><h2>{selected.name}</h2></div>
       </div>
-      {step === 2 && (
+      
+      {step === 2 && matters && matters.length > 0 && (
+        <div className="card mb-6">
+          <div className="card-header">
+            <h3 className="card-title">Auto-fill from Case</h3>
+            <p className="card-desc">Select an existing company to automatically fill in the details and creditors.</p>
+          </div>
+          <div className="card-content">
+            <select className="input" onChange={(e) => {
+              const matter = matters.find(m => m.id === e.target.value);
+              if (matter) {
+                setValues({...values, ...profile, ...matter.values, cd_name: matter.name});
+                if (matter.tables) {
+                  const newTables = {...tables};
+                  for (const [k, v] of Object.entries(matter.tables)) {
+                    if (newTables[k]) newTables[k] = v;
+                  }
+                  setTables(newTables);
+                }
+                toast.success(matter.name + " loaded");
+              }
+            }}>
+              <option value="">-- Select Company --</option>
+              {matters.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+\n      {step === 2 && (
         <div className="form-workspace">
           <form className="case-form" onSubmit={(e) => { e.preventDefault(); onGenerate(); }}>
             <fieldset className="draft-fieldset">
