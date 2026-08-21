@@ -1,6 +1,9 @@
 import {\n  Briefcase, UserCircle, useEffect, useMemo, useState, useCallback } from "react";
 import "@/App.css";
 import axios from "axios";
+import MattersView from "./views/MattersView";
+import ProfileView from "./views/ProfileView";
+
 import {\n  Briefcase, UserCircle,
   FileText, LayoutDashboard, Settings, Plus, Download,
   ArrowRight, Search, CheckCircle2, ChevronLeft, LogOut, Upload,
