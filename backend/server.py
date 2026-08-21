@@ -517,8 +517,9 @@ async def me(current=Depends(get_current_user)):
 # ---------------- Mongo Models ----------------
 class MatterInput(BaseModel):
     name: str
-    values: Dict[str, str] = Field(default_factory=dict)
+    values: Dict[str, Any] = Field(default_factory=dict)
     tables: Dict[str, List[List[str]]] = Field(default_factory=dict)
+    timeline: Dict[str, Any] = Field(default_factory=dict)
 
 # ---------------- Mongo Routes ----------------
 @api_router.get("/matters")
@@ -531,7 +532,7 @@ async def get_matters(current=Depends(get_current_user)):
 @api_router.post("/matters")
 async def create_matter(payload: MatterInput, current=Depends(get_current_user)):
     if not db: raise HTTPException(status_code=500, detail="Database not configured")
-    matter = {"id": str(uuid.uuid4()), "name": payload.name, "values": payload.values, "tables": payload.tables, "created_at": datetime.now(timezone.utc).isoformat()}
+    matter = {"id": str(uuid.uuid4()), "name": payload.name, "values": payload.values, "tables": payload.tables, "timeline": payload.timeline, "created_at": datetime.now(timezone.utc).isoformat()}
     db.matters.insert_one(matter)
     matter['_id'] = str(matter['_id'])
     return matter
@@ -539,7 +540,7 @@ async def create_matter(payload: MatterInput, current=Depends(get_current_user))
 @api_router.put("/matters/{matter_id}")
 async def update_matter(matter_id: str, payload: MatterInput, current=Depends(get_current_user)):
     if not db: raise HTTPException(status_code=500, detail="Database not configured")
-    db.matters.update_one({"id": matter_id}, {"$set": {"name": payload.name, "values": payload.values, "tables": payload.tables, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    db.matters.update_one({"id": matter_id}, {"$set": {"name": payload.name, "values": payload.values, "tables": payload.tables, "timeline": payload.timeline, "updated_at": datetime.now(timezone.utc).isoformat()}})
     return {"ok": True}
 
 @api_router.delete("/matters/{matter_id}")
