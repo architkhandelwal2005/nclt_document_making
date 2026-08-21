@@ -220,6 +220,8 @@ function App() {
 
   const nav = [
     { id: "workspace", label: "Workspace", icon: LayoutDashboard },
+      { id: "matters", label: "Companies / Cases", icon: Briefcase },
+      { id: "profile", label: "My Profile", icon: UserCircle },
     { id: "templates", label: "Templates", icon: FileText },
     { id: "drafts", label: "Drafts", icon: BookmarkPlus },
     { id: "upload", label: "Manage templates", icon: Layers },
@@ -227,7 +229,7 @@ function App() {
   ];
 
   const initials = user.name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
-  const title = { new: "New document", templates: "Template library", drafts: "Saved drafts", upload: "Manage templates", settings: "Settings" }[view] || "Workspace";
+  const title = { new: "New document", templates: "Template library", drafts: "Saved drafts", upload: "Manage templates", settings: "Settings", matters: "Companies / Cases", profile: "My Profile" }[view] || "Workspace";
 
   return (
     <div className="app-shell">
