@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import "@/App.css";
-import { BriefcaseBusiness, CalendarDays, Database, LayoutDashboard, ListTodo, Lock, LogOut, Settings, UserCircle } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, Database, FileSearch, LayoutDashboard, ListTodo, Lock, LogOut, Settings, UserCircle } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { api, errorMessage, TOKEN_KEY } from "./lib/api";
 import DashboardView from "./views/DashboardView";
@@ -11,6 +11,7 @@ import FirmTasksView from "./views/FirmTasksView";
 import CalendarView from "./views/CalendarView";
 import MastersView from "./views/MastersView";
 import SettingsView from "./views/SettingsView";
+import NcltOrderFetcher from "./components/NcltOrderFetcher";
 
 function Login({ onSuccess }) {
   const [email, setEmail] = useState("");
@@ -31,6 +32,7 @@ function Login({ onSuccess }) {
 const nav = [
   ["dashboard", "Dashboard", LayoutDashboard], ["cases", "Cases", BriefcaseBusiness],
   ["tasks", "All Tasks", ListTodo], ["calendar", "Calendar", CalendarDays],
+  ["nclt-fetcher", "NCLT Orders", FileSearch],
   ["masters", "Firm Masters", Database], ["profile", "My Profile", UserCircle],
   ["settings", "Settings", Settings],
 ];
@@ -72,7 +74,7 @@ export default function App() {
   if (checking) return <div className="app-loading">Loading secure workspace…</div>;
   if (!user) return <><Login onSuccess={setUser} /><Toaster position="bottom-right" /></>;
   const initials = user.name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase();
-  const titles = { dashboard: "Firm Dashboard", cases: "Companies & Cases", tasks: "All Tasks", calendar: "Firm Calendar", masters: "Firm Masters", profile: "Professional Profile", settings: "Settings" };
+  const titles = { dashboard: "Firm Dashboard", cases: "Companies & Cases", tasks: "All Tasks", calendar: "Firm Calendar", "nclt-fetcher": "NCLT Order Fetcher", masters: "Firm Masters", profile: "Professional Profile", settings: "Settings" };
 
-  return <div className="app-shell"><aside className="rail"><div className="brand"><span className="brand-mark">N</span><div><strong>Casefile</strong><small>PRACTICE OS</small></div></div><div className="rail-rule" /><nav>{nav.map(([id, label, Icon]) => <button key={id} className={!activeCase && view === id ? "nav-item active" : "nav-item"} onClick={() => chooseView(id)} data-testid={`nav-${id}-button`}><Icon size={17} />{label}</button>)}</nav><div className="rail-footer"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{user.role.toUpperCase()}</small></div><button className="logout-btn" onClick={logout} title="Sign out" data-testid="logout-button"><LogOut size={15} /></button></div></aside><main className="main-content"><header className="topbar"><div><p className="eyebrow">{activeCase ? "COMPANY WORKSPACE" : "FIRM OPERATIONS"}</p><h1 data-testid="page-title">{activeCase ? activeCase.name : titles[view]}</h1></div><div className="top-status"><span className="status-dot" />Local database</div></header>{activeCase ? <CaseWorkspace caseRecord={activeCase} onBack={() => { setActiveCase(null); setView("cases"); load(); }} onUpdated={updateCase} /> : view === "dashboard" ? <DashboardView dashboard={dashboard} cases={cases} onOpenCase={openCase} onNewCase={() => { setView("cases"); setStartCreating(true); }} /> : view === "cases" ? <CasesView cases={cases} setCases={setCases} onOpenCase={openCase} startCreating={startCreating} onCreatingChange={setStartCreating} /> : view === "profile" ? <ProfileView profile={profile} setProfile={setProfile} /> : view === "tasks" ? <FirmTasksView /> : view === "calendar" ? <CalendarView /> : view === "masters" ? <MastersView /> : <SettingsView user={user} />}</main><Toaster position="bottom-right" /></div>;
+  return <div className="app-shell"><aside className="rail"><div className="brand"><span className="brand-mark">N</span><div><strong>Casefile</strong><small>PRACTICE OS</small></div></div><div className="rail-rule" /><nav>{nav.map(([id, label, Icon]) => <button key={id} className={!activeCase && view === id ? "nav-item active" : "nav-item"} onClick={() => chooseView(id)} data-testid={`nav-${id}-button`}><Icon size={17} />{label}</button>)}</nav><div className="rail-footer"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{user.role.toUpperCase()}</small></div><button className="logout-btn" onClick={logout} title="Sign out" data-testid="logout-button"><LogOut size={15} /></button></div></aside><main className="main-content"><header className="topbar"><div><p className="eyebrow">{activeCase ? "COMPANY WORKSPACE" : "FIRM OPERATIONS"}</p><h1 data-testid="page-title">{activeCase ? activeCase.name : titles[view]}</h1></div><div className="top-status"><span className="status-dot" />Local database</div></header>{activeCase ? <CaseWorkspace caseRecord={activeCase} onBack={() => { setActiveCase(null); setView("cases"); load(); }} onUpdated={updateCase} /> : view === "dashboard" ? <DashboardView dashboard={dashboard} cases={cases} onOpenCase={openCase} onNewCase={() => { setView("cases"); setStartCreating(true); }} /> : view === "cases" ? <CasesView cases={cases} setCases={setCases} onOpenCase={openCase} startCreating={startCreating} onCreatingChange={setStartCreating} /> : view === "profile" ? <ProfileView profile={profile} setProfile={setProfile} /> : view === "tasks" ? <FirmTasksView /> : view === "calendar" ? <CalendarView /> : view === "nclt-fetcher" ? <div className="workspace"><NcltOrderFetcher /></div> : view === "masters" ? <MastersView /> : <SettingsView user={user} />}</main><Toaster position="bottom-right" /></div>;
 }

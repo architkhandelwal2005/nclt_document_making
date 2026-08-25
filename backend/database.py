@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -717,6 +717,65 @@ class CasefileDatabase:
                     updated_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS ix_public_announcements_case_status ON public_announcements(case_id, status);
+
+                CREATE TABLE IF NOT EXISTS nclt_fetch_runs (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT REFERENCES cases(id),
+                    case_number TEXT NOT NULL,
+                    case_year INTEGER NOT NULL,
+                    case_type TEXT NOT NULL,
+                    case_type_label TEXT NOT NULL,
+                    bench TEXT NOT NULL,
+                    case_title TEXT NOT NULL DEFAULT '',
+                    applicant TEXT NOT NULL DEFAULT '',
+                    respondent TEXT NOT NULL DEFAULT '',
+                    portal_case_identifier TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL,
+                    stage TEXT NOT NULL,
+                    result_json TEXT NOT NULL DEFAULT '{}',
+                    error_code TEXT NOT NULL DEFAULT '',
+                    error_message TEXT NOT NULL DEFAULT '',
+                    debug_json TEXT NOT NULL DEFAULT '{}',
+                    created_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    completed_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS ix_nclt_fetch_runs_case_time ON nclt_fetch_runs(case_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS ix_nclt_fetch_runs_actor_time ON nclt_fetch_runs(created_by, created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS nclt_fetch_records (
+                    id TEXT PRIMARY KEY,
+                    run_id TEXT NOT NULL REFERENCES nclt_fetch_runs(id),
+                    case_id TEXT REFERENCES cases(id),
+                    case_number TEXT NOT NULL,
+                    case_year INTEGER NOT NULL,
+                    case_type TEXT NOT NULL,
+                    bench TEXT NOT NULL,
+                    case_title TEXT NOT NULL DEFAULT '',
+                    proceeding_date TEXT,
+                    purpose TEXT NOT NULL DEFAULT '',
+                    next_date TEXT,
+                    proceeding_status TEXT NOT NULL DEFAULT '',
+                    order_type TEXT NOT NULL DEFAULT '',
+                    source_url TEXT NOT NULL DEFAULT '',
+                    source_identifier TEXT NOT NULL,
+                    file_path TEXT NOT NULL DEFAULT '',
+                    file_hash TEXT NOT NULL DEFAULT '',
+                    file_size INTEGER NOT NULL DEFAULT 0,
+                    document_id TEXT REFERENCES documents(id),
+                    status TEXT NOT NULL,
+                    first_seen_at TEXT NOT NULL,
+                    last_checked_at TEXT NOT NULL,
+                    downloaded_at TEXT,
+                    error_code TEXT NOT NULL DEFAULT '',
+                    error_message TEXT NOT NULL DEFAULT ''
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_nclt_fetch_source
+                    ON nclt_fetch_records(bench, case_type, case_number, case_year, source_identifier);
+                CREATE INDEX IF NOT EXISTS ix_nclt_fetch_records_case_date
+                    ON nclt_fetch_records(case_id, proceeding_date DESC);
+                CREATE INDEX IF NOT EXISTS ix_nclt_fetch_records_hash ON nclt_fetch_records(file_hash);
 
                 CREATE TABLE IF NOT EXISTS activity_events (
                     id TEXT PRIMARY KEY,

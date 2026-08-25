@@ -11,6 +11,7 @@ Firm-wide views:
 - Consolidated task queue
 - Consolidated calendar
 - Shared contacts, versioned compliance rules, and document template masters
+- NCLT case-history lookup and new-order download utility
 - Professional profile
 - Users, roles, encrypted backups, and restore controls
 
@@ -34,7 +35,7 @@ Case workspace modules:
 ## Local architecture
 
 - Frontend: React 18 at `http://127.0.0.1:3000`
-- Backend: FastAPI at `http://127.0.0.1:8000`
+- Backend: FastAPI at `http://127.0.0.1:8001`
 - Database: SQLite at `backend/data/casefile.db`
 - Case files: `backend/data/files/<case-id>/`
 - Authentication: bcrypt password hashing and signed, expiring JWT sessions
@@ -63,6 +64,37 @@ Copy `backend/.env.example` to `backend/.env` and configure:
 - `STORAGE_MODE=local`
 
 The environment administrator is restored at startup and cannot be disabled. Additional office users and their case assignments are administered in Settings.
+
+## NCLT Order Fetcher
+
+The fetcher opens the public NCLT case-number search in a visible Chromium
+window. It never bypasses CAPTCHA (the portal's human-verification challenge):
+
+1. Before first use on a computer, close Casefile and double-click
+   `setup_nclt_fetcher.bat`. This installs the pinned Playwright package and its
+   Chromium browser into the existing Python environment.
+2. Start Casefile normally with `start_local.bat` and sign in.
+3. Open **NCLT Orders** from the main navigation, or open a company and select
+   its **NCLT Orders** tab for case-prefilled operation.
+4. Enter or review the case number and year, then press **Fetch NCLT case**.
+5. Complete the CAPTCHA in the opened Chromium window. Return to Casefile and
+   press **Continue after manual verification**.
+6. Review the validated case and every proceeding row. If the portal returns
+   multiple exact candidates, select the correct one; the software does not
+   guess.
+7. Press **Download all new orders**. Valid PDF files are recorded only after
+   content and size checks; previously seen sources or file hashes are skipped.
+
+Standalone downloads are stored under `backend/data/nclt_orders/`. A fetch
+started inside an authorized company workspace stores validated files under
+`backend/data/files/<case-id>/nclt-orders/` and adds them to that company's
+Documents register with category **NCLT Order**. Automation failures save a
+screenshot, page address, stage, error, and page HTML under
+`backend/data/debug/nclt_fetcher/` for maintenance.
+
+Visible-browser mode is the supported first-version default. It can be changed
+with `NCLT_FETCHER_HEADLESS`, but headless mode should not be used when the
+public portal requires manual verification.
 
 ## Roles and case access
 

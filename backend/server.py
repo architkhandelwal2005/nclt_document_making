@@ -23,6 +23,7 @@ from admission_intake import AdmissionIntakeService
 from mca_provider import ManualMcaProvider
 from coc_workflow import CocDocumentService
 from public_announcement import FORM_FIELDS, build_form_defaults, clean_registered_address, extract_published_pdf, generate_form_a
+from nclt_fetcher import NcltOrderFetcherService
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
 STORAGE_MODE = os.environ.get("STORAGE_MODE", "local").strip().lower()
@@ -84,6 +85,7 @@ casefile_store.migrate_legacy_json(LOCAL_DATA_FILE, ADMIN_ID)
 casefile_store.ensure_admin(ADMIN_ID, ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD_HASH)
 admission_intakes = AdmissionIntakeService(casefile_store, DATA_DIR, ManualMcaProvider())
 coc_documents = CocDocumentService(SOURCE_ROOT / "templates" / "coc")
+nclt_fetcher = NcltOrderFetcherService(casefile_store, DATA_DIR)
 
 # In-memory state (resets on restart)
 LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
@@ -302,6 +304,13 @@ def require_intake_access(record: Dict[str, Any], current: Dict[str, str]) -> No
         require_case_access(record["case_id"], current)
     elif record.get("uploaded_by") != current["id"] and current.get("role") not in {"admin", "administrator", "professional"}:
         raise HTTPException(status_code=404, detail="Admission intake not found")
+
+
+def require_nclt_run_access(record: Dict[str, Any], current: Dict[str, str]) -> None:
+    if record.get("case_id"):
+        require_case_access(record["case_id"], current)
+    elif record.get("created_by") != current["id"] and not casefile_store.has_full_case_access(current["role"]):
+        raise HTTPException(status_code=404, detail="NCLT fetch run not found")
 
 
 # ---------------- Template records ----------------
@@ -641,6 +650,19 @@ class MatterInput(BaseModel):
     timeline: Dict[str, Any] = Field(default_factory=dict)
 
 
+class NcltFetchInput(BaseModel):
+    case_number: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9/() .-]+$")
+    case_year: int = Field(ge=1990, le=2100)
+    bench: str = Field(default="", max_length=40)
+    case_type: str = Field(default="", max_length=20)
+    case_type_label: str = Field(default="", max_length=100)
+    case_id: Optional[str] = None
+
+
+class NcltCandidateSelection(BaseModel):
+    candidate_id: str = Field(min_length=1, max_length=100)
+
+
 class CocDocumentInput(BaseModel):
     document_type: str = Field(pattern="^(notice|minutes)$")
     status: str = Field(default="review", pattern="^(draft|review|final)$")
@@ -957,6 +979,90 @@ async def confirm_admission_intake(intake_id: str, payload: Dict[str, Any], curr
 async def list_case_admission_intakes(case_id: str, current=Depends(get_current_user)):
     require_case_access(case_id, current)
     return admission_intakes.list_for_case(case_id)
+
+
+# ---------------- NCLT Order Fetcher ----------------
+@api_router.get("/nclt-fetcher/config")
+async def get_nclt_fetcher_config(current=Depends(get_current_user)):
+    return nclt_fetcher.public_config()
+
+
+@api_router.post("/nclt-fetcher/runs")
+async def start_nclt_fetch(payload: NcltFetchInput, current=Depends(get_current_user)):
+    clean = payload.model_dump()
+    config = nclt_fetcher.public_config()
+    clean["case_number"] = str(clean["case_number"]).strip()
+    clean["bench"] = clean.get("bench") or config["default_bench"]
+    clean["case_type"] = clean.get("case_type") or config["default_case_type"]
+    clean["case_type_label"] = clean.get("case_type_label") or config["default_case_type_label"]
+    if clean.get("case_id"):
+        require_case_access(clean["case_id"], current)
+    allowed_benches = {item["value"] for item in config["benches"]}
+    allowed_types = {item["value"] for item in config["case_types"]}
+    if clean["bench"] not in allowed_benches or clean["case_type"] not in allowed_types:
+        raise HTTPException(status_code=422, detail="This bench or case type is not configured for the first NCLT fetcher version")
+    return await nclt_fetcher.start(clean, current["id"])
+
+
+@api_router.get("/nclt-fetcher/runs")
+async def list_nclt_fetch_history(case_id: Optional[str] = None, limit: int = 20, current=Depends(get_current_user)):
+    if case_id:
+        require_case_access(case_id, current)
+    return nclt_fetcher.list_history(current["id"], case_id, casefile_store.has_full_case_access(current["role"]), limit)
+
+
+@api_router.get("/nclt-fetcher/runs/{run_id}")
+async def get_nclt_fetch_run(run_id: str, current=Depends(get_current_user)):
+    record = nclt_fetcher.get_run(run_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="NCLT fetch run not found")
+    require_nclt_run_access(record, current)
+    return record
+
+
+@api_router.post("/nclt-fetcher/runs/{run_id}/continue")
+async def continue_nclt_fetch(run_id: str, current=Depends(get_current_user)):
+    record = nclt_fetcher.get_run(run_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="NCLT fetch run not found")
+    require_nclt_run_access(record, current)
+    return await nclt_fetcher.continue_run(run_id, current["id"])
+
+
+@api_router.post("/nclt-fetcher/runs/{run_id}/select")
+async def select_nclt_fetch_candidate(run_id: str, payload: NcltCandidateSelection, current=Depends(get_current_user)):
+    record = nclt_fetcher.get_run(run_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="NCLT fetch run not found")
+    require_nclt_run_access(record, current)
+    try:
+        return await nclt_fetcher.select_candidate(run_id, payload.candidate_id, current["id"])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.post("/nclt-fetcher/runs/{run_id}/download")
+async def download_new_nclt_orders(run_id: str, current=Depends(get_current_user)):
+    record = nclt_fetcher.get_run(run_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="NCLT fetch run not found")
+    require_nclt_run_access(record, current)
+    return await nclt_fetcher.download_new(run_id, current["id"])
+
+
+@api_router.get("/nclt-fetcher/records/{record_id}/file")
+async def download_nclt_order_file(record_id: str, current=Depends(get_current_user)):
+    record = nclt_fetcher.get_record(record_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="NCLT order file not found")
+    run = nclt_fetcher.get_run(record["run_id"])
+    if not run:
+        raise HTTPException(status_code=404, detail="NCLT order file not found")
+    require_nclt_run_access(run, current)
+    path = nclt_fetcher.get_record_file(record_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="NCLT order file not found")
+    return FileResponse(path, media_type="application/pdf", filename=path.name)
 
 
 # ---------------- Public Announcement ----------------

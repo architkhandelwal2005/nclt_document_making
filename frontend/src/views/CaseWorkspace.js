@@ -9,6 +9,7 @@ import AdmissionOrderIntake from "../components/AdmissionOrderIntake";
 import ActivityManager from "../components/ActivityManager";
 import CocWorkspace from "../components/CocWorkspace";
 import PublicAnnouncementWorkspace from "../components/PublicAnnouncementWorkspace";
+import NcltOrderFetcher from "../components/NcltOrderFetcher";
 import { ClaimChecklist, CocVoting, OrdersAndDirections } from "../components/LinkedWorkflows";
 import {
   applicationConfig, assetConfig, claimConfig, cocMeetingConfig, cocMemberConfig,
@@ -17,7 +18,7 @@ import {
 } from "../constants/moduleConfigs";
 
 const tabs = [
-  ["overview", "Overview"], ["intake", "Admission Intake"], ["public-announcement", "Public Announcement"], ["tasks", "Tasks"], ["compliance", "Compliance"],
+  ["overview", "Overview"], ["nclt-fetcher", "NCLT Orders"], ["intake", "Admission Intake"], ["public-announcement", "Public Announcement"], ["tasks", "Tasks"], ["compliance", "Compliance"],
   ["hearings", "Hearings & Applications"], ["claims", "Claims"], ["coc", "CoC"],
   ["contacts", "Contacts"], ["documents", "Documents"], ["communications", "Communications"],
   ["assets", "Assets & Finance"], ["valuations", "Valuation"], ["expenses", "Expenses"],
@@ -69,6 +70,7 @@ function Manager({ caseId, config }) {
 
 function ModuleContent({ tab, caseRecord, onUpdated }) {
   const caseId = caseRecord.id;
+  if (tab === "nclt-fetcher") return <NcltOrderFetcher caseRecord={caseRecord} />;
   if (tab === "intake") return <AdmissionOrderIntake caseRecord={caseRecord} cases={[caseRecord]} onImported={onUpdated} />;
   if (tab === "public-announcement") return <PublicAnnouncementWorkspace caseRecord={caseRecord} />;
   if (tab === "tasks") return <Manager caseId={caseId} config={taskConfig} />;
