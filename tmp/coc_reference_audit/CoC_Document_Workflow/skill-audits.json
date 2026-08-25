@@ -1,0 +1,64 @@
+{
+  "section": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\section_audit.py",
+      "E:\\nclt document\\reference documents\\CoC Document Workflow.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "SECTIONS: 1\n\n[Section 1] start_type=NEW_PAGE (2) orientation=PORTRAIT (0)\n  page_size(in): nan x nan\n  margins(in): L=nan R=nan T=nan B=nan\n  header_linked_to_previous=True footer_linked_to_previous=True\n  different_first_page=False odd_even_headers=None\n\nREMINDER\n- If you change orientation mid-document, Word typically creates a new section.\n- If headers/footers look wrong, check 'Link to Previous' per section.\n",
+    "stderr": ""
+  },
+  "style": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\style_lint.py",
+      "E:\\nclt document\\reference documents\\CoC Document Workflow.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "[style_lint] direct run-formatting runs: 1\n[style_lint] direct paragraph-formatting paragraphs: 0\n",
+    "stderr": ""
+  },
+  "fields": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py",
+      "E:\\nclt document\\reference documents\\CoC Document Workflow.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "No fields found in document.xml/headers/footers.\n",
+    "stderr": ""
+  },
+  "images": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\images_audit.py",
+      "E:\\nclt document\\reference documents\\CoC Document Workflow.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "No inline/anchored drawings found in document/header/footer parts.\n",
+    "stderr": ""
+  },
+  "content_controls": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\content_controls.py",
+      "E:\\nclt document\\reference documents\\CoC Document Workflow.docx",
+      "list",
+      "--json"
+    ],
+    "exit_code": 0,
+    "stdout": "[]\n",
+    "stderr": ""
+  },
+  "table_geometry": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\table_geometry.py",
+      "E:\\nclt document\\reference documents\\CoC Document Workflow.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "OK: all tables have matching tblW, tblInd, tblGrid, and tcW\n",
+    "stderr": ""
+  }
+}

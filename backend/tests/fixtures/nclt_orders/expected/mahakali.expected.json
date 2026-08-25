@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "review_status": "LOCKED_REGRESSION_FIXTURE",
+  "locked_on": "2026-08-23",
+  "locked_from_independent_source_review": true,
+  "parser_output_used": false,
+  "source": {
+    "filename": "mahakali.pdf",
+    "page_count": 18,
+    "embedded_text_status": "USABLE_WITH_CIN_CHARACTER_AMBIGUITY",
+    "inspection_methods": ["pdfplumber_page_text", "rendered_page_review"]
+  },
+  "expected": {
+    "case": {
+      "nclt_bench": "Indore Bench",
+      "court_number": "1",
+      "case_number": "CP(IB) 72/2024",
+      "ibc_section": "7",
+      "order_date": "2026-07-31",
+      "cirp_commencement_date": "2026-07-31",
+      "order_upload_date": null
+    },
+    "applicant": {
+      "name": "Samunnati Financial Intermediation & Services Private Limited",
+      "cin": "U65990TN2014PTC096252",
+      "address": "Baid Hi Tech Park, No. 129 B, 8th Floor, SH 4, Thiruvanmiyur, Chennai, Tamil Nadu, India - 600041"
+    },
+    "corporate_debtor": {
+      "name": "Mahakali Foods Private Limited",
+      "cin": "U15499MP2002PTC015006",
+      "address": "48 Bengali Colony, Kanadiya Road, Indore, Madhya Pradesh - 452001"
+    },
+    "irp": {
+      "name": "Navin Khandelwal",
+      "registration_number": "IBBI/IPA-001/IP-P00703/2017-2018/11301",
+      "address": "206, Navneet Plaza, 5/2, Old Palasia, Indore - 452018, Madhya Pradesh",
+      "email": "navink25@yahoo.com",
+      "afa_valid_until": "2026-12-31"
+    }
+  },
+  "provenance": {
+    "case.nclt_bench": {"page": 1, "source_snippet": "NATIONAL COMPANY LAW TRIBUNAL / INDORE BENCH / COURT NO. 1"},
+    "case.court_number": {"page": 1, "source_snippet": "INDORE BENCH / COURT NO. 1"},
+    "case.case_number": {"page": 2, "source_snippet": "CP(IB) No. 72 of 2024"},
+    "case.ibc_section": {"page": 2, "source_snippet": "Under Section 7 of the Insolvency and Bankruptcy Code, 2016"},
+    "case.order_date": {"page": 2, "source_snippet": "Order Pronounced on 31.07.2026"},
+    "case.cirp_commencement_date": {"page": 17, "source_snippet": "The commencement of the Corporate Insolvency Resolution Process (CIRP) shall be effective from the date of this order."},
+    "applicant.name": {"page": 2, "source_snippet": "SAMUNNATI FINANCIAL INTERMEDIATION & SERVICES PRIVATE LIMITED ... Applicant (Financial Creditor)"},
+    "applicant.cin": {"page": 2, "source_snippet": "CIN: U65990TN2014PTC096252"},
+    "applicant.address": {"page": 3, "source_snippet": "The Registered office of the Financial Creditor is situated at Baid Hi Tech Park, No 129 B, 8th Floor SH 4, Thiruvanmiyur, Chennai, Tamil Nadu, India, 600041."},
+    "corporate_debtor.name": {"page": 2, "source_snippet": "Mahakali Foods Private Limited ... Respondent (Corporate Debtor)"},
+    "corporate_debtor.cin": {"page": 2, "source_snippet": "Text layer: CIN: Ul5499MP2002PTC015006; rendered glyph is ambiguous between l/I/1."},
+    "corporate_debtor.address": {"page": 4, "source_snippet": "situated at 48 Bengali Colony, Kanadiya Road, Indore, Madhya Pradesh-452001"},
+    "irp.name": {"page": 15, "source_snippet": "We appoint Mr. Navin Khandelwal ... as IRP. Name of IRP: Mr. Navin Khandelwal"},
+    "irp.registration_number": {"page": 15, "source_snippet": "IBBI Reg No.: IBBI/IPA-001/IP-P00703/2017-2018/11301"},
+    "irp.address": {"page": 15, "source_snippet": "Address: 206, Navneet Plaza, 5/2, Old Palasia, Indore - 452018, Madhya Pradesh"},
+    "irp.email": {"page": 15, "source_snippet": "E-mail: navink25@yahoo.com"},
+    "irp.afa_valid_until": {"page": 4, "source_snippet": "being AFA valid up to 31.12.2026"}
+  },
+  "candidate_inventory": {
+    "cin_candidates": [
+      {"raw": "U65990TN2014PTC096252", "proposed_normalized": "U65990TN2014PTC096252", "role": "APPLICANT", "pages": [2, 3], "validation_status": "VALID"},
+      {"raw": "Ul5499MP2002PTC015006", "proposed_normalized": "U15499MP2002PTC015006", "role": "CORPORATE_DEBTOR", "pages": [2, 3], "validation_status": "CONFIRMED_POSITIONAL_CORRECTION"}
+    ],
+    "ibbi_registration_candidates": [
+      {"value": "IBBI/IPA-001/IP-P00703/2017-2018/11301", "page": 4, "role": "PROPOSED_IRP"},
+      {"value": "IBBI/IPA-001/IP-P00703/2017-2018/11301", "page": 15, "role": "APPOINTED_IRP"}
+    ],
+    "email_candidates": [
+      {"value": "navink25@yahoo.com", "page": 15, "role": "APPOINTED_IRP"}
+    ]
+  },
+  "ambiguities": [
+    {
+      "field": "corporate_debtor.cin",
+      "issue": "The embedded text and rendered glyph show an l/I/1 ambiguity in the second CIN character.",
+      "resolution_status": "CONFIRMED",
+      "confirmed_resolution": "Treat Ul5499MP2002PTC015006 as an extraction/OCR-style character error and use U15499MP2002PTC015006 as the expected confirmed value."
+    }
+  ]
+}

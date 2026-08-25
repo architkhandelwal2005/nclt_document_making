@@ -1,0 +1,13 @@
+{
+  "status": "LOCKED_REGRESSION_FIXTURE_SET",
+  "locked_on": "2026-08-23",
+  "hash_algorithm": "sha256",
+  "files": {
+    "expected/kshipra_motors.expected.json": "dcb7f5d925aee4492a1f3a8205d109db87332faa15dc4b058bbc553685f1162e",
+    "expected/mahakali.expected.json": "8c17c4d4c10bae5d6172a6ed452345d7075a23e7549bef6e2efad35cc4a83098",
+    "expected/organic_world.expected.json": "c7c69fb9dbceea2b772edd8f2d41f1f421e8113b6c570f7fefc2d19d3697f22f",
+    "source/kshipra_motors.pdf": "305ff0150f2170bc37faf3016e49a82bc7a88b2142321fb7f89a6043865d568c",
+    "source/mahakali.pdf": "f3dacf205537bd7737b58f0df0a95f98cd944707b4f985492e2274ae778c5dd9",
+    "source/organic_world.pdf": "874ff923ac04974bbb76874121096ad846f973141e3db0cea2cc02422627d6a1"
+  }
+}

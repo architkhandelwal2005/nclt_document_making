@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "review_status": "LOCKED_REGRESSION_FIXTURE",
+  "locked_on": "2026-08-23",
+  "locked_from_independent_source_review": true,
+  "parser_output_used": false,
+  "source": {
+    "filename": "ordersview.pdf",
+    "page_count": 18,
+    "embedded_text_status": "USABLE_WITH_ADDRESS_CONFLICT",
+    "inspection_methods": ["pdfplumber_page_text", "rendered_page_review"]
+  },
+  "expected": {
+    "case": {
+      "nclt_bench": "Indore Bench",
+      "court_number": "1",
+      "case_number": "CP(IB) 60/2024",
+      "ibc_section": "7",
+      "order_date": "2026-08-03",
+      "cirp_commencement_date": "2026-08-03",
+      "order_upload_date": null
+    },
+    "applicant": {
+      "name": "Tanay Securities & Services Private Limited",
+      "cin": "U74120MH2011PTC211734",
+      "address": "13, Gujarati Society, Nehru Road, Vile Parle (East), Mumbai - 400057, Maharashtra"
+    },
+    "corporate_debtor": {
+      "name": "Organic World Private Limited",
+      "cin": "U01114MP2020PTC051205",
+      "address": "Survey No. 145/1/4, Gram Malikhedi, Nemawar Road, Indore, Madhya Pradesh - 452006"
+    },
+    "irp": {
+      "name": "Prakul Thadi",
+      "registration_number": "IBBI/IPA-002/IP-N01149/2021-2022/13806",
+      "address": "Flat No. 1405, J Block, Rainbow Vistas, Green Hills Road, Moosapet, Hyderabad - 500018, Telangana",
+      "email": null,
+      "afa_valid_until": "2027-06-30"
+    }
+  },
+  "provenance": {
+    "case.nclt_bench": {"page": 1, "source_snippet": "NATIONAL COMPANY LAW TRIBUNAL / INDORE BENCH / COURT NO. 1"},
+    "case.court_number": {"page": 1, "source_snippet": "INDORE BENCH / COURT NO. 1"},
+    "case.case_number": {"page": 2, "source_snippet": "CP (IB) No. 60/2024"},
+    "case.ibc_section": {"page": 2, "source_snippet": "Under Section 7 of the Insolvency and Bankruptcy Code, 2016"},
+    "case.order_date": {"page": 2, "source_snippet": "Date of Order: 03.08.2026 ... Order Pronounced on 03.08.2026"},
+    "case.cirp_commencement_date": {"page": 18, "source_snippet": "The commencement of the CIRP shall be effective from the date of this order."},
+    "applicant.name": {"page": 2, "source_snippet": "Tanay Securities & Services Private Limited ... Applicant/Financial Creditor"},
+    "applicant.cin": {"page": 3, "source_snippet": "Financial Creditor ... bearing CIN U74120MH2011PTC211734"},
+    "applicant.address": {"page": 3, "source_snippet": "having its registered office at 13, Gujarati Society, Nehru Road, Vile Parle (East), Mumbai-400057, Maharashtra"},
+    "corporate_debtor.name": {"page": 2, "source_snippet": "Organic World Private Limited ... Respondent/Corporate Debtor"},
+    "corporate_debtor.cin": {"page": 3, "source_snippet": "Organic World Private Limited, bearing CIN U01114MP2020PTC051205"},
+    "corporate_debtor.address": {"page": 3, "source_snippet": "having its registered office at Survey No. 145/1/4 Gram Malikhedi, Nemawar Road, Indore, Madhya Pradesh-452006", "verification_status": "ORDER_DERIVED_NOT_MCA_VERIFIED"},
+    "irp.name": {"page": 16, "source_snippet": "We appoint Shri Prakul Thadi ... as the Interim Resolution Professional. Name of IRP: Shri Prakul Thadi"},
+    "irp.registration_number": {"page": 16, "source_snippet": "IBBI Reg. No.: IBBI/IPA-002/IP-N01149/2021-2022/13806"},
+    "irp.address": {"page": 16, "source_snippet": "Address: Flat No. 1405, J Block, Rainbow Vistas, Green Hills Road, Moosapet, Hyderabad-500018, Telangana"},
+    "irp.email": {"page": null, "source_snippet": null},
+    "irp.afa_valid_until": {"page": 4, "source_snippet": "The AFA of the proposed IRP is valid upto 30.06.2027."}
+  },
+  "candidate_inventory": {
+    "cin_candidates": [
+      {"raw": "U74120MH2011PTC211734", "proposed_normalized": "U74120MH2011PTC211734", "role": "APPLICANT", "pages": [3], "validation_status": "VALID"},
+      {"raw": "U01114MP2020PTC051205", "proposed_normalized": "U01114MP2020PTC051205", "role": "CORPORATE_DEBTOR", "pages": [3], "validation_status": "VALID"}
+    ],
+    "ibbi_registration_candidates": [
+      {"value": "IBBI/IPA-002/IP-N01149/2021-2022/13806", "page": 4, "role": "PROPOSED_IRP"},
+      {"value": "IBBI/IPA-002/IP-N01149/2021-2022/13806", "page": 16, "role": "APPOINTED_IRP"}
+    ],
+    "email_candidates": [],
+    "corporate_debtor_address_candidates": [
+      {"value": "45/1/4 Gram Malikhedi, Nemawar Road, Indore, Madhya Pradesh - 452006", "page": 2, "anchor": "CAUSE_TITLE", "selected_as_expected": false},
+      {"value": "Survey No. 145/1/4, Gram Malikhedi, Nemawar Road, Indore, Madhya Pradesh - 452006", "page": 3, "anchor": "EXPLICIT_REGISTERED_OFFICE_IN_PART_II", "selected_as_expected": true, "verification_status": "ORDER_DERIVED_NOT_MCA_VERIFIED"}
+    ]
+  },
+  "ambiguities": [
+    {
+      "field": "corporate_debtor.address",
+      "issue": "Page 2 states 45/1/4, while page 3 explicitly states the registered office as Survey No. 145/1/4.",
+      "resolution_status": "CONFIRMED",
+      "confirmed_resolution": "Use the expressly labelled Part-II registered office as the expected parser value. Preserve 45/1/4 as a secondary conflict. The selected value is order-derived and not MCA-verified."
+    },
+    {
+      "field": "irp.email",
+      "issue": "No email address appears anywhere in the PDF text or the rendered IRP appointment block.",
+      "resolution_status": "CONFIRMED",
+      "confirmed_resolution": "Expected value remains null (NOT_FOUND)."
+    }
+  ]
+}

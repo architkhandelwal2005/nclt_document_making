@@ -1,13 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8000"}/api`;
 
 export default function ProfileView({ profile, setProfile }) {
   const [busy, setBusy] = useState(false);
   const [data, setData] = useState(profile || {});
+
+  useEffect(() => { setData(profile || {}); }, [profile]);
 
   const save = async () => {
     setBusy(true);
@@ -34,6 +36,10 @@ export default function ProfileView({ profile, setProfile }) {
       <div className="card p-6 space-y-6">
         <div className="grid grid-cols-2 gap-6">
           <div className="form-group">
+            <label className="label">Salutation</label>
+            <input className="input" value={data.ip_salutation || ""} onChange={e => setVal("ip_salutation", e.target.value)} placeholder="e.g. Mr., Ms., Dr." />
+          </div>
+          <div className="form-group">
             <label className="label">IP Name</label>
             <input className="input" value={data.ip_name || ""} onChange={e => setVal("ip_name", e.target.value)} placeholder="e.g. Navin Khandelwal" />
           </div>
@@ -47,7 +53,11 @@ export default function ProfileView({ profile, setProfile }) {
           </div>
           <div className="form-group">
             <label className="label">Registered Email</label>
-            <input className="input" value={data.ip_email || ""} onChange={e => setVal("ip_email", e.target.value)} />
+            <input type="email" className="input" value={data.ip_email || ""} onChange={e => setVal("ip_email", e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="label">Phone Number</label>
+            <input type="tel" className="input" value={data.ip_phone || ""} onChange={e => setVal("ip_phone", e.target.value)} />
           </div>
           <div className="form-group">
             <label className="label">Process Specific Email</label>

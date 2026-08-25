@@ -1,35 +1,65 @@
-# Casefile — NCLT & Insolvency Document Drafting Portal
+# Casefile — Insolvency Practice Management System
 
-## Problem
-Chartered accountant working NCLT / insolvency cases makes recurring documents with the same format. Fill fixed DOCX templates safely (preserve legal formatting/bold/italics), export as DOCX + PDF, allow tabular schedules (creditors, suspended mgmt, expenses), and be deployment-ready.
+## Product objective
 
-## User persona
-- Solo chartered accountant + admin (single-user workspace, JWT login).
+Provide an Insolvency Professional and NCLT practice with one local operating system for company-specific work, statutory obligations, hearings, claims, CoC administration, documents, communications, assets, valuation, and costs.
 
-## Core requirements (static)
-- Fill 5 fixed NCLT templates from a guided form.
-- Preserve DOCX formatting via run-level replacement (no `paragraph.text = ...` flattening).
-- Support tables: creditors list, suspended management, CIRP expenses.
-- Export Word + PDF.
-- Simple JWT login (admin seeded from env).
-- Deploy-ready on Emergent.
+Document generation is a supporting case function, not the product's top-level purpose.
 
-## Architecture
-- FastAPI backend (`/app/backend/server.py`): auth (login/me/logout, brute-force lockout), templates listing with column defs, document generation & export (`/download/{fmt}` Bearer + `/export/{fmt}?token=` for browser downloads).
-- Motor + MongoDB collections: `users`, `login_attempts`, `generated_documents`.
-- python-docx run-level replacement + reportlab for PDF.
-- React frontend (`App.js`): AuthContext via localStorage token, axios interceptor, inline editable TableEditor with CSV import, live preview.
+## Information scopes
 
-## Templates (5)
-Voting Agenda · Constitution of CoC · Notice of 1st CoC · Notice of 2nd CoC · LOC Filing & CoC Report.
+1. Firm-wide: dashboard, consolidated tasks, calendar, users, and reporting.
+2. Case-specific: all operational work, always protected by `case_id` at the API and database layers.
+3. Shared masters: contacts, compliance rules, professionals, and document templates.
 
-## Completed
-- 2026-02 (v1): Auth (JWT + bcrypt + lockout), inline editable table editor with CSV import, /export?token= for browser downloads, admin seed, deployment health-check pass. Testing agent: 100% backend + 100% frontend.
-- 2026-02 (v2): Template Uploader (drop a DOCX → detects `{{placeholders}}`, user labels fields/tables, saves to library). Save Case Drafts (persist partial matter, resume from Drafts view). Backend endpoints: `/api/templates/inspect`, `POST/DELETE /api/templates`, `/api/drafts` CRUD. Testing agent iteration 3: 14/14 backend + 100% frontend.
-- 2026-02 (v3): **Removed MongoDB entirely.** Generated documents live in an in-memory TTL cache (30 min) and are streamed on download. Custom templates persisted as `.docx` + `.json` files on disk under `templates/custom/`. Drafts moved to browser `localStorage`. Admin login checks env-based credentials with bcrypt (no user table). Login attempts tracked in memory. Removes need for MongoDB Atlas — the app can now be hosted on just Render (backend) + Vercel (frontend) free tiers.
+## Core domain chain
 
-## Backlog
-- P1: Persist "case profiles" so a user can reopen a partially filled case and its table data.
-- P2: Template Manager UI to upload/map new DOCX templates without code changes.
-- P2: Signed short-lived download URLs (avoid full JWT in query string).
-- P3: Better PDF fidelity (currently plain text pass) or headless DOCX→PDF conversion.
+Case → People → Claims → Tasks → Deadlines → Hearings → Applications → Orders → CoC → Documents → Communications → Expenses → Assets → Valuation → Compliance
+
+## Functional modules
+
+- Case Master
+- Stakeholders and contacts
+- Tasks and workflow automation
+- Effective-dated compliance rules and calculated deadlines
+- Hearings, applications, orders, and directions
+- Claims, deficiencies, document checks, and admission decisions
+- CoC membership, meetings, and historical voting shares
+- Case document management and context-aware generation
+- Communications register
+- Assets and financial information
+- Valuation
+- Expenses and CoC contributions
+- Activity, audit, reports, firm dashboard, and calendar
+- Local users, roles, encrypted backup, and restore
+
+## Non-functional requirements
+
+- Local-first operation without MongoDB or a cloud dependency
+- SQLite foreign keys, transactions, migrations, and soft archival
+- Backend-enforced case isolation
+- Bcrypt password hashing, expiring signed sessions, login throttling, and role-based access
+- Before/after audit entries for material mutations
+- Safe file names, file type restrictions, 25 MB case-file limit, and case-bound downloads
+- Windows-user-encrypted backups and verified restoration
+- Accessible visible labels, keyboard focus, stable test identifiers, and responsive layouts
+
+## Workflow automations
+
+- New case: initial setup task and applicable compliance deadlines
+- New hearing: hearing-preparation task
+- New claim: verification task
+- Deficient claim: deficiency-communication task
+- New CoC meeting: notice/agenda and minutes tasks
+- New order direction: linked compliance task
+
+## Regulatory boundary
+
+Rules are stored with process type, trigger, offset, calculation method, version, and effective dates. Seeded rules are model data and must be professionally verified before operational reliance.
+
+## Deferred beyond Phase 15
+
+- Cloud deployment and external database hosting
+- Live email, WhatsApp, portal, and calendar provider synchronization
+- AI extraction, drafting, summaries, and deadline-risk suggestions
+- Production malware-scanning service integration

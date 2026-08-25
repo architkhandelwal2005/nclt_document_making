@@ -1,0 +1,11 @@
+import React, { useEffect, useState } from "react";
+import { Database, FileText, Scale } from "lucide-react";
+import { api, errorMessage } from "../lib/api";
+import { toast } from "sonner";
+
+export default function MastersView() {
+  const [rules, setRules] = useState([]); const [templates, setTemplates] = useState([]); const [contacts, setContacts] = useState([]);
+  useEffect(() => { Promise.all([api.get("/compliance-rules"), api.get("/templates"), api.get("/contacts")]).then(([a, b, c]) => { setRules(a.data); setTemplates(b.data); setContacts(c.data); }).catch(error => toast.error(errorMessage(error, "Could not load firm masters."))); }, []);
+  return <section className="workspace space-y-6"><div className="workspace-intro"><div><p className="kicker">REUSABLE FIRM DATA</p><h2>Firm Masters</h2><p className="intro-copy">Shared rules, document formats, professionals, and organizations. Daily document generation remains inside each case.</p></div><Database size={28} /></div><div className="grid grid-cols-1 xl:grid-cols-2 gap-6"><section className="casefile-panel"><div className="panel-heading"><div><p className="kicker">VERSIONED RULES</p><h3>Compliance rule master</h3></div><Scale size={20} /></div><div className="master-list">{rules.map(rule => <div key={rule.id}><b>T+{rule.offset_days} · {rule.name}</b><small>{rule.provision} · effective {rule.effective_from} · v{rule.version}</small></div>)}</div></section><section className="casefile-panel"><div className="panel-heading"><div><p className="kicker">APPROVED FORMATS</p><h3>Document template master</h3></div><FileText size={20} /></div><div className="master-list">{templates.map(template => <div key={template.id}><b>{template.name}</b><small>{template.category} · {template.source}</small></div>)}</div></section></div><section className="casefile-panel"><div className="panel-heading"><div><p className="kicker">SHARED DIRECTORY</p><h3>Reusable contacts</h3></div><span className="status-chip">{contacts.length}</span></div><div className="master-list">{contacts.map(contact => <div key={contact.id}><b>{contact.name}</b><small>{contact.organization || contact.kind} · {contact.email || "No email"}</small></div>)}{!contacts.length && <p className="panel-empty">Contacts created within cases will appear here.</p>}</div></section></section>;
+}
+

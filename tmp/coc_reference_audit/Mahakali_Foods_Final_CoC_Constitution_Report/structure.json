@@ -1,0 +1,1647 @@
+{
+  "source": "E:\\nclt document\\reference documents\\Mahakali_Foods_Final_CoC_Constitution_Report.docx",
+  "bytes": 38120,
+  "sha256": "4017bffd4dd21937999db272fcabab276b7b4fb33a830ee71452cbba78ef34d0",
+  "core_properties": {
+    "title": "",
+    "subject": "",
+    "author": "python-docx",
+    "last_modified_by": "",
+    "created": "2013-12-23T23:15:00+00:00",
+    "modified": "2013-12-23T23:15:00+00:00",
+    "revision": 1
+  },
+  "section_count": 1,
+  "paragraph_count": 16,
+  "table_count": 1,
+  "inline_shape_count": 0,
+  "style_usage": {
+    "Normal": 16
+  },
+  "sections": [
+    {
+      "index": 0,
+      "orientation": "portrait",
+      "page_width_in": 8.5,
+      "page_height_in": 11.0,
+      "top_margin_in": 0.65,
+      "bottom_margin_in": 0.65,
+      "left_margin_in": 0.75,
+      "right_margin_in": 0.75,
+      "header_distance_in": 0.5,
+      "footer_distance_in": 0.5,
+      "gutter_in": 0.0,
+      "different_first_page": false,
+      "header_linked": true,
+      "footer_linked": true,
+      "first_header_linked": true,
+      "first_footer_linked": true,
+      "even_header_linked": true,
+      "even_footer_linked": true,
+      "header": {
+        "paragraphs": [
+          {
+            "text": "",
+            "style": "Header",
+            "alignment": null,
+            "keep_with_next": null,
+            "keep_together": null,
+            "page_break_before": null,
+            "widow_control": null,
+            "space_before_pt": null,
+            "space_after_pt": null,
+            "line_spacing": null,
+            "left_indent_in": null,
+            "right_indent_in": null,
+            "first_line_indent_in": null,
+            "numbered": false,
+            "runs": []
+          }
+        ],
+        "tables": []
+      },
+      "footer": {
+        "paragraphs": [
+          {
+            "text": "",
+            "style": "Footer",
+            "alignment": null,
+            "keep_with_next": null,
+            "keep_together": null,
+            "page_break_before": null,
+            "widow_control": null,
+            "space_before_pt": null,
+            "space_after_pt": null,
+            "line_spacing": null,
+            "left_indent_in": null,
+            "right_indent_in": null,
+            "first_line_indent_in": null,
+            "numbered": false,
+            "runs": []
+          }
+        ],
+        "tables": []
+      },
+      "first_page_header": {
+        "paragraphs": [
+          {
+            "text": "",
+            "style": "Header",
+            "alignment": null,
+            "keep_with_next": null,
+            "keep_together": null,
+            "page_break_before": null,
+            "widow_control": null,
+            "space_before_pt": null,
+            "space_after_pt": null,
+            "line_spacing": null,
+            "left_indent_in": null,
+            "right_indent_in": null,
+            "first_line_indent_in": null,
+            "numbered": false,
+            "runs": []
+          }
+        ],
+        "tables": []
+      },
+      "first_page_footer": {
+        "paragraphs": [
+          {
+            "text": "",
+            "style": "Footer",
+            "alignment": null,
+            "keep_with_next": null,
+            "keep_together": null,
+            "page_break_before": null,
+            "widow_control": null,
+            "space_before_pt": null,
+            "space_after_pt": null,
+            "line_spacing": null,
+            "left_indent_in": null,
+            "right_indent_in": null,
+            "first_line_indent_in": null,
+            "numbered": false,
+            "runs": []
+          }
+        ],
+        "tables": []
+      },
+      "even_page_header": {
+        "paragraphs": [
+          {
+            "text": "",
+            "style": "Header",
+            "alignment": null,
+            "keep_with_next": null,
+            "keep_together": null,
+            "page_break_before": null,
+            "widow_control": null,
+            "space_before_pt": null,
+            "space_after_pt": null,
+            "line_spacing": null,
+            "left_indent_in": null,
+            "right_indent_in": null,
+            "first_line_indent_in": null,
+            "numbered": false,
+            "runs": []
+          }
+        ],
+        "tables": []
+      },
+      "even_page_footer": {
+        "paragraphs": [
+          {
+            "text": "",
+            "style": "Footer",
+            "alignment": null,
+            "keep_with_next": null,
+            "keep_together": null,
+            "page_break_before": null,
+            "widow_control": null,
+            "space_before_pt": null,
+            "space_after_pt": null,
+            "line_spacing": null,
+            "left_indent_in": null,
+            "right_indent_in": null,
+            "first_line_indent_in": null,
+            "numbered": false,
+            "runs": []
+          }
+        ],
+        "tables": []
+      }
+    }
+  ],
+  "paragraphs": [
+    {
+      "text": "CONSTITUTION OF COMMITTEE OF CREDITORS",
+      "style": "Normal",
+      "alignment": "CENTER (1)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "CONSTITUTION OF COMMITTEE OF CREDITORS",
+          "bold": true,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 14.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "(Under the Insolvency and Bankruptcy Code, 2016)",
+      "style": "Normal",
+      "alignment": "CENTER (1)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "(Under the Insolvency and Bankruptcy Code, 2016)",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "Corporate Debtor: Mahakali Foods Private Limited",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "Corporate Debtor: Mahakali Foods Private Limited",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "CIN: U15499MP2002PTC015006",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "CIN: U15499MP2002PTC015006",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "NCLT Bench: Indore Bench",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "NCLT Bench: Indore Bench",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "CP(IB) No.: CP(IB)/72(MP)2024",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "CP(IB) No.: CP(IB)/72(MP)2024",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "Insolvency Commencement Date: 31.07.2026",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "Insolvency Commencement Date: 31.07.2026",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "Subject: Constitution of Committee of Creditors under Section 21 of the Insolvency and Bankruptcy Code, 2016 read with Regulation 17 of the IBBI (Insolvency Resolution Process for Corporate Persons) Regulations, 2016.",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "Subject: Constitution of Committee of Creditors under Section 21 of the Insolvency and Bankruptcy Code, 2016 read with Regulation 17 of the IBBI (Insolvency Resolution Process for Corporate Persons) Regulations, 2016.",
+          "bold": true,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "Pursuant to the order dated 31.07.2026 passed by the Hon’ble National Company Law Tribunal, Indore Bench, the Corporate Insolvency Resolution Process of Mahakali Foods Private Limited commenced and the undersigned was appointed as Interim Resolution Professional.",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "Pursuant to the order dated 31.07.2026 passed by the Hon’ble National Company Law Tribunal, Indore Bench, the Corporate Insolvency Resolution Process of Mahakali Foods Private Limited commenced and the undersigned was appointed as Interim Resolution Professional.",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "A public announcement in Form A was made on 06.08.2026 inviting claims from creditors. The last date stated in the public announcement for submission of claims was 17.08.2026.",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "A public announcement in Form A was made on 06.08.2026 inviting claims from creditors. The last date stated in the public announcement for submission of claims was 17.08.2026.",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "After collation and verification of the claims received and admitted, the undersigned has constituted the Committee of Creditors comprising the following financial creditors:",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "After collation and verification of the claims received and admitted, the undersigned has constituted the Committee of Creditors comprising the following financial creditors:",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "Notes:",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "Notes:",
+          "bold": true,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "1. The voting share has been computed in proportion to the admitted financial debt of the respective members of the Committee of Creditors.",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "1. The voting share has been computed in proportion to the admitted financial debt of the respective members of the Committee of Creditors.",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "2. Any subsequent admission, revision or modification of claims may result in a corresponding reconstitution / revision of the Committee of Creditors and voting shares, in accordance with the Code and applicable regulations.",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "2. Any subsequent admission, revision or modification of claims may result in a corresponding reconstitution / revision of the Committee of Creditors and voting shares, in accordance with the Code and applicable regulations.",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "3. The name of Samunnati Finance Private Limited is stated as per the claim information supplied for constitution of the CoC. The petitioner in CP(IB)/72(MP)2024 is Samunnati Financial Intermediation and Services Private Limited.",
+      "style": "Normal",
+      "alignment": "JUSTIFY (3)",
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "3. The name of Samunnati Finance Private Limited is stated as per the claim information supplied for constitution of the CoC. The petitioner in CP(IB)/72(MP)2024 is Samunnati Financial Intermediation and Services Private Limited.",
+          "bold": false,
+          "italic": null,
+          "underline": null,
+          "font": "Times New Roman",
+          "size_pt": 11.0,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    },
+    {
+      "text": "\nApplicant\nNavin Khandelwal\nInterim Resolution Professional\nIn the matter of Mahakali Foods Private Limited\nIBBI Reg. No.: IBBI/IPA-001/IP-P00703/2017-18/11301\nAFA valid till 31-12-2026\nProcess Specific Email ID: cirp.mahakalifoods@gmail.com\nRegistered Email ID: navink25@yahoo.com\nAddress Reg. with IBBI: 206, Navneet Plaza, Old Palasia, Indore - 452018\nDate: ____________\nPlace: Indore (M.P.)",
+      "style": "Normal",
+      "alignment": null,
+      "keep_with_next": null,
+      "keep_together": null,
+      "page_break_before": null,
+      "widow_control": null,
+      "space_before_pt": null,
+      "space_after_pt": null,
+      "line_spacing": null,
+      "left_indent_in": null,
+      "right_indent_in": null,
+      "first_line_indent_in": null,
+      "numbered": false,
+      "runs": [
+        {
+          "text": "\nApplicant\n",
+          "bold": true,
+          "italic": null,
+          "underline": null,
+          "font": null,
+          "size_pt": null,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        },
+        {
+          "text": "Navin Khandelwal\nInterim Resolution Professional\nIn the matter of Mahakali Foods Private Limited\n",
+          "bold": null,
+          "italic": null,
+          "underline": null,
+          "font": null,
+          "size_pt": null,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        },
+        {
+          "text": "IBBI Reg. No.: IBBI/IPA-001/IP-P00703/2017-18/11301\n",
+          "bold": null,
+          "italic": null,
+          "underline": null,
+          "font": null,
+          "size_pt": null,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        },
+        {
+          "text": "AFA valid till 31-12-2026\n",
+          "bold": null,
+          "italic": null,
+          "underline": null,
+          "font": null,
+          "size_pt": null,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        },
+        {
+          "text": "Process Specific Email ID: cirp.mahakalifoods@gmail.com\n",
+          "bold": null,
+          "italic": null,
+          "underline": null,
+          "font": null,
+          "size_pt": null,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        },
+        {
+          "text": "Registered Email ID: navink25@yahoo.com\n",
+          "bold": null,
+          "italic": null,
+          "underline": null,
+          "font": null,
+          "size_pt": null,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        },
+        {
+          "text": "Address Reg. with IBBI: 206, Navneet Plaza, Old Palasia, Indore - 452018\n",
+          "bold": null,
+          "italic": null,
+          "underline": null,
+          "font": null,
+          "size_pt": null,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        },
+        {
+          "text": "Date: ____________\nPlace: Indore (M.P.)",
+          "bold": null,
+          "italic": null,
+          "underline": null,
+          "font": null,
+          "size_pt": null,
+          "color": null,
+          "all_caps": null,
+          "small_caps": null,
+          "superscript": null,
+          "subscript": null
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "index": 0,
+      "style": "Table Grid",
+      "rows": 4,
+      "columns": 5,
+      "autofit": true,
+      "grid_widths": [
+        "2016",
+        "2016",
+        "2016",
+        "2016",
+        "2016"
+      ],
+      "borders": {},
+      "row_records": [
+        {
+          "height": null,
+          "height_rule": null,
+          "repeat_header": false,
+          "cells": [
+            {
+              "text": "Sr. No.",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Sr. No.",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Sr. No.",
+                      "bold": true,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "Name of Financial Creditor",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Name of Financial Creditor",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Name of Financial Creditor",
+                      "bold": true,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "Category",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Category",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Category",
+                      "bold": true,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "Admitted Claim (₹)",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Admitted Claim (₹)",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Admitted Claim (₹)",
+                      "bold": true,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "Voting Share",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Voting Share",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Voting Share",
+                      "bold": true,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "height": null,
+          "height_rule": null,
+          "repeat_header": false,
+          "cells": [
+            {
+              "text": "1",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "1",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "1",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "Samunnati Finance Private Limited",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Samunnati Finance Private Limited",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Samunnati Finance Private Limited",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "Financial Creditor",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Financial Creditor",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Financial Creditor",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "60,855,576.00",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "60,855,576.00",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "60,855,576.00",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "52.7163%",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "52.7163%",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "52.7163%",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "height": null,
+          "height_rule": null,
+          "repeat_header": false,
+          "cells": [
+            {
+              "text": "2",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "2",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "2",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "Bank of India",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Bank of India",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Bank of India",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "Financial Creditor",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "Financial Creditor",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "Financial Creditor",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "54,584,244.48",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "54,584,244.48",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "54,584,244.48",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "47.2837%",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "47.2837%",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "47.2837%",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "height": null,
+          "height_rule": null,
+          "repeat_header": false,
+          "cells": [
+            {
+              "text": "",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "TOTAL",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "TOTAL",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "TOTAL",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "115,439,820.48",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "115,439,820.48",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "115,439,820.48",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "text": "100.0000%",
+              "width": "2016",
+              "width_type": "dxa",
+              "fill": null,
+              "vertical_alignment": null,
+              "paragraphs": [
+                {
+                  "text": "100.0000%",
+                  "style": "Normal",
+                  "alignment": null,
+                  "keep_with_next": null,
+                  "keep_together": null,
+                  "page_break_before": null,
+                  "widow_control": null,
+                  "space_before_pt": null,
+                  "space_after_pt": null,
+                  "line_spacing": null,
+                  "left_indent_in": null,
+                  "right_indent_in": null,
+                  "first_line_indent_in": null,
+                  "numbered": false,
+                  "runs": [
+                    {
+                      "text": "100.0000%",
+                      "bold": null,
+                      "italic": null,
+                      "underline": null,
+                      "font": null,
+                      "size_pt": null,
+                      "color": null,
+                      "all_caps": null,
+                      "small_caps": null,
+                      "superscript": null,
+                      "subscript": null
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "package": {
+    "parts": [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "customXml/_rels/item1.xml.rels",
+      "customXml/item1.xml",
+      "customXml/itemProps1.xml",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "docProps/thumbnail.jpeg",
+      "word/_rels/document.xml.rels",
+      "word/document.xml",
+      "word/fontTable.xml",
+      "word/numbering.xml",
+      "word/settings.xml",
+      "word/styles.xml",
+      "word/stylesWithEffects.xml",
+      "word/theme/theme1.xml",
+      "word/webSettings.xml"
+    ],
+    "media": [],
+    "xml_feature_counts": {
+      "content_controls": 0,
+      "fields": 0,
+      "field_chars": 0,
+      "bookmarks": 0,
+      "comments": 0,
+      "tracked_insertions": 1404,
+      "tracked_deletions": 0,
+      "drawings": 0,
+      "floating_anchors": 0,
+      "inline_images": 0,
+      "section_properties": 1,
+      "manual_page_breaks": 0
+    }
+  }
+}

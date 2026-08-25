@@ -7,6 +7,7 @@
 # Dependencies
 node_modules/
 /node_modules
+node_modules*/
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -18,6 +19,7 @@ node_modules/
 
 # Testing
 /coverage
+.pytest_tmp/
 
 # Next.js
 /.next/
@@ -28,6 +30,10 @@ next-env.d.ts
 # Production builds
 /build
 dist/
+/portable_dist/
+/portable_work/
+/.pyinstaller_work/
+/Casefile.spec
 dist
 
 # Environment files (comprehensive coverage)
@@ -63,6 +69,7 @@ chainlit.md
 
 # Data and databases
 agenthub/agents/youtube/db
+backend/data/
 
 # Archive files and large assets
 **/*.zip
@@ -77,12 +84,14 @@ agenthub/agents/youtube/db
 .cache/
 
 memory/test_credentials.md
+/SOP IRP ( Master File) Shri Ram Switchgears Ltd.xlsx
 
 # Mobile development
 android-sdk/
 .env
 .env.*
 *.env
+!.env.example
 credentials.json
 *.key
 .credentials

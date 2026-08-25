@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0",
+  "review_status": "LOCKED_REGRESSION_FIXTURE",
+  "locked_on": "2026-08-23",
+  "locked_from_independent_source_review": true,
+  "parser_output_used": false,
+  "source": {
+    "filename": "CIRP Order_kshipra motors.pdf",
+    "page_count": 16,
+    "embedded_text_status": "USABLE",
+    "inspection_methods": ["pdfplumber_page_text", "rendered_page_review"]
+  },
+  "expected": {
+    "case": {
+      "nclt_bench": "Indore Bench",
+      "court_number": "1",
+      "case_number": "CP(IB) 72/2025",
+      "ibc_section": "7",
+      "order_date": "2026-07-29",
+      "cirp_commencement_date": "2026-07-29",
+      "order_upload_date": null
+    },
+    "applicant": {
+      "name": "Axis Bank Limited",
+      "cin": "L65110GJ1993PLC020769",
+      "address": "\"Trishul\", 3rd Floor, Opposite Samartheshwar Temple, Near Law Garden, Ellis Bridge, Ahmedabad - 380006, Gujarat"
+    },
+    "corporate_debtor": {
+      "name": "Kshipra Motors Private Limited",
+      "cin": "U05010MP2003PTC016184",
+      "address": "74, Chimanganj Mandi, Agar Road, Ujjain - 456001, Madhya Pradesh"
+    },
+    "irp": {
+      "name": "Navin Khandelwal",
+      "registration_number": "IBBI/IPA-001/IP-P00703/2017-2018/11301",
+      "address": "206, Navneet Plaza, 5/2, Old Palasia, Indore - 452018, Madhya Pradesh",
+      "email": "navink25@yahoo.com",
+      "afa_valid_until": "2026-12-31"
+    }
+  },
+  "provenance": {
+    "case.nclt_bench": {"page": 1, "source_snippet": "NATIONAL COMPANY LAW TRIBUNAL / INDORE BENCH / COURT NO. 1"},
+    "case.court_number": {"page": 1, "source_snippet": "INDORE BENCH / COURT NO. 1"},
+    "case.case_number": {"page": 2, "source_snippet": "CP (IB) No. 72 of 2025"},
+    "case.ibc_section": {"page": 2, "source_snippet": "Under Section 7 of the Insolvency and Bankruptcy Code, 2016"},
+    "case.order_date": {"page": 3, "source_snippet": "Order Pronounced on: 29/07/2026"},
+    "case.cirp_commencement_date": {"page": 15, "source_snippet": "The commencement of the Corporate Insolvency Resolution Process (CIRP) shall be effective from the date of this order."},
+    "applicant.name": {"page": 2, "source_snippet": "AXIS BANK LIMITED ... Applicant"},
+    "applicant.cin": {"page": 2, "source_snippet": "CIN: L65110GJ1993PLC020769"},
+    "applicant.address": {"page": 3, "source_snippet": "The Registered Office of the Financial Creditor is situated at Trishul, 3rd Floor, Opposite Samartheshwar Temple, Near Law Garden, Ellis Bridge, Ahmedabad - 380006, Gujarat."},
+    "corporate_debtor.name": {"page": 2, "source_snippet": "KSHIPRA MOTORS PRIVATE LIMITED ... Respondent"},
+    "corporate_debtor.cin": {"page": 2, "source_snippet": "CIN: U05010MP2003PTC016184"},
+    "corporate_debtor.address": {"page": 4, "source_snippet": "The Registered Office of the Corporate Debtor is situated at 74, Chimanganj Mandi, Agar Road, Ujjain - 456001, Madhya Pradesh."},
+    "irp.name": {"page": 13, "source_snippet": "We appoint Mr. Navin Khandelwal ... as IRP. Name of IRP: Mr. Navin Khandelwal"},
+    "irp.registration_number": {"page": 13, "source_snippet": "IBBI Reg No.: IBBI/IPA-001/IP-P00703/2017-2018/11301"},
+    "irp.address": {"page": 13, "source_snippet": "Address: 206, Navneet Plaza, 5/2, Old Palasia, Indore - 452018, Madhya Pradesh"},
+    "irp.email": {"page": 13, "source_snippet": "E-mail: navink25@yahoo.com"},
+    "irp.afa_valid_until": {"page": 4, "source_snippet": "The Authorisation for Assignment (AFA) ... is valid up to 31.12.2026."}
+  },
+  "candidate_inventory": {
+    "cin_candidates": [
+      {"raw": "L65110GJ1993PLC020769", "proposed_normalized": "L65110GJ1993PLC020769", "role": "APPLICANT", "pages": [2, 3], "validation_status": "VALID"},
+      {"raw": "U05010MP2003PTC016184", "proposed_normalized": "U05010MP2003PTC016184", "role": "CORPORATE_DEBTOR", "pages": [2, 4], "validation_status": "VALID"}
+    ],
+    "ibbi_registration_candidates": [
+      {"value": "IBBI/IPA-001/IP-P00703/2017-2018/11301", "page": 4, "role": "PROPOSED_IRP"},
+      {"value": "IBBI/IPA-001/IP-P00703/2017-2018/11301", "page": 13, "role": "APPOINTED_IRP"}
+    ],
+    "email_candidates": [
+      {"value": "navink25@yahoo.com", "page": 13, "role": "APPOINTED_IRP"}
+    ],
+    "other_address_candidates": [
+      {"value": "Ground Floor, Plot No. 186-187, Ankpat Marg, Nikas Square, Kanthal, Ujjain - 456001, Madhya Pradesh", "page": 3, "role": "APPLICANT_BRANCH_OFFICE", "selected_as_expected": false}
+    ]
+  },
+  "ambiguities": [
+    {
+      "field": "applicant.address",
+      "issue": "The order states both Axis Bank's registered office and its Ujjain branch office.",
+      "resolution_status": "CONFIRMED",
+      "confirmed_resolution": "Use Axis Bank's Ahmedabad registered office as applicant.address. Preserve the Ujjain address as branch_address or a secondary address and never select it as the registered address."
+    }
+  ]
+}

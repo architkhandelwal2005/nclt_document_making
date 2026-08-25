@@ -37,7 +37,7 @@
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
     "cra-template": "1.2.0",
-    "date-fns": "4.1.0",
+    "date-fns": "3.6.0",
     "dayjs": "1.11.13",
     "embla-carousel-react": "8.6.0",
     "framer-motion": "11.18.0",
@@ -45,9 +45,9 @@
     "lodash": "4.18.1",
     "lucide-react": "0.516.0",
     "next-themes": "0.4.6",
-    "react": "19.0.0",
+    "react": "18.3.1",
     "react-day-picker": "8.10.1",
-    "react-dom": "19.0.0",
+    "react-dom": "18.3.1",
     "react-hook-form": "7.56.2",
     "react-resizable-panels": "3.0.1",
     "react-router-dom": "7.15.0",
@@ -63,6 +63,7 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
+    "lint": "eslint src",
     "test": "craco test"
   },
   "browserslist": {
@@ -80,9 +81,9 @@
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "7.21.11",
     "@craco/craco": "7.1.0",
-    "@emergentbase/visual-edits": "https://assets.emergent.sh/npm/emergentbase-visual-edits-1.0.13.tgz",
     "@eslint/js": "9.23.0",
     "@types/lodash": "4.17.24",
+    "ajv": "^8.17.1",
     "autoprefixer": "10.4.20",
     "dotenv": "16.4.5",
     "eslint": "9.23.0",
@@ -90,6 +91,7 @@
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-react": "7.37.4",
     "eslint-plugin-react-hooks": "5.2.0",
+    "eslint-webpack-plugin": "3.2.0",
     "globals": "15.15.0",
     "postcss": "8.5.10",
     "tailwindcss": "3.4.17"

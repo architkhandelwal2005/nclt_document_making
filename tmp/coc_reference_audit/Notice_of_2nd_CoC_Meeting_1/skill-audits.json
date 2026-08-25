@@ -1,0 +1,64 @@
+{
+  "section": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\section_audit.py",
+      "E:\\nclt document\\reference documents\\Notice of 2nd CoC Meeting (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "SECTIONS: 1\n\n[Section 1] start_type=NEW_PAGE (2) orientation=PORTRAIT (0)\n  page_size(in): 8.27 x 11.69\n  margins(in): L=0.81 R=1.02 T=1.00 B=0.19\n  header_linked_to_previous=True footer_linked_to_previous=False\n  different_first_page=False odd_even_headers=None\n\nREMINDER\n- If you change orientation mid-document, Word typically creates a new section.\n- If headers/footers look wrong, check 'Link to Previous' per section.\n",
+    "stderr": ""
+  },
+  "style": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\style_lint.py",
+      "E:\\nclt document\\reference documents\\Notice of 2nd CoC Meeting (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "[style_lint] direct run-formatting runs: 1339\n[style_lint] direct paragraph-formatting paragraphs: 278\n[style_lint] top fonts by char count: Times New Roman(19886)\n[style_lint] heading-like paragraphs not using Heading styles (first 10):\n  - #1: style='Normal' text='Notice of Second Meeting of Committee of Creditors'\n  - #2: style='Normal' text='Of'\n  - #3: style='Normal' text='M/s. Premier Proteins Limited'\n  - #4: style='Normal' text='(Under Corporate Insolvency Resolution Process)'\n  - #21: style='Normal' text='Notice of Second Meeting of Committee of Creditors'\n  - #22: style='Normal' text='Of'\n  - #23: style='Normal' text='M/s. Premier Proteins Limited'\n  - #24: style='Normal' text=' (Under Corporate Insolvency Resolution Process)'\n  - #28: style='Normal' text='Of'\n  - #29: style='Normal' text='M/s. Premier Proteins Limited'\n",
+    "stderr": ""
+  },
+  "fields": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py",
+      "E:\\nclt document\\reference documents\\Notice of 2nd CoC Meeting (1).docx"
+    ],
+    "exit_code": 1,
+    "stdout": "FIELD COUNTS\n- PAGEREF: 7\n- PAGE: 1\n\nEXAMPLES\n\n[PAGEREF]\n  - PAGEREF _Toc106891928 \\h\n  - PAGEREF _Toc106891929 \\h\n  - PAGEREF _Toc106891930 \\h\n  - PAGEREF _Toc106891931 \\h\n  - PAGEREF _Toc106891932 \\h\n  - PAGEREF _Toc106891933 \\h\n  - PAGEREF _Toc106891934 \\h\n\n[PAGE]\n  - PAGE \\* MERGEFORMAT\n\nPER-PART DETAILS\n\n== word/document.xml ==\n- PAGEREF _Toc106891928 \\h\n- PAGEREF _Toc106891929 \\h\n- PAGEREF _Toc106891930 \\h\n- PAGEREF _Toc106891931 \\h\n- PAGEREF _Toc106891932 \\h\n- PAGEREF _Toc106891933 \\h\n- PAGEREF _Toc106891934 \\h\n\n== word/footer1.xml ==\n- PAGE \\* MERGEFORMAT\n\nREMINDER\n",
+    "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py\", line 182, in <module>\n    main()\n  File \"C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py\", line 176, in main\n    print(\n  File \"C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u2192' in position 92: character maps to <undefined>\n"
+  },
+  "images": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\images_audit.py",
+      "E:\\nclt document\\reference documents\\Notice of 2nd CoC Meeting (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "No inline/anchored drawings found in document/header/footer parts.\n",
+    "stderr": ""
+  },
+  "content_controls": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\content_controls.py",
+      "E:\\nclt document\\reference documents\\Notice of 2nd CoC Meeting (1).docx",
+      "list",
+      "--json"
+    ],
+    "exit_code": 0,
+    "stdout": "[\n  {\n    \"part\": \"word\\\\document.xml\",\n    \"tag\": \"\",\n    \"alias\": \"\",\n    \"text\": \"Table of ContentsNotice of Second Meeting of Committee of Creditors3Parties to whom Notice Served4Agenda for the meeting5List of the matters to be discussed at the meeting5List of the issues to be voted upon at the meeting6Instructions For E-Voting7Notes to Agenda8\"\n  }\n]\n",
+    "stderr": ""
+  },
+  "table_geometry": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\table_geometry.py",
+      "E:\\nclt document\\reference documents\\Notice of 2nd CoC Meeting (1).docx"
+    ],
+    "exit_code": 1,
+    "stdout": "table 1: tblW=dxa:9378 tblInd=None:None grid_sum=9378 grid=[993, 2835, 2409, 1701, 1440]\n  ISSUE: table indent is missing or not DXA\n  row 1: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 2: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 3: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 4: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 5: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 6: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 7: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 8: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 9: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 10: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 11: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 12: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 13: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 14: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 15: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 16: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 17: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 18: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 19: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 20: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\n  row 21: tcW=[993, 2835, 2409, 1701, 1440] sum=9378\ntable 2: tblW=dxa:9378 tblInd=dxa:108 grid_sum=9378 grid=[982, 2693, 2246, 3457]\n  ISSUE: table indent should match start cell margin (120 DXA) so the visible border aligns with body text\n  row 1: tcW=[993, 2693, 2268, 3424] sum=9378\n  ISSUE: row cell widths do not match grid columns\n  row 2: tcW=[993, 2693, 2268, 3424] sum=9378\n  ISSUE: row cell widths do not match grid columns\n  row 3: tcW=[993, 2693, 2268, 3424] sum=9378\n  ISSUE: row cell widths do not match grid columns\n  row 4: tcW=[993, 2693, 2268, 3424] sum=9378\n  ISSUE: row cell widths do not match grid columns\nISSUES: 6\n",
+    "stderr": ""
+  }
+}

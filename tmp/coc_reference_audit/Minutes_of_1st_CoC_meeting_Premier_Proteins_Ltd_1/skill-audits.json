@@ -1,0 +1,64 @@
+{
+  "section": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\section_audit.py",
+      "E:\\nclt document\\reference documents\\Minutes of 1st CoC meeting Premier Proteins Ltd (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "SECTIONS: 1\n\n[Section 1] start_type=NEW_PAGE (2) orientation=PORTRAIT (0)\n  page_size(in): 8.27 x 11.69\n  margins(in): L=0.59 R=0.59 T=0.31 B=0.19\n  header_linked_to_previous=False footer_linked_to_previous=False\n  different_first_page=False odd_even_headers=None\n\nREMINDER\n- If you change orientation mid-document, Word typically creates a new section.\n- If headers/footers look wrong, check 'Link to Previous' per section.\n",
+    "stderr": ""
+  },
+  "style": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\style_lint.py",
+      "E:\\nclt document\\reference documents\\Minutes of 1st CoC meeting Premier Proteins Ltd (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "[style_lint] direct run-formatting runs: 575\n[style_lint] direct paragraph-formatting paragraphs: 261\n[style_lint] top fonts by char count: Bookman Old Style(21004), Book Antiqua(171)\n[style_lint] heading-like paragraphs not using Heading styles (first 10):\n  - #7: style='Normal' text='CHAIRMAN OF THE MEETING'\n  - #16: style='Normal' text='ROLL CALL OF MEMBERS PRESENT'\n  - #25: style='Normal' text='QUORUM OF THE MEETING'\n  - #154: style='Body Text' text='Resolution No. 4 | Approval for Shorter period notice'\n  - #161: style='Normal' text='ANY OTHER MATTER WITH THE PERMISSION OF CHAIR'\n  - #179: style='Normal' text='Navin Khandelwal'\n  - #191: style='Table Paragraph' text='Name of Person'\n  - #192: style='Table Paragraph' text='Representing Creditor'\n  - #193: style='Table Paragraph' text='Voting %'\n  - #194: style='Table Paragraph' text='Present Physically'\n",
+    "stderr": ""
+  },
+  "fields": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py",
+      "E:\\nclt document\\reference documents\\Minutes of 1st CoC meeting Premier Proteins Ltd (1).docx"
+    ],
+    "exit_code": 1,
+    "stdout": "FIELD COUNTS\n- PAGE: 1\n\nEXAMPLES\n\n[PAGE]\n  - PAGE \\* Arabic \\* MERGEFORMAT\n\nPER-PART DETAILS\n\n== word/footer1.xml ==\n- PAGE \\* Arabic \\* MERGEFORMAT\n\nREMINDER\n",
+    "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py\", line 182, in <module>\n    main()\n  File \"C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py\", line 176, in main\n    print(\n  File \"C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u2192' in position 92: character maps to <undefined>\n"
+  },
+  "images": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\images_audit.py",
+      "E:\\nclt document\\reference documents\\Minutes of 1st CoC meeting Premier Proteins Ltd (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "No inline/anchored drawings found in document/header/footer parts.\n",
+    "stderr": ""
+  },
+  "content_controls": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\content_controls.py",
+      "E:\\nclt document\\reference documents\\Minutes of 1st CoC meeting Premier Proteins Ltd (1).docx",
+      "list",
+      "--json"
+    ],
+    "exit_code": 0,
+    "stdout": "[\n  {\n    \"part\": \"word\\\\header1.xml\",\n    \"tag\": \"\",\n    \"alias\": \"Title\",\n    \"text\": \"Strictly Confidential Document\"\n  },\n  {\n    \"part\": \"word\\\\footer1.xml\",\n    \"tag\": \"\",\n    \"alias\": \"Author\",\n    \"text\": \"In the matter of Premier Proteins Limited (Company under CIRP)\"\n  }\n]\n",
+    "stderr": ""
+  },
+  "table_geometry": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\table_geometry.py",
+      "E:\\nclt document\\reference documents\\Minutes of 1st CoC meeting Premier Proteins Ltd (1).docx"
+    ],
+    "exit_code": 1,
+    "stdout": "table 1: tblW=auto:0 tblInd=None:None grid_sum=10226 grid=[3195, 2465, 1002, 1585, 1979]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 2: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 3: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 4: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 5: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 6: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 7: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 8: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 9: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 10: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 11: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 12: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 13: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 14: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 15: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\n  row 16: tcW=[3195, 2465, 0, 0, 0] sum=5660\n  ISSUE: row cell widths do not match grid columns\ntable 2: tblW=dxa:7532 tblInd=None:None grid_sum=7532 grid=[852, 4941, 1739]\n  ISSUE: table indent is missing or not DXA\n  row 1: tcW=[852, 4941, 1739] sum=7532\n  row 2: tcW=[852, 4941, 1739] sum=7532\n  row 3: tcW=[852, 4941, 1739] sum=7532\n  row 4: tcW=[852, 4941, 1739] sum=7532\n  row 5: tcW=[852, 4941, 1739] sum=7532\n  row 6: tcW=[852, 4941, 1739] sum=7532\nISSUES: 20\n",
+    "stderr": ""
+  }
+}

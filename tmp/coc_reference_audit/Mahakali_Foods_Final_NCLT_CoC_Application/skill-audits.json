@@ -1,0 +1,64 @@
+{
+  "section": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\section_audit.py",
+      "E:\\nclt document\\reference documents\\Mahakali_Foods_Final_NCLT_CoC_Application.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "SECTIONS: 1\n\n[Section 1] start_type=NEW_PAGE (2) orientation=PORTRAIT (0)\n  page_size(in): 8.50 x 11.00\n  margins(in): L=0.75 R=0.75 T=0.65 B=0.65\n  header_linked_to_previous=True footer_linked_to_previous=True\n  different_first_page=False odd_even_headers=None\n\nREMINDER\n- If you change orientation mid-document, Word typically creates a new section.\n- If headers/footers look wrong, check 'Link to Previous' per section.\n",
+    "stderr": ""
+  },
+  "style": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\style_lint.py",
+      "E:\\nclt document\\reference documents\\Mahakali_Foods_Final_NCLT_CoC_Application.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "[style_lint] direct run-formatting runs: 103\n[style_lint] direct paragraph-formatting paragraphs: 0\n[style_lint] top fonts by char count: Times New Roman(6271)\n[style_lint] heading-like paragraphs not using Heading styles (first 10):\n  - #1: style='Normal' text='BEFORE THE HON�BLE NATIONAL COMPANY LAW TRIBUNAL'\n  - #2: style='Normal' text='INDORE BENCH'\n  - #5: style='Normal' text='CP(IB)/72(MP)2024'\n  - #9: style='Normal' text='NAVIN KHANDELWAL\nInterim Resolution Professional / Applicant'\n  - #13: style='Normal' text='BEFORE THE HON�BLE NATIONAL COMPANY LAW TRIBUNAL'\n  - #14: style='Normal' text='INDORE BENCH'\n  - #17: style='Normal' text='CP(IB)/72(MP)2024'\n  - #21: style='Normal' text='NAVIN KHANDELWAL\nInterim Resolution Professional / Applicant'\n  - #22: style='Normal' text='INDEX'\n  - #25: style='Normal' text='BEFORE THE HON�BLE NATIONAL COMPANY LAW TRIBUNAL'\n",
+    "stderr": ""
+  },
+  "fields": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py",
+      "E:\\nclt document\\reference documents\\Mahakali_Foods_Final_NCLT_CoC_Application.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "No fields found in document.xml/headers/footers.\n",
+    "stderr": ""
+  },
+  "images": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\images_audit.py",
+      "E:\\nclt document\\reference documents\\Mahakali_Foods_Final_NCLT_CoC_Application.docx"
+    ],
+    "exit_code": 0,
+    "stdout": "No inline/anchored drawings found in document/header/footer parts.\n",
+    "stderr": ""
+  },
+  "content_controls": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\content_controls.py",
+      "E:\\nclt document\\reference documents\\Mahakali_Foods_Final_NCLT_CoC_Application.docx",
+      "list",
+      "--json"
+    ],
+    "exit_code": 0,
+    "stdout": "[]\n",
+    "stderr": ""
+  },
+  "table_geometry": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\table_geometry.py",
+      "E:\\nclt document\\reference documents\\Mahakali_Foods_Final_NCLT_CoC_Application.docx"
+    ],
+    "exit_code": 1,
+    "stdout": "table 1: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[5040, 5040]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[5040, 5040] sum=10080\n  row 2: tcW=[5040, 5040] sum=10080\ntable 2: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[5040, 5040]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[5040, 5040] sum=10080\n  row 2: tcW=[5040, 5040] sum=10080\ntable 3: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[3360, 3360, 3360]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[3360, 3360, 3360] sum=10080\n  row 2: tcW=[3360, 3360, 3360] sum=10080\n  row 3: tcW=[3360, 3360, 3360] sum=10080\n  row 4: tcW=[3360, 3360, 3360] sum=10080\n  row 5: tcW=[3360, 3360, 3360] sum=10080\n  row 6: tcW=[3360, 3360, 3360] sum=10080\n  row 7: tcW=[3360, 3360, 3360] sum=10080\n  row 8: tcW=[3360, 3360, 3360] sum=10080\n  row 9: tcW=[3360, 3360, 3360] sum=10080\n  row 10: tcW=[3360, 3360, 3360] sum=10080\n  row 11: tcW=[3360, 3360, 3360] sum=10080\n  row 12: tcW=[3360, 3360, 3360] sum=10080\ntable 4: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[5040, 5040]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[5040, 5040] sum=10080\n  row 2: tcW=[5040, 5040] sum=10080\ntable 5: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[5040, 5040]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[5040, 5040] sum=10080\n  row 2: tcW=[5040, 5040] sum=10080\ntable 6: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[5040, 5040]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[5040, 5040] sum=10080\n  row 2: tcW=[5040, 5040] sum=10080\ntable 7: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[5040, 5040]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[5040, 5040] sum=10080\n  row 2: tcW=[5040, 5040] sum=10080\n  row 3: tcW=[5040, 5040] sum=10080\n  row 4: tcW=[5040, 5040] sum=10080\n  row 5: tcW=[5040, 5040] sum=10080\n  row 6: tcW=[5040, 5040] sum=10080\n  row 7: tcW=[5040, 5040] sum=10080\ntable 8: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[5040, 5040]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[5040, 5040] sum=10080\n  row 2: tcW=[5040, 5040] sum=10080\ntable 9: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[2520, 2520, 2520, 2520]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[2520, 2520, 2520, 2520] sum=10080\n  row 2: tcW=[2520, 2520, 2520, 2520] sum=10080\n  row 3: tcW=[2520, 2520, 2520, 2520] sum=10080\n  row 4: tcW=[2520, 2520, 2520, 2520] sum=10080\ntable 10: tblW=auto:0 tblInd=None:None grid_sum=10080 grid=[5040, 5040]\n  ISSUE: table width is missing or not DXA\n  ISSUE: table indent is missing or not DXA\n  ISSUE: grid column sum does not equal table width\n  row 1: tcW=[5040, 5040] sum=10080\n  row 2: tcW=[5040, 5040] sum=10080\nISSUES: 30\n",
+    "stderr": ""
+  }
+}

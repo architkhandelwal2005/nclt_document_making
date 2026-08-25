@@ -1,0 +1,64 @@
+{
+  "section": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\section_audit.py",
+      "E:\\nclt document\\reference documents\\Constitution of CoC Members (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "SECTIONS: 1\n\n[Section 1] start_type=NEW_PAGE (2) orientation=PORTRAIT (0)\n  page_size(in): 8.27 x 11.69\n  margins(in): L=0.89 R=1.08 T=1.00 B=1.00\n  header_linked_to_previous=True footer_linked_to_previous=True\n  different_first_page=False odd_even_headers=None\n\nREMINDER\n- If you change orientation mid-document, Word typically creates a new section.\n- If headers/footers look wrong, check 'Link to Previous' per section.\n",
+    "stderr": ""
+  },
+  "style": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\style_lint.py",
+      "E:\\nclt document\\reference documents\\Constitution of CoC Members (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "[style_lint] direct run-formatting runs: 204\n[style_lint] direct paragraph-formatting paragraphs: 141\n[style_lint] top fonts by char count: Bahnschrift(2387)\n[style_lint] heading-like paragraphs not using Heading styles (first 10):\n  - #5: style='Normal' text='In the matter of Corporate Insolvency Resolution Process of'\n  - #6: style='Normal' text='Corporate Debtor: Premier Proteins Limited'\n  - #7: style='Normal' text='CIN: U15141MP1986PLC003345'\n  - #9: style='Normal' text='NCLT Bench: Indore Bench'\n  - #10: style='Normal' text='CP (IB) No.: CP(IB)/58(MP)2023'\n  - #21: style='Normal' text='Navin Khandelwal'\n  - #34: style='Normal' text='Name of the Creditor'\n  - #35: style='Normal' text='Category of Claimant '\n  - #36: style='Normal' text='Admitted Claim'\n  - #37: style='Normal' text='(Amount In INR)'\n",
+    "stderr": ""
+  },
+  "fields": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\fields_report.py",
+      "E:\\nclt document\\reference documents\\Constitution of CoC Members (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "No fields found in document.xml/headers/footers.\n",
+    "stderr": ""
+  },
+  "images": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\images_audit.py",
+      "E:\\nclt document\\reference documents\\Constitution of CoC Members (1).docx"
+    ],
+    "exit_code": 0,
+    "stdout": "No inline/anchored drawings found in document/header/footer parts.\n",
+    "stderr": ""
+  },
+  "content_controls": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\content_controls.py",
+      "E:\\nclt document\\reference documents\\Constitution of CoC Members (1).docx",
+      "list",
+      "--json"
+    ],
+    "exit_code": 0,
+    "stdout": "[]\n",
+    "stderr": ""
+  },
+  "table_geometry": {
+    "command": [
+      "C:\\Users\\archi\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+      "C:\\Users\\archi\\.codex\\plugins\\cache\\openai-primary-runtime\\documents\\26.819.11345\\skills\\documents\\scripts\\table_geometry.py",
+      "E:\\nclt document\\reference documents\\Constitution of CoC Members (1).docx"
+    ],
+    "exit_code": 1,
+    "stdout": "table 1: tblW=dxa:9835 tblInd=None:None grid_sum=9835 grid=[1053, 3015, 2365, 1887, 1515]\n  ISSUE: table indent is missing or not DXA\n  row 1: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 2: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 3: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 4: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 5: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 6: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 7: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 8: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 9: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 10: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 11: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 12: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 13: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 14: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 15: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 16: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 17: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 18: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 19: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 20: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 21: tcW=[1053, 3015, 2365, 1887, 1515] sum=9835\n  row 22: tcW=[6433, 1887, 1515] sum=9835\n  ISSUE: row cell widths do not match grid columns\nISSUES: 2\n",
+    "stderr": ""
+  }
+}
