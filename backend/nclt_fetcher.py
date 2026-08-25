@@ -1,8 +1,9 @@
-"""Visible Playwright workflow for the public NCLT case-history portal.
+"""NCLT e-filing Case History search and order downloader.
 
-The module deliberately stops at the portal CAPTCHA. A staff member completes
-that verification in the opened Chromium window and then resumes the same
-server-side browser session from Casefile.
+The supported source is the public, pre-login e-filing Case History page.  It
+does not normally present a CAPTCHA, so the normal workflow is fully automated.
+Human verification is reported only when the page contains positive challenge
+evidence; generic inputs, failed searches, and empty results never qualify.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 import json
 import os
 import re
@@ -44,7 +45,7 @@ ERROR_MESSAGES = {
     "ORDER_LINK_FAILED": "An order link could not be opened from the preserved NCLT browser session.",
     "DOWNLOAD_FAILED": "The NCLT order download did not complete.",
     "INVALID_PDF": "The downloaded response was empty, HTML, or not a valid PDF.",
-    "MANUAL_ACTION_REQUIRED": "Manual verification required in the opened browser. Complete the CAPTCHA, then press Continue.",
+    "MANUAL_ACTION_REQUIRED": "The NCLT portal displayed an explicit human-verification challenge. Complete it in the opened browser, then press Continue.",
     "SITE_STRUCTURE_CHANGED": "The NCLT page structure no longer matches the supported workflow. Debug evidence was saved.",
     "SESSION_EXPIRED": "The visible NCLT browser session is no longer available. Start a new check.",
 }
@@ -52,7 +53,7 @@ ERROR_MESSAGES = {
 
 @dataclass(frozen=True)
 class NcltFetcherConfig:
-    base_url: str = "https://nclt.gov.in"
+    base_url: str = "https://efiling.nclt.gov.in"
     default_bench: str = "indore"
     default_case_type: str = "16"
     default_case_type_label: str = "Company Petition IB (IBC)"
@@ -62,7 +63,7 @@ class NcltFetcherConfig:
     @classmethod
     def from_environment(cls) -> "NcltFetcherConfig":
         return cls(
-            base_url=os.environ.get("NCLT_FETCHER_BASE_URL", "https://nclt.gov.in").rstrip("/"),
+            base_url=os.environ.get("NCLT_FETCHER_BASE_URL", "https://efiling.nclt.gov.in").rstrip("/"),
             default_bench=os.environ.get("NCLT_FETCHER_DEFAULT_BENCH", "indore"),
             default_case_type=os.environ.get("NCLT_FETCHER_DEFAULT_CASE_TYPE", "16"),
             default_case_type_label=os.environ.get("NCLT_FETCHER_DEFAULT_CASE_TYPE_LABEL", "Company Petition IB (IBC)"),
@@ -125,14 +126,20 @@ def _table_data(document: Any, base_url: str) -> List[Dict[str, Any]]:
                 continue
             values = [clean_text(" ".join(cell.itertext())) for cell in cells]
             links = []
-            for anchor in row.xpath(".//a[@href]"):
-                links.append({"text": clean_text(" ".join(anchor.itertext())), "url": urljoin(base_url, anchor.get("href"))})
+            for anchor in row.xpath(".//a"):
+                href = clean_text(anchor.get("href"))
+                links.append({
+                    "text": clean_text(" ".join(anchor.itertext())),
+                    "url": urljoin(base_url, href) if href and not href.lower().startswith("javascript:") else "",
+                    "onclick": clean_text(anchor.get("onclick")),
+                    "title": clean_text(anchor.get("title")),
+                })
             if any(values) or links:
                 rows.append({"cells": values, "links": links, "text": clean_text(" | ".join(values))})
         if not headers and rows:
             first_cells = table.xpath(".//tr[1]/th")
             headers = [clean_text(" ".join(node.itertext())) for node in first_cells]
-        tables.append({"headers": headers, "rows": rows})
+        tables.append({"id": clean_text(table.get("id")), "headers": headers, "rows": rows})
     return tables
 
 
@@ -141,27 +148,47 @@ def parse_search_results(markup: str, base_url: str, case_number: str, year: int
     candidates: List[Dict[str, Any]] = []
     seen: set[str] = set()
     for table in _table_data(document, base_url):
+        headers = [clean_text(value).lower() for value in table["headers"]]
+        required = ("filing no", "case type", "case no", "case title")
+        if not all(any(term in header for header in headers) for term in required):
+            continue
+        filing_index = _header_index(headers, ("filing no",))
+        type_index = _header_index(headers, ("case type",))
+        number_index = _header_index(headers, ("case no",))
+        title_index = _header_index(headers, ("case title",))
+        bench_index = _header_index(headers, ("bench location", "court no"))
+        status_index = _header_index(headers, ("case status",))
         for row in table["rows"]:
-            detail_links = [link for link in row["links"] if "case-detail" in link["url"].lower()]
+            detail_links = [link for link in row["links"] if "showcasehistorydetails" in link["onclick"].lower()]
             if not detail_links:
                 continue
             link = detail_links[0]
-            if link["url"] in seen:
+            # The live cell also contains hidden "All Hearings" counters.  The
+            # clickable anchor text is the canonical filing number.
+            filing_no = link["text"] or _cell(row, filing_index)
+            if filing_no in seen:
                 continue
-            seen.add(link["url"])
+            seen.add(filing_no)
+            case_reference = _cell(row, number_index)
+            case_title = _cell(row, title_index)
+            parties = re.split(r"\s+(?:V/?S\.?|VERSUS)\s+", case_title, maxsplit=1, flags=re.I)
             candidates.append({
-                "id": sha256(link["url"].encode("utf-8")).hexdigest()[:16],
-                "case_number": str(case_number), "year": year, "case_type": "", "bench": "",
-                "case_title": row["text"], "applicant": "", "respondent": "",
-                "details_url": link["url"], "row_text": row["text"],
-                "exact_reference_match": case_reference_matches(row["text"], case_number, year),
+                "id": sha256(filing_no.encode("utf-8")).hexdigest()[:16],
+                "filing_no": filing_no, "case_number": case_reference, "year": year,
+                "case_type": _cell(row, type_index), "bench": _cell(row, bench_index),
+                "case_title": case_title,
+                "applicant": parties[0] if len(parties) == 2 else "",
+                "respondent": parties[1] if len(parties) == 2 else "",
+                "case_status": _cell(row, status_index), "details_url": "",
+                "details_onclick": link["onclick"], "row_text": row["text"],
+                "exact_reference_match": case_reference_matches(case_reference, case_number, year),
             })
     return candidates
 
 
-DATE_HEADERS = ("proceeding date", "hearing date", "date of hearing", "date")
-NEXT_DATE_HEADERS = ("next date", "next listing date", "next hearing")
-PURPOSE_HEADERS = ("purpose", "stage", "listing purpose")
+DATE_HEADERS = ("listing date", "proceeding date", "hearing date", "date of hearing", "date")
+NEXT_DATE_HEADERS = ("next listing/ disposal date", "next listing date", "next date", "next hearing")
+PURPOSE_HEADERS = ("listing purpose", "purpose", "stage")
 STATUS_HEADERS = ("status", "case status")
 ORDER_HEADERS = ("order", "orders", "order type", "interim order", "final order", "daily order", "judgment")
 
@@ -178,11 +205,34 @@ def _cell(row: Dict[str, Any], index: Optional[int]) -> str:
     return row["cells"][index] if index is not None and index < len(row["cells"]) else ""
 
 
-def parse_case_details(markup: str, base_url: str) -> Dict[str, Any]:
+def _order_url(base_url: str, onclick: str) -> str:
+    match = re.search(r"submitOrders\(\s*(['\"])(.*?)\1\s*\)", onclick or "", re.I)
+    if not match:
+        return ""
+    return urljoin(base_url, "/ordersview.drt") + "?" + urlencode({"path": match.group(2)})
+
+
+def positive_captcha_evidence(markup: str) -> List[Dict[str, str]]:
+    """Return only explicit, visible-in-markup human-verification indicators."""
+    document = html.fromstring(markup or "<html></html>")
+    evidence: List[Dict[str, str]] = []
+    for node in document.xpath("//iframe|//img|//input|//textarea"):
+        attrs = " ".join(clean_text(node.get(name)) for name in ("id", "class", "name", "placeholder", "title", "aria-label", "src"))
+        explicit = re.search(r"(?:captcha|recaptcha|hcaptcha|security\s*code)", attrs, re.I)
+        if explicit and clean_text(node.get("type")).lower() != "hidden":
+            evidence.append({"tag": node.tag, "selector": f"#{node.get('id')}" if node.get("id") else node.tag, "attributes": attrs})
+    text = clean_text(" ".join(document.itertext()))
+    if re.search(r"enter\s+(?:the\s+)?(?:captcha|security code|verification code).{0,80}(?:image|shown|displayed)", text, re.I):
+        evidence.append({"tag": "text", "selector": "body", "attributes": "explicit verification instruction"})
+    return evidence
+
+
+def parse_case_details(markup: str, base_url: str, candidate: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     document = html.fromstring(markup)
     page_text = clean_text(" ".join(document.itertext()))
+    all_tables = _table_data(document, base_url)
     pairs: Dict[str, str] = {}
-    for table in _table_data(document, base_url):
+    for table in all_tables:
         for row in table["rows"]:
             cells = row["cells"]
             for index in range(0, len(cells) - 1, 2):
@@ -196,13 +246,25 @@ def parse_case_details(markup: str, base_url: str) -> Dict[str, Any]:
                 return value
         return ""
 
-    case_number = pair("case number", "case no")
+    case_number = pair("registration no", "case number", "case no")
     title = pair("case title", "name of parties", "party name")
     applicant = pair("petitioner", "applicant")
     respondent = pair("respondent", "corporate debtor")
     bench = pair("bench")
     status = pair("status")
     identifier = pair("filing number", "filing no", "diary number")
+    if candidate:
+        identifier = identifier or candidate.get("filing_no", "")
+        case_number = case_number or candidate.get("case_number", "")
+        title = title or candidate.get("case_title", "")
+        applicant = applicant or candidate.get("applicant", "")
+        respondent = respondent or candidate.get("respondent", "")
+        bench = bench or candidate.get("bench", "")
+        status = status or candidate.get("case_status", "")
+    if title and (not applicant or not respondent):
+        parties = re.split(r"\s+(?:V/?S\.?|VERSUS)\s+", title, maxsplit=1, flags=re.I)
+        if len(parties) == 2:
+            applicant, respondent = applicant or clean_text(parties[0]), respondent or clean_text(parties[1])
     if not title:
         versus = re.search(r"([A-Z][^|]{3,150}?)\s+(?:V/?S\.?|VERSUS)\s+([A-Z][^|]{3,150})", page_text, re.I)
         if versus:
@@ -210,7 +272,11 @@ def parse_case_details(markup: str, base_url: str) -> Dict[str, Any]:
             title = f"{applicant} vs {respondent}"
 
     proceedings: List[Dict[str, Any]] = []
-    for table in _table_data(document, base_url):
+    # The modal also contains summary and interlocutory-application tables with
+    # date/order-like columns.  The portal's canonical proceeding history is
+    # specifically #allproceedingdtls; prefer it whenever present.
+    proceeding_tables = [table for table in all_tables if table["id"] == "allproceedingdtls"] or all_tables
+    for table in proceeding_tables:
         headers = table["headers"]
         header_blob = " ".join(headers).lower()
         has_proceeding_signal = any(term in header_blob for term in (*DATE_HEADERS, *ORDER_HEADERS, "purpose", "next date"))
@@ -221,10 +287,14 @@ def parse_case_details(markup: str, base_url: str) -> Dict[str, Any]:
         purpose_index = _header_index(headers, PURPOSE_HEADERS)
         status_index = _header_index(headers, STATUS_HEADERS)
         order_index = _header_index(headers, ORDER_HEADERS)
+        action_index = _header_index(headers, ("action taken",))
+        next_purpose_index = _header_index(headers, ("next listing purpose",))
+        upload_index = _header_index(headers, ("order upload date",))
+        bench_index = _header_index(headers, ("bench no", "court no"))
         for row_number, row in enumerate(table["rows"], 1):
             order_links = [link for link in row["links"] if (
-                ".pdf" in link["url"].lower() or "order" in (link["text"] + link["url"]).lower()
-                or "judg" in (link["text"] + link["url"]).lower()
+                "submitorders" in link["onclick"].lower() or ".pdf" in link["url"].lower()
+                or "order" in (link["text"] + link["url"]).lower() or "judg" in (link["text"] + link["url"]).lower()
             )]
             order_text = _cell(row, order_index)
             if not order_links and not any(term in order_text.lower() for term in ("order", "judgment")):
@@ -233,15 +303,21 @@ def parse_case_details(markup: str, base_url: str) -> Dict[str, Any]:
                 link_text = order_links[0]["text"] if order_links else order_text
                 match = re.search(r"(Interim Order|Final Order|Daily Order|Judg(?:e)?ment|Order)", link_text, re.I)
                 order_type = match.group(1).title() if match else "Order"
-            order_url = order_links[0]["url"] if order_links else ""
+            order_url = ""
+            if order_links:
+                order_url = order_links[0]["url"] or _order_url(base_url, order_links[0]["onclick"])
             proceeding_date = normalize_date(_cell(row, date_index))
             proceedings.append({
                 "row_number": row_number,
                 "date": proceeding_date,
                 "date_raw": _cell(row, date_index),
                 "purpose": _cell(row, purpose_index),
+                "action_taken": _cell(row, action_index),
                 "next_date": normalize_date(_cell(row, next_index)),
                 "next_date_raw": _cell(row, next_index),
+                "next_purpose": _cell(row, next_purpose_index),
+                "order_upload_datetime": _cell(row, upload_index),
+                "bench_court": _cell(row, bench_index),
                 "status": _cell(row, status_index),
                 "order_type": order_type,
                 "order_text": order_text,
@@ -268,7 +344,8 @@ def parse_case_details(markup: str, base_url: str) -> Dict[str, Any]:
 
 
 class NcltPortalClient:
-    SEARCH_PATH = "/case-number-wise"
+    SEARCH_PATH = "/casehistorybeforeloginmenutrue.drt"
+    BENCH_VALUES = {"indore": "15"}
 
     def __init__(self, config: NcltFetcherConfig):
         self.config = config
@@ -281,6 +358,40 @@ class NcltPortalClient:
             self._playwright = await async_playwright().start()
         return self._playwright
 
+    async def _challenge_evidence(self, page: Page) -> List[Dict[str, str]]:
+        """Inspect only visible elements carrying explicit challenge semantics."""
+        selector = (
+            "input, textarea, img, iframe"
+        )
+        evidence: List[Dict[str, str]] = []
+        locator = page.locator(selector)
+        for index in range(await locator.count()):
+            node = locator.nth(index)
+            if not await node.is_visible():
+                continue
+            details = await node.evaluate("""element => ({
+                tag: element.tagName.toLowerCase(), id: element.id || '',
+                className: typeof element.className === 'string' ? element.className : '',
+                name: element.getAttribute('name') || '',
+                placeholder: element.getAttribute('placeholder') || '',
+                title: element.getAttribute('title') || '',
+                ariaLabel: element.getAttribute('aria-label') || '',
+                src: element.getAttribute('src') || '',
+                html: (element.parentElement || element).outerHTML.slice(0, 1200),
+                surroundingText: (element.parentElement || element).innerText?.slice(0, 500) || ''
+            })""")
+            searchable = " ".join(clean_text(details.get(key)) for key in (
+                "id", "className", "name", "placeholder", "title", "ariaLabel", "src", "surroundingText",
+            ))
+            if not re.search(r"(?:captcha|recaptcha|hcaptcha|security\s*code)", searchable, re.I):
+                continue
+            evidence.append({
+                **{key: clean_text(value) for key, value in details.items()},
+                "selector": f"#{details['id']}" if details.get("id") else details["tag"],
+                "reason": "I classified this element as CAPTCHA because it is visible and explicitly identifies a CAPTCHA, security-code, reCAPTCHA, or hCaptcha challenge.",
+            })
+        return evidence
+
     async def prepare_search(self, request: Dict[str, Any]) -> PortalSession:
         engine = await self._engine()
         browser = await engine.chromium.launch(headless=self.config.headless)
@@ -289,54 +400,68 @@ class NcltPortalClient:
             page = await context.new_page()
             page.set_default_timeout(self.config.navigation_timeout_ms)
             try:
-                await page.goto(urljoin(self.config.base_url, self.SEARCH_PATH), wait_until="domcontentloaded", timeout=self.config.navigation_timeout_ms)
+                await page.goto(urljoin(self.config.base_url, self.SEARCH_PATH), wait_until="commit", timeout=self.config.navigation_timeout_ms)
             except PlaywrightTimeoutError:
                 # The government site often keeps secondary assets pending;
                 # stable search controls are the readiness signal.
                 pass
-            for selector in ("#bench", "#case_type", "#case_number", "#case_year", "#txtInput"):
+            for selector in ("#choosetype",):
                 await page.locator(selector).wait_for(state="visible", timeout=12_000)
-            await page.locator("#bench").select_option(value=request["bench"])
-            await page.locator("#case_type").select_option(value=request["case_type"])
-            await page.locator("#case_number").fill(str(request["case_number"]))
-            await page.locator("#case_year").select_option(value=str(request["case_year"]))
+            await page.locator("#choosetype").select_option(value="casenumber")
+            for selector in ("#id_i_bench_id_case_no", "#id_i_case_type_caseno", "#id_case_no", "#id_i_case_year_caseno"):
+                await page.locator(selector).wait_for(state="visible", timeout=12_000)
+            bench_value = self.BENCH_VALUES.get(request["bench"], request["bench"])
+            await page.locator("#id_i_bench_id_case_no").select_option(value=bench_value)
+            await page.locator("#id_i_case_type_caseno").select_option(value=request["case_type"])
+            await page.locator("#id_case_no").fill(str(request["case_number"]))
+            await page.locator("#id_i_case_year_caseno").select_option(value=str(request["case_year"]))
             return PortalSession(browser, context, page)
         except Exception:
             await browser.close()
             raise
 
-    async def continue_after_verification(self, session: PortalSession, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def search(self, session: PortalSession, request: Dict[str, Any]) -> Dict[str, Any]:
         page = session.page
-        current_url = page.url
-        if "case-number-wise" in current_url:
-            captcha = clean_text(await page.locator("#txtInput").input_value())
-            if not captcha:
-                return {"status": "MANUAL_ACTION_REQUIRED"}
-            form = page.locator("#search-case-number-form")
-            submit = form.get_by_role("button", name="Search")
-            try:
-                await submit.click()
-                await page.wait_for_load_state("domcontentloaded", timeout=self.config.navigation_timeout_ms)
-            except PlaywrightTimeoutError:
-                pass
+        evidence = await self._challenge_evidence(page)
+        if evidence:
+            return {"status": "MANUAL_ACTION_REQUIRED", "challenge_evidence": evidence}
+        await page.locator("a.searchBtn").click()
+        try:
+            await page.locator("a[onclick^='showCaseHistoryDetails']").first.wait_for(
+                state="attached", timeout=self.config.navigation_timeout_ms,
+            )
+        except PlaywrightTimeoutError:
+            pass
         markup = await page.content()
-        lower = clean_text(await page.locator("body").inner_text()).lower()
-        if "captcha" in lower and any(term in lower for term in ("invalid", "incorrect", "required")):
-            return {"status": "MANUAL_ACTION_REQUIRED"}
+        evidence = await self._challenge_evidence(page)
+        if evidence:
+            return {"status": "MANUAL_ACTION_REQUIRED", "challenge_evidence": evidence}
         candidates = parse_search_results(markup, self.config.base_url, request["case_number"], request["case_year"])
-        exact = [candidate for candidate in candidates if candidate["exact_reference_match"]]
+        exact = [candidate for candidate in candidates if candidate["exact_reference_match"] and (
+            not candidate["case_type"] or request["case_type_label"].replace(" ", "").lower() in candidate["case_type"].replace(" ", "").lower()
+        )]
         if len(exact) == 0:
             return {"status": "NO_CASE_FOUND", "candidates": candidates}
         if len(exact) > 1:
             return {"status": "MULTIPLE_MATCHES_NEEDS_REVIEW", "candidates": exact}
         return await self.open_candidate(session, exact[0])
 
+    async def continue_after_verification(self, session: PortalSession, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Resume only an unexpected, positively identified portal challenge."""
+        if await self._challenge_evidence(session.page):
+            return {"status": "MANUAL_ACTION_REQUIRED"}
+        return await self.search(session, request)
+
     async def open_candidate(self, session: PortalSession, candidate: Dict[str, Any]) -> Dict[str, Any]:
         page = session.page
-        try:
-            await page.goto(candidate["details_url"], wait_until="domcontentloaded", timeout=self.config.navigation_timeout_ms)
-        except PlaywrightTimeoutError:
-            pass
+        filing_no = candidate.get("filing_no", "")
+        link = page.locator("a[title='Click here to view status']", has_text=filing_no).first
+        await link.click()
+        # The empty modal/table shell exists before the AJAX detail response;
+        # wait for an actual proceeding row, not merely the table element.
+        await page.locator("#allproceedingdtls tbody tr").first.wait_for(
+            state="attached", timeout=self.config.navigation_timeout_ms,
+        )
         body = clean_text(await page.locator("body").inner_text())
         if "Unauthorized access or session expired" in body:
             return {"status": "CASE_DETAILS_FAILED"}
@@ -354,7 +479,7 @@ class NcltPortalClient:
                     break
             except Exception:
                 continue
-        parsed = parse_case_details(await page.content(), self.config.base_url)
+        parsed = parse_case_details(await page.content(), self.config.base_url, candidate)
         parsed.update({"status": "PROCEEDINGS_FETCHED" if parsed["proceedings"] else "PROCEEDINGS_NOT_FOUND", "candidate": candidate})
         return parsed
 
@@ -419,11 +544,10 @@ class NcltOrderFetcherService:
                                 title=event.replace("_", " ").title())
 
     async def _close_session(self, run_id: str) -> None:
-        """Release the per-run browser after a terminal outcome.
+        """Release the browser after a terminal outcome.
 
-        A run intentionally keeps its browser context alive between CAPTCHA
-        verification, result review, and downloads because NCLT download links
-        can depend on that same public-site session.
+        A run keeps its context through result review and downloads because
+        order responses may depend on cookies from the Case History session.
         """
         session = self.sessions.pop(run_id, None)
         if not session:
@@ -473,10 +597,15 @@ class NcltOrderFetcherService:
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         target = self.debug_dir / f"{stamp}-{safe_component(run_id)}-{safe_component(stage)}"
         target.mkdir(parents=True, exist_ok=False)
-        evidence = {"stage": stage, "timestamp": utc_now(), "error": clean_text(error), "url": "", "screenshot": "", "html": ""}
+        evidence = {
+            "stage": stage, "timestamp": utc_now(), "error": clean_text(error), "url": "", "title": "",
+            "visible_text": "", "screenshot": "", "html": "",
+        }
         if page:
             try:
                 evidence["url"] = page.url
+                evidence["title"] = clean_text(await page.title())
+                evidence["visible_text"] = clean_text(await page.locator("body").inner_text())[:5000]
                 screenshot = target / "page.png"
                 await page.screenshot(path=str(screenshot), full_page=True)
                 evidence["screenshot"] = str(screenshot.relative_to(self.data_dir))
@@ -490,17 +619,42 @@ class NcltOrderFetcherService:
 
     async def start(self, request: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
         run_id = self._create_run(request, actor_id)
+        session: Optional[PortalSession] = None
         try:
             session = await self.portal.prepare_search(request)
             self.sessions[run_id] = session
-            self._audit(actor_id, "NCLT_MANUAL_ACTION_REQUIRED", run_id, request.get("case_id"))
-            return self._update_run(run_id, "MANUAL_ACTION_REQUIRED", "CAPTCHA", error_code="MANUAL_ACTION_REQUIRED",
-                                    error_message=ERROR_MESSAGES["MANUAL_ACTION_REQUIRED"])
+            result = await self.portal.search(session, request)
+            run = self.get_run(run_id) or {}
+            return await self._handle_portal_result(run, result, actor_id)
         except Exception as error:
             code = "BROWSER_SETUP_REQUIRED" if "install" in clean_text(error).lower() or "executable" in clean_text(error).lower() else "SEARCH_FORM_NOT_FOUND" if "#" in clean_text(error) else "NCLT_SITE_UNAVAILABLE"
-            evidence = await self._debug(run_id, "SEARCH_FORM", None, error)
-            return self._update_run(run_id, "FAILED", "SEARCH_FORM", error_code=code,
-                                    error_message=ERROR_MESSAGES[code], debug=evidence, completed=True)
+            evidence = await self._debug(run_id, "SEARCH", session.page if session else None, error)
+            terminal = self._update_run(run_id, "FAILED", "SEARCH", error_code=code,
+                                        error_message=ERROR_MESSAGES[code], debug=evidence, completed=True)
+            await self._close_session(run_id)
+            return terminal
+
+    async def _handle_portal_result(self, run: Dict[str, Any], result: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        run_id = run["id"]
+        status = result.pop("status")
+        if status == "MANUAL_ACTION_REQUIRED":
+            session = self.sessions.get(run_id)
+            evidence = await self._debug(run_id, "HUMAN_VERIFICATION", session.page if session else None,
+                                         ERROR_MESSAGES[status])
+            evidence["challenge_evidence"] = result.get("challenge_evidence", [])
+            self._audit(actor_id, "NCLT_MANUAL_ACTION_REQUIRED", run_id, run.get("case_id"), evidence)
+            return self._update_run(run_id, status, "HUMAN_VERIFICATION", result, status,
+                                    ERROR_MESSAGES[status], evidence)
+        if status == "MULTIPLE_MATCHES_NEEDS_REVIEW":
+            self._audit(actor_id, "NCLT_MULTIPLE_MATCHES", run_id, run.get("case_id"), result)
+            return self._update_run(run_id, status, "RESULT_SELECTION", result, status, ERROR_MESSAGES[status])
+        if status in {"NO_CASE_FOUND", "CASE_DETAILS_FAILED", "PROCEEDINGS_NOT_FOUND"}:
+            session = self.sessions.get(run_id)
+            evidence = await self._debug(run_id, status, session.page if session else None, ERROR_MESSAGES[status])
+            terminal = self._update_run(run_id, "FAILED", status, result, status, ERROR_MESSAGES[status], evidence, completed=True)
+            await self._close_session(run_id)
+            return terminal
+        return self._store_result(run, result, actor_id)
 
     async def continue_run(self, run_id: str, actor_id: str) -> Dict[str, Any]:
         run = self.get_run(run_id)
@@ -513,18 +667,7 @@ class NcltOrderFetcherService:
         request = {key: run[key] for key in ("case_number", "case_year", "case_type", "case_type_label", "bench", "case_id")}
         try:
             result = await self.portal.continue_after_verification(session, request)
-            status = result.pop("status")
-            if status == "MANUAL_ACTION_REQUIRED":
-                return self._update_run(run_id, status, "CAPTCHA", result, status, ERROR_MESSAGES[status])
-            if status == "MULTIPLE_MATCHES_NEEDS_REVIEW":
-                self._audit(actor_id, "NCLT_MULTIPLE_MATCHES", run_id, run.get("case_id"), result)
-                return self._update_run(run_id, status, "RESULT_SELECTION", result, status, ERROR_MESSAGES[status])
-            if status in {"NO_CASE_FOUND", "CASE_DETAILS_FAILED", "PROCEEDINGS_NOT_FOUND"}:
-                evidence = await self._debug(run_id, status, session.page, ERROR_MESSAGES[status])
-                terminal = self._update_run(run_id, "FAILED", status, result, status, ERROR_MESSAGES[status], evidence, completed=True)
-                await self._close_session(run_id)
-                return terminal
-            return self._store_result(run, result, actor_id)
+            return await self._handle_portal_result(run, result, actor_id)
         except Exception as error:
             evidence = await self._debug(run_id, "CONTINUE", session.page, error)
             terminal = self._update_run(run_id, "FAILED", "CONTINUE", error_code="SITE_STRUCTURE_CHANGED",

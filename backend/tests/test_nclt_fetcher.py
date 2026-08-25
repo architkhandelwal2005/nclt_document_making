@@ -11,7 +11,7 @@ from database import CasefileDatabase
 from nclt_fetcher import (
     ERROR_MESSAGES, NcltFetcherConfig, NcltOrderFetcherService,
     case_reference_matches, parse_case_details, parse_search_results,
-    safe_component, source_identifier,
+    positive_captcha_evidence, safe_component, source_identifier,
 )
 
 
@@ -30,27 +30,32 @@ def _request(case_id=None, number="72", year=2025):
 
 
 def test_search_results_are_validated_by_number_and_year():
-    results = parse_search_results(_markup("search_results.html"), "https://nclt.gov.in", "72", 2025)
+    results = parse_search_results(_markup("search_results.html"), "https://efiling.nclt.gov.in", "72", 2025)
     assert len(results) == 2
     assert [item["exact_reference_match"] for item in results] == [True, False]
-    assert results[0]["details_url"].startswith("https://nclt.gov.in/case-details")
+    assert results[0]["filing_no"] == "2315106007542025"
+    assert results[0]["case_number"] == "C.P. (IB)/72/MP/2025"
+    assert "showCaseHistoryDetails" in results[0]["details_onclick"]
     assert case_reference_matches("CP (IB) 72/2025", "72", 2025)
     assert not case_reference_matches("CP (IB) 172/2025", "72", 2025)
 
 
 def test_case_summary_and_all_proceeding_rows_are_parsed():
-    result = parse_case_details(_markup("case_details.html"), "https://nclt.gov.in")
+    result = parse_case_details(_markup("case_details.html"), "https://efiling.nclt.gov.in")
     assert result["case"] == {
-        "case_identifier": "INDORE-TEST-72-2025", "case_number": "CP (IB) 72/2025",
-        "title": "Axis Bank Limited vs Kshipra Motors Private Limited",
-        "applicant": "Axis Bank Limited", "respondent": "Kshipra Motors Private Limited",
-        "bench": "Indore Bench", "status": "Disposed",
+        "case_identifier": "2315106007542025", "case_number": "C.P. (IB)/72/MP/2025",
+        "title": "AXIS BANK LIMITED VS KSHIPRA MOTORS PRIVATE LIMITED",
+        "applicant": "AXIS BANK LIMITED", "respondent": "KSHIPRA MOTORS PRIVATE LIMITED",
+        "bench": "indore/ 1", "status": "Dispose",
     }
     assert len(result["proceedings"]) == 3
     assert [row["download_status"] for row in result["proceedings"]] == ["NEW", "NEW", "NO_ORDER"]
     assert [row["order_type"] for row in result["proceedings"]] == ["Final Order", "Interim Order", ""]
     assert result["proceedings"][0]["date"] == "2026-07-29"
     assert result["proceedings"][1]["next_date"] == "2026-07-29"
+    assert result["proceedings"][0]["action_taken"] == "Allowed"
+    assert result["proceedings"][0]["order_upload_datetime"] == "03-08-2026 18:17:24"
+    assert result["proceedings"][0]["order_url"].startswith("https://efiling.nclt.gov.in/ordersview.drt?path=")
 
 
 def test_hearing_date_is_not_confused_with_an_earlier_next_date_column():
@@ -59,14 +64,14 @@ def test_hearing_date_is_not_confused_with_an_earlier_next_date_column():
     <tbody><tr><td>15-09-2026</td><td>01-09-2026</td><td>Hearing</td>
     <td><a href="/orders/view?id=date-order">Interim Order</a></td></tr></tbody></table>
     """
-    proceeding = parse_case_details(markup, "https://nclt.gov.in")["proceedings"][0]
+    proceeding = parse_case_details(markup, "https://efiling.nclt.gov.in")["proceedings"][0]
     assert proceeding["date"] == "2026-09-01"
     assert proceeding["next_date"] == "2026-09-15"
 
 
 def test_identifier_and_filename_helpers_are_stable_and_sanitized():
-    first = source_identifier("https://nclt.gov.in/orders/view?id=abc", "2026-07-29", "Final Order")
-    second = source_identifier("https://nclt.gov.in/orders/view?id=abc", "2026-07-29", "Final Order")
+    first = source_identifier("https://efiling.nclt.gov.in/ordersview.drt?path=abc", "2026-07-29", "Final Order")
+    second = source_identifier("https://efiling.nclt.gov.in/ordersview.drt?path=abc", "2026-07-29", "Final Order")
     assert first == second
     assert safe_component("2026-07-29 CP(IB) 72/2025 Final Order") == "2026_07_29_CP_IB_72_2025_Final_Order"
 
@@ -76,7 +81,7 @@ def test_persistent_duplicate_detection_does_not_change_source_expectation(tmp_p
     service = NcltOrderFetcherService(store, tmp_path / "data", NcltFetcherConfig(headless=True))
     first_id = service._create_run(_request(), "actor")
     first = service.get_run(first_id)
-    parsed = parse_case_details(_markup("case_details.html"), "https://nclt.gov.in")
+    parsed = parse_case_details(_markup("case_details.html"), "https://efiling.nclt.gov.in")
     stored = service._store_result(first, parsed, "actor")
     assert stored["result"]["summary"] == {
         "proceedings_found": 3, "orders_found": 2, "new_orders": 2, "already_downloaded": 0,
@@ -84,7 +89,7 @@ def test_persistent_duplicate_detection_does_not_change_source_expectation(tmp_p
 
     second_id = service._create_run(_request(), "actor")
     second = service.get_run(second_id)
-    parsed_again = parse_case_details(_markup("case_details.html"), "https://nclt.gov.in")
+    parsed_again = parse_case_details(_markup("case_details.html"), "https://efiling.nclt.gov.in")
     repeated = service._store_result(second, parsed_again, "actor")
     assert repeated["result"]["summary"]["new_orders"] == 0
     # Undownloaded records stay NEW; they are not falsely labelled downloaded.
@@ -97,7 +102,7 @@ def test_persistent_duplicate_detection_does_not_change_source_expectation(tmp_p
     # two distinct PDFs filed on the same date must both be retained.
     third_id = service._create_run(_request(), "actor")
     distinct = dict(parsed_again["proceedings"][0])
-    distinct["order_url"] = "https://nclt.gov.in/orders/view?id=second-order-same-date"
+    distinct["order_url"] = "https://efiling.nclt.gov.in/ordersview.drt?path=second-order-same-date"
     distinct["source_identifier"] = source_identifier(
         distinct["order_url"], distinct["date"], distinct["order_type"], distinct["source_row"],
     )
@@ -112,7 +117,15 @@ def test_pdf_validation_rejects_html_and_accepts_pdf(tmp_path):
     service._validate_pdf(b"%PDF-1.7\n" + b"0" * 200, "application/pdf")
     with pytest.raises(ValueError, match="valid PDF"):
         service._validate_pdf(b"<html>portal error</html>" * 10, "text/html")
-    assert "CAPTCHA" in ERROR_MESSAGES["MANUAL_ACTION_REQUIRED"]
+    assert "human-verification" in ERROR_MESSAGES["MANUAL_ACTION_REQUIRED"]
+
+
+def test_captcha_requires_positive_challenge_evidence():
+    ordinary = "<input id='id_case_no' placeholder='Enter Case Number'><div>No records found</div>"
+    assert positive_captcha_evidence(ordinary) == []
+    explicit = "<label for='captcha_input'>Captcha</label><input id='captcha_input' name='captcha' placeholder='Enter captcha'>"
+    evidence = positive_captcha_evidence(explicit)
+    assert evidence and evidence[0]["selector"] == "#captcha_input"
 
 
 def test_schema_contains_fetch_tracking_and_preserves_existing_modules(tmp_path):
@@ -150,7 +163,7 @@ def test_valid_download_is_registered_once_in_case_documents(tmp_path):
     service = NcltOrderFetcherService(store, tmp_path / "data", NcltFetcherConfig(headless=True))
     run_id = service._create_run(_request(case["id"]), "actor")
     run = service.get_run(run_id)
-    service._store_result(run, parse_case_details(_markup("case_details.html"), "https://nclt.gov.in"), "actor")
+    service._store_result(run, parse_case_details(_markup("case_details.html"), "https://efiling.nclt.gov.in"), "actor")
     service.sessions[run_id] = FakeSession()
 
     downloaded = asyncio.run(service.download_new(run_id, "actor"))

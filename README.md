@@ -67,8 +67,9 @@ The environment administrator is restored at startup and cannot be disabled. Add
 
 ## NCLT Order Fetcher
 
-The fetcher opens the public NCLT case-number search in a visible Chromium
-window. It never bypasses CAPTCHA (the portal's human-verification challenge):
+The fetcher automates the public, pre-login NCLT e-filing Case History page at
+`https://efiling.nclt.gov.in/casehistorybeforeloginmenutrue.drt`. This page does
+not normally require a CAPTCHA (a human-verification challenge):
 
 1. Before first use on a computer, close Casefile and double-click
    `setup_nclt_fetcher.bat`. This installs the pinned Playwright package and its
@@ -77,12 +78,10 @@ window. It never bypasses CAPTCHA (the portal's human-verification challenge):
 3. Open **NCLT Orders** from the main navigation, or open a company and select
    its **NCLT Orders** tab for case-prefilled operation.
 4. Enter or review the case number and year, then press **Fetch NCLT case**.
-5. Complete the CAPTCHA in the opened Chromium window. Return to Casefile and
-   press **Continue after manual verification**.
-6. Review the validated case and every proceeding row. If the portal returns
+5. Review the validated case and every proceeding row. If the portal returns
    multiple exact candidates, select the correct one; the software does not
    guess.
-7. Press **Download all new orders**. Valid PDF files are recorded only after
+6. Press **Download all new orders**. Valid PDF files are recorded only after
    content and size checks; previously seen sources or file hashes are skipped.
 
 Standalone downloads are stored under `backend/data/nclt_orders/`. A fetch
@@ -92,9 +91,11 @@ Documents register with category **NCLT Order**. Automation failures save a
 screenshot, page address, stage, error, and page HTML under
 `backend/data/debug/nclt_fetcher/` for maintenance.
 
-Visible-browser mode is the supported first-version default. It can be changed
-with `NCLT_FETCHER_HEADLESS`, but headless mode should not be used when the
-public portal requires manual verification.
+Visible-browser mode is the default so unexpected portal changes remain easy to
+diagnose. It can be changed with `NCLT_FETCHER_HEADLESS`. Manual action is shown
+only if the page contains positive evidence of a real human-verification
+challenge; generic inputs, failed searches, loading states, and empty results do
+not trigger that state.
 
 ## Roles and case access
 
