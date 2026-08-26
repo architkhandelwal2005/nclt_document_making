@@ -148,7 +148,7 @@ def test_every_operational_module_accepts_case_scoped_records(tmp_path, monkeypa
         samples = {
             "hearings": {"hearing_at": "2026-08-25T10:30", "purpose": "Status hearing"},
             "applications": {"application_type": "Progress report", "status": "filed"},
-            "claims": {"creditor_category": "Financial creditor", "claimed_amount": 1000},
+            "claims": {"received_date": "2026-08-22", "creditor_name": "Example Bank", "creditor_category": "FINANCIAL_CREDITOR", "form_type": "Form C", "claimed_amount": 1000, "email": "claims@example.test"},
             "coc-members": {"admitted_debt": 1000, "voting_share": 100, "valid_from": "2026-08-22"},
             "coc-meetings": {"meeting_number": 1, "meeting_at": "2026-08-26T11:00"},
             "communications": {"channel": "Email", "occurred_at": "2026-08-22T12:00", "subject": "Notice"},

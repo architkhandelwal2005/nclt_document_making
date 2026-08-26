@@ -149,7 +149,7 @@ def test_ai_schema_migration_and_public_config_never_expose_key(tmp_path):
         tables = {row["name"] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         version = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(ai_jobs)")}
-    assert version == 7 and "ai_jobs" in tables
+    assert version == 8 and "ai_jobs" in tables
     assert {"document_hash", "prompt_version", "schema_version", "input_tokens", "api_calls", "latency_ms",
             "actual_cost", "estimated_list_cost", "estimated_cost", "comparison_json"} <= columns
 

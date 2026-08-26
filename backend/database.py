@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -32,7 +32,17 @@ MODULE_FIELDS: Dict[str, tuple[str, ...]] = {
     "applications": ("application_type", "number", "filing_date", "parties", "relief_sought", "status", "defects", "disposal_date"),
     "orders": ("hearing_id", "application_id", "order_date", "summary", "document_id"),
     "order-directions": ("order_id", "direction", "due_date", "responsible_user_id", "task_id", "status"),
-    "claims": ("claimant_contact_id", "creditor_category", "form_type", "received_date", "claimed_amount", "admitted_amount", "security_details", "status", "deficiency_notes", "decision_reason", "revision", "parent_claim_id"),
+    "claims": (
+        "claimant_contact_id", "claim_number", "creditor_name", "contact_person", "email", "phone", "address",
+        "creditor_category", "related_party_status", "form_type", "received_date", "received_via", "sender_email",
+        "sender_name", "source_email_id", "email_subject", "source_notes", "currency", "principal_claimed",
+        "interest_claimed", "other_amount_claimed", "claimed_amount", "calculated_component_total",
+        "principal_admitted", "interest_admitted", "other_amount_admitted", "admitted_amount", "amount_not_admitted",
+        "security_details", "secured_status", "security_value", "charge_details", "date_debt_incurred", "due_date",
+        "default_date", "interest_rate", "interest_basis", "status", "deficiency_notes", "verification_notes",
+        "issues_identified", "documents_checked", "decision_date", "decision_by", "decision_reason", "revision",
+        "parent_claim_id", "idempotency_key", "override_reason",
+    ),
     "claim-documents": ("claim_id", "name", "required", "received", "document_id", "notes"),
     "coc-members": ("claim_id", "contact_id", "admitted_debt", "voting_share", "valid_from", "valid_to", "authorized_representative"),
     "coc-meetings": ("meeting_number", "meeting_at", "actual_start_at", "actual_end_at", "mode", "venue_or_link", "notice_date", "notice_place", "voting_start", "voting_end", "status", "agenda_json", "notice_snapshot_json", "minutes", "quorum_threshold", "chair_name", "signed_at"),
@@ -386,6 +396,88 @@ class CasefileDatabase:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS claim_checklist_items (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    label TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'MISSING',
+                    document_id TEXT REFERENCES documents(id),
+                    notes TEXT NOT NULL DEFAULT '',
+                    position INTEGER NOT NULL DEFAULT 0,
+                    created_by TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS claim_queries (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    query_date TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    query_text TEXT NOT NULL,
+                    information_requested TEXT NOT NULL DEFAULT '',
+                    sent_to TEXT NOT NULL DEFAULT '',
+                    response_due_date TEXT,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    created_by TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS claim_query_responses (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    query_id TEXT NOT NULL REFERENCES claim_queries(id),
+                    response_received_date TEXT NOT NULL,
+                    response_notes TEXT NOT NULL DEFAULT '',
+                    source_reference TEXT NOT NULL DEFAULT '',
+                    document_ids_json TEXT NOT NULL DEFAULT '[]',
+                    created_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS claim_decisions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    claim_revision INTEGER NOT NULL,
+                    decision_date TEXT NOT NULL,
+                    decision_by TEXT NOT NULL,
+                    decision_status TEXT NOT NULL,
+                    principal_admitted REAL NOT NULL DEFAULT 0,
+                    interest_admitted REAL NOT NULL DEFAULT 0,
+                    other_amount_admitted REAL NOT NULL DEFAULT 0,
+                    admitted_amount REAL NOT NULL DEFAULT 0,
+                    amount_not_admitted REAL NOT NULL DEFAULT 0,
+                    reason TEXT NOT NULL DEFAULT '',
+                    override_reason TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS claim_revisions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    revision INTEGER NOT NULL,
+                    snapshot_json TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    document_ids_json TEXT NOT NULL DEFAULT '[]',
+                    created_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(claim_id, revision)
+                );
+
+                CREATE INDEX IF NOT EXISTS ix_claim_checklist_claim ON claim_checklist_items(case_id, claim_id, position);
+                CREATE INDEX IF NOT EXISTS ix_claim_queries_claim ON claim_queries(case_id, claim_id, created_at);
+                CREATE INDEX IF NOT EXISTS ix_claim_responses_query ON claim_query_responses(case_id, claim_id, query_id);
+                CREATE INDEX IF NOT EXISTS ix_claim_decisions_claim ON claim_decisions(case_id, claim_id, created_at);
+                CREATE INDEX IF NOT EXISTS ix_claim_revisions_claim ON claim_revisions(case_id, claim_id, revision);
 
                 CREATE TABLE IF NOT EXISTS coc_members (
                     id TEXT PRIMARY KEY,
@@ -863,6 +955,28 @@ class CasefileDatabase:
             self._ensure_column(connection, "ai_jobs", "actual_cost", "REAL")
             self._ensure_column(connection, "ai_jobs", "estimated_list_cost", "REAL")
             self._ensure_column(connection, "coc_meetings", "signed_at", "TEXT")
+            claim_columns = {
+                "claim_number": "TEXT NOT NULL DEFAULT ''", "creditor_name": "TEXT NOT NULL DEFAULT ''",
+                "contact_person": "TEXT NOT NULL DEFAULT ''", "email": "TEXT NOT NULL DEFAULT ''",
+                "phone": "TEXT NOT NULL DEFAULT ''", "address": "TEXT NOT NULL DEFAULT ''",
+                "related_party_status": "TEXT NOT NULL DEFAULT 'UNKNOWN'", "received_via": "TEXT NOT NULL DEFAULT 'Email'",
+                "sender_email": "TEXT NOT NULL DEFAULT ''", "sender_name": "TEXT NOT NULL DEFAULT ''",
+                "source_email_id": "TEXT", "email_subject": "TEXT NOT NULL DEFAULT ''", "source_notes": "TEXT NOT NULL DEFAULT ''",
+                "currency": "TEXT NOT NULL DEFAULT 'INR'", "principal_claimed": "REAL", "interest_claimed": "REAL",
+                "other_amount_claimed": "REAL", "calculated_component_total": "REAL",
+                "principal_admitted": "REAL NOT NULL DEFAULT 0", "interest_admitted": "REAL NOT NULL DEFAULT 0",
+                "other_amount_admitted": "REAL NOT NULL DEFAULT 0", "amount_not_admitted": "REAL NOT NULL DEFAULT 0",
+                "secured_status": "TEXT NOT NULL DEFAULT 'UNKNOWN'", "security_value": "REAL", "charge_details": "TEXT NOT NULL DEFAULT ''",
+                "date_debt_incurred": "TEXT", "due_date": "TEXT", "default_date": "TEXT", "interest_rate": "REAL",
+                "interest_basis": "TEXT NOT NULL DEFAULT ''", "verification_notes": "TEXT NOT NULL DEFAULT ''",
+                "issues_identified": "TEXT NOT NULL DEFAULT ''", "documents_checked": "TEXT NOT NULL DEFAULT ''",
+                "decision_date": "TEXT", "decision_by": "TEXT NOT NULL DEFAULT ''", "idempotency_key": "TEXT",
+                "override_reason": "TEXT NOT NULL DEFAULT ''",
+            }
+            for column, declaration in claim_columns.items():
+                self._ensure_column(connection, "claims", column, declaration)
+            connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_number ON claims(case_id, claim_number) WHERE claim_number <> ''")
+            connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_idempotency ON claims(case_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''")
             self._seed_compliance_rules(connection)
 
     @staticmethod

@@ -10,9 +10,10 @@ import ActivityManager from "../components/ActivityManager";
 import CocWorkspace from "../components/CocWorkspace";
 import PublicAnnouncementWorkspace from "../components/PublicAnnouncementWorkspace";
 import NcltOrderFetcher from "../components/NcltOrderFetcher";
-import { ClaimChecklist, CocVoting, OrdersAndDirections } from "../components/LinkedWorkflows";
+import ClaimsWorkspace from "../components/ClaimsWorkspace";
+import { CocVoting, OrdersAndDirections } from "../components/LinkedWorkflows";
 import {
-  applicationConfig, assetConfig, claimConfig, cocMeetingConfig, cocMemberConfig,
+  applicationConfig, assetConfig, cocMeetingConfig, cocMemberConfig,
   communicationConfig, contributionConfig, deadlineConfig, expenseConfig,
   financialConfig, hearingConfig, taskConfig, valuationConfig,
 } from "../constants/moduleConfigs";
@@ -76,7 +77,7 @@ function ModuleContent({ tab, caseRecord, onUpdated }) {
   if (tab === "tasks") return <Manager caseId={caseId} config={taskConfig} />;
   if (tab === "compliance") return <Manager caseId={caseId} config={deadlineConfig} />;
   if (tab === "hearings") return <div className="space-y-6"><Manager caseId={caseId} config={hearingConfig} /><Manager caseId={caseId} config={applicationConfig} /><OrdersAndDirections caseId={caseId} /></div>;
-  if (tab === "claims") return <div className="space-y-6"><Manager caseId={caseId} config={claimConfig} /><ClaimChecklist caseId={caseId} /></div>;
+  if (tab === "claims") return <ClaimsWorkspace caseRecord={caseRecord} />;
   if (tab === "coc") return <div className="space-y-6"><Manager caseId={caseId} config={cocMemberConfig} /><Manager caseId={caseId} config={cocMeetingConfig} /><CocWorkspace caseRecord={caseRecord} /><CocVoting caseId={caseId} /></div>;
   if (tab === "contacts") return <ContactsManager caseId={caseId} />;
   if (tab === "documents") return <DocumentsManager caseRecord={caseRecord} />;

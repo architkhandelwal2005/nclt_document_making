@@ -26,6 +26,7 @@ from coc_workflow import CocDocumentService
 from public_announcement import FORM_FIELDS, build_form_defaults, clean_registered_address, extract_published_pdf, generate_form_a
 from nclt_fetcher import NcltOrderFetcherService
 from ai import AdmissionAIService, AIServiceError
+from claims_workflow import ClaimsWorkflow, QUERY_TEMPLATES
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
 STORAGE_MODE = os.environ.get("STORAGE_MODE", "local").strip().lower()
@@ -1406,6 +1407,8 @@ def _validate_coc_module_payload(case_id: str, module: str, payload: Dict[str, A
 async def list_case_module(case_id: str, module: str, current=Depends(get_current_user)):
     require_case_access(case_id, current)
     _valid_module(module)
+    if module == "claims":
+        return ClaimsWorkflow(casefile_store, DATA_DIR).list(case_id)
     try:
         return casefile_store.list_module_records(case_id, module)
     except KeyError as exc:
@@ -1416,6 +1419,11 @@ async def list_case_module(case_id: str, module: str, current=Depends(get_curren
 async def create_case_module(case_id: str, module: str, payload: Dict[str, Any], current=Depends(get_current_user)):
     require_case_access(case_id, current)
     _valid_module(module)
+    if module == "claims":
+        try:
+            return ClaimsWorkflow(casefile_store, DATA_DIR).create(case_id, payload, current["id"])
+        except (ValueError, TypeError, sqlite3.IntegrityError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     payload = _validate_coc_module_payload(case_id, module, payload) if module.startswith("coc-") else payload
     try:
         return casefile_store.create_module_record(case_id, module, payload, current["id"])
@@ -1429,6 +1437,13 @@ async def create_case_module(case_id: str, module: str, payload: Dict[str, Any],
 async def update_case_module(case_id: str, module: str, record_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
     require_case_access(case_id, current)
     _valid_module(module)
+    if module == "claims":
+        try:
+            return ClaimsWorkflow(casefile_store, DATA_DIR).update(case_id, record_id, payload, current["id"])
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
+        except (ValueError, TypeError, sqlite3.IntegrityError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     payload = _validate_coc_module_payload(case_id, module, payload, record_id) if module.startswith("coc-") else payload
     try:
         return casefile_store.update_module_record(case_id, module, record_id, payload, current["id"])
@@ -1450,6 +1465,156 @@ async def archive_case_module(case_id: str, module: str, record_id: str, current
         raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+# ---------------- Structured claims workflow ----------------
+
+def _claims(case_id: str, current: Dict[str, str]) -> ClaimsWorkflow:
+    require_case_access(case_id, current)
+    return ClaimsWorkflow(casefile_store, DATA_DIR)
+
+
+@api_router.get("/cases/{case_id}/claims/summary")
+async def claim_summary(case_id: str, current=Depends(get_current_user)):
+    return _claims(case_id, current).summary(case_id)
+
+
+@api_router.get("/cases/{case_id}/claims/query-templates")
+async def claim_query_templates(case_id: str, current=Depends(get_current_user)):
+    _claims(case_id, current)
+    return QUERY_TEMPLATES
+
+
+@api_router.get("/cases/{case_id}/claims/list-of-creditors")
+async def list_of_creditors(case_id: str, current=Depends(get_current_user)):
+    return _claims(case_id, current).creditors(case_id)
+
+
+@api_router.get("/cases/{case_id}/claims/list-of-creditors/export/docx")
+async def export_list_of_creditors(case_id: str, current=Depends(get_current_user)):
+    workflow = _claims(case_id, current)
+    export_id = str(uuid.uuid4())
+    output = CASE_FILES_DIR / case_id / "claims" / f"list-of-creditors-{export_id}.docx"
+    try:
+        workflow.export_creditors_docx(case_id, output)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
+    return FileResponse(output, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=f"List_of_Creditors_{case_id[:8]}.docx")
+
+
+@api_router.get("/cases/{case_id}/claims/{claim_id}")
+async def get_claim(case_id: str, claim_id: str, current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).get(case_id, claim_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/verification/start")
+async def start_claim_verification(case_id: str, claim_id: str, current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).start_verification(case_id, claim_id, current["id"])
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/decision")
+async def decide_claim(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).decide(case_id, claim_id, payload, current["id"])
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/revisions")
+async def revise_claim(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).revise(case_id, claim_id, payload, current["id"])
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/checklist")
+async def add_claim_checklist_item(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).set_checklist(case_id, claim_id, None, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        status = 404 if isinstance(exc, KeyError) else 422
+        raise HTTPException(status_code=status, detail=str(exc).strip("'")) from exc
+
+
+@api_router.put("/cases/{case_id}/claims/{claim_id}/checklist/{item_id}")
+async def update_claim_checklist_item(case_id: str, claim_id: str, item_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).set_checklist(case_id, claim_id, item_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        status = 404 if isinstance(exc, KeyError) else 422
+        raise HTTPException(status_code=status, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/queries")
+async def create_claim_query(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).create_query(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        status = 404 if isinstance(exc, KeyError) else 422
+        raise HTTPException(status_code=status, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/queries/{query_id}/responses")
+async def record_claim_query_response(case_id: str, claim_id: str, query_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).record_response(case_id, claim_id, query_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        status = 404 if isinstance(exc, KeyError) else 422
+        raise HTTPException(status_code=status, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/documents/upload")
+async def upload_claim_document(
+    case_id: str,
+    claim_id: str,
+    file: UploadFile = File(...),
+    document_type: str = Form("Claim Form"),
+    current=Depends(get_current_user),
+):
+    workflow = _claims(case_id, current)
+    try:
+        workflow.get(case_id, claim_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
+    original_name = Path(file.filename or "").name
+    suffix = Path(original_name).suffix.lower()
+    if suffix not in ALLOWED_CASE_FILE_SUFFIXES:
+        raise HTTPException(status_code=422, detail="This file type is not allowed")
+    case_dir = CASE_FILES_DIR / case_id / "claims"
+    case_dir.mkdir(parents=True, exist_ok=True)
+    destination = case_dir / f"{uuid.uuid4()}{suffix}"
+    size = 0
+    try:
+        with destination.open("wb") as output:
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_CASE_FILE_BYTES:
+                    raise HTTPException(status_code=413, detail="Files must not exceed 25 MB")
+                output.write(chunk)
+        document = casefile_store.create_module_record(case_id, "documents", {
+            "name": original_name, "category": document_type, "status": "filed",
+            "storage_path": str(destination.relative_to(DATA_DIR)), "mime_type": file.content_type or "application/octet-stream",
+            "source_type": "claim-upload", "linked_type": "claim", "linked_id": claim_id,
+            "metadata": {"size": size, "original_name": original_name, "claim_id": claim_id},
+        }, current["id"])
+        return workflow.link_document(case_id, claim_id, document, document_type, current["id"])
+    except Exception:
+        if 'document' not in locals():
+            destination.unlink(missing_ok=True)
+        raise
 
 
 @api_router.get("/cases/{case_id}/coc-meetings/{meeting_id}/workflow")
