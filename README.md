@@ -97,6 +97,49 @@ only if the page contains positive evidence of a real human-verification
 challenge; generic inputs, failed searches, loading states, and empty results do
 not trigger that state.
 
+## Admission Order AI pilot
+
+The existing deterministic Admission Order parser remains the primary source.
+An optional, review-only AI extraction can be run beside it from the existing
+Admission Intake screen. AI values are never imported automatically and every
+parser/AI conflict requires a user choice.
+
+Backend-only configuration:
+
+- `AI_ENABLED=false` keeps all AI calls disabled.
+- `AI_PROVIDER=groq` selects the Groq benchmark without removing the dormant
+  OpenAI provider.
+- `GROQ_API_KEY` holds the server-side Groq key and is never returned to React.
+- `GROQ_EXTRACTION_MODEL=openai/gpt-oss-120b` fixes the open-weight benchmark
+  model hosted by Groq; no model is downloaded locally.
+- `GROQ_BILLING_MODE=free` explicitly confirms that the configured Groq project
+  is free-tier before the live benchmark is permitted.
+- `GROQ_DIRECT_DOCUMENT_TOKEN_LIMIT` and `GROQ_CHUNK_TARGET_TOKENS` control
+  conservative, whole-page request planning for the free-tier token limit.
+- `AI_TIMEOUT_SECONDS` and `AI_MAX_DOCUMENT_CHARACTERS` bound provider work.
+
+The Groq provider uses the official Groq Python SDK and strict JSON Schema
+Structured Outputs. It follows the [official Groq Structured Outputs guide](https://console.groq.com/docs/structured-outputs).
+The existing OpenAI provider remains available but is not required by Groq.
+Every job stores its document hash, model, prompt/schema versions, token usage,
+API-call count, latency, confirmed actual cost, estimated list-price cost,
+validation result, and parser comparison. Identical successful
+requests are reused from the local cache. **RE-ANALYZE** is the explicit paid
+or free-quota-consuming cache-bypass action.
+
+The three locked orders are estimated locally at 7,336 document-text tokens
+(Mahakali), 5,456 (Kshipra), and 6,345 (Organic World). These estimates exclude
+the prompt/schema/output overhead, so the Groq free-tier path uses whole-page
+chunks targeting 1,800 estimated document tokens. Competing chunk values are
+retained as review conflicts; a Groq schema-rejected chunk becomes auditable
+`NOT_FOUND` data rather than being parsed heuristically.
+
+Ordinary tests never call an AI provider. The zero-cost Groq three-fixture
+evaluation requires explicit opt-in, a configured Groq key, and free-tier
+confirmation. Invoke it from `backend/`:
+
+`$env:RUN_AI_LIVE_TESTS='1'; $env:AI_ENABLED='true'; $env:AI_PROVIDER='groq'; $env:GROQ_BILLING_MODE='free'; .\venv\Scripts\python.exe -m pytest tests/test_ai_admission_live.py -q -s -n 0`
+
 ## Roles and case access
 
 - `admin`: all cases, user administration, case assignments, backup and restore.

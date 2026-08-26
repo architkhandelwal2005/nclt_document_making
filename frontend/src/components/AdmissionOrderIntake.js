@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { FileSearch, Upload, X, Eraser } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Brain, FileSearch, Upload, X, Eraser } from "lucide-react";
 import { api, errorMessage } from "../lib/api";
 import { toast } from "sonner";
 
@@ -34,8 +34,23 @@ export default function AdmissionOrderIntake({ caseRecord = null, cases = [], on
   const [allowDuplicate, setAllowDuplicate] = useState(false);
   const [reviewAcknowledged, setReviewAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [aiConfig, setAiConfig] = useState(null);
+  const [aiJob, setAiJob] = useState(null);
+  const [aiDecisions, setAiDecisions] = useState({});
+  const [aiBusy, setAiBusy] = useState(false);
+  useEffect(() => { api.get("/ai/config").then(({ data }) => setAiConfig(data)).catch(() => setAiConfig({ available: false })); }, []);
   const provenanceFor = prefix => Object.fromEntries(Object.entries(intake?.extracted?.provenance || {}).filter(([key]) => key.startsWith(`${prefix}.`)).map(([key, value]) => [key.slice(prefix.length + 1), value]));
   const updateSection = (section, key, value) => { setReviewAcknowledged(false); setReview(current => ({ ...current, [section]: { ...current[section], [key]: value } })); };
+  const setReviewPath = (path, value) => {
+    if (!path) return;
+    const [section, key] = path.split(".");
+    updateSection(section, key, value || "");
+  };
+  const chooseAIValue = (row, source) => {
+    const value = source === "ai" ? row.ai_value : row.parser_value;
+    setAiDecisions(current => ({ ...current, [row.field]: { source, value, decided_at: new Date().toISOString() } }));
+    if (row.review_path) setReviewPath(row.review_path, value);
+  };
   const upload = async event => {
     event.preventDefault();
     if (!file) return;
@@ -43,7 +58,7 @@ export default function AdmissionOrderIntake({ caseRecord = null, cases = [], on
     try {
       const body = new FormData(); body.append("file", file); if (caseRecord) body.append("case_id", caseRecord.id);
       const { data } = await api.post("/admission-intakes", body);
-      setIntake(data); setReview(data.review); setReviewAcknowledged(false); toast.success("Admission order extracted. Review every proposed value.");
+      setIntake(data); setReview(data.review); setAiJob(null); setAiDecisions({}); setReviewAcknowledged(false); toast.success("Admission order extracted. Review every proposed value.");
     } catch (error) {
       const message = error?.response?.status === 404
         ? "The running Casefile backend is out of date. Close both Casefile server windows, restart using start_local.bat, and upload again."
@@ -52,23 +67,36 @@ export default function AdmissionOrderIntake({ caseRecord = null, cases = [], on
     }
     finally { setBusy(false); }
   };
+  const runAI = async reanalyze => {
+    setAiBusy(true);
+    try {
+      const { data } = await api.post(`/admission-intakes/${intake.id}/ai-extraction`, { reanalyze });
+      setAiJob(data); setAiDecisions(data.review || {}); setReviewAcknowledged(false);
+      toast.success(data.cache_hit ? "AI comparison loaded from cache; no API cost incurred." : "AI extraction completed. Every AI value requires review.");
+    } catch (error) {
+      const detail = error?.response?.data?.detail;
+      toast.error(detail?.message || errorMessage(error, "AI extraction failed. Deterministic results remain available."), { duration: 9000 });
+    } finally { setAiBusy(false); }
+  };
   const save = async () => {
     setBusy(true);
-    try { const { data } = await api.put(`/admission-intakes/${intake.id}`, { review }); setIntake(data); setReview(data.review); toast.success("Review draft saved"); }
+    try { const { data } = await api.put(`/admission-intakes/${intake.id}`, { review, ai_job_id: aiJob?.id, ai_review: aiDecisions }); setIntake(data); setReview(data.review); toast.success("Review draft saved"); }
     catch (error) { toast.error(errorMessage(error, "Could not save the review.")); }
     finally { setBusy(false); }
   };
   const confirm = async () => {
     if (action === "update" && !targetCaseId) { toast.error("Select the existing company workspace to update."); return; }
     if (!reviewAcknowledged) { toast.error("Review every extracted value and tick the review acknowledgement before importing."); return; }
+    const unresolvedConflicts = (aiJob?.comparison?.rows || []).filter(row => row.comparison_state === "CONFLICT" && !aiDecisions[row.field]);
+    if (unresolvedConflicts.length) { toast.error("Resolve every parser-versus-AI conflict before import."); return; }
     setBusy(true);
     try {
-      const { data } = await api.post(`/admission-intakes/${intake.id}/confirm`, { review, action, target_case_id: targetCaseId || null, allow_duplicate: allowDuplicate, review_acknowledged: reviewAcknowledged });
+      const { data } = await api.post(`/admission-intakes/${intake.id}/confirm`, { review, action, target_case_id: targetCaseId || null, allow_duplicate: allowDuplicate, review_acknowledged: reviewAcknowledged, ai_job_id: aiJob?.id, ai_review: aiDecisions });
       toast.success("Admission order imported into the company workspace"); onImported?.(data.case); setIntake(data.intake); setReview(data.intake.review);
     } catch (error) { toast.error(errorMessage(error, "Could not confirm the import.")); }
     finally { setBusy(false); }
   };
-  const reset = () => { setFile(null); setIntake(null); setReview(null); setReviewAcknowledged(false); if (!caseRecord) setOpen(false); };
+  const reset = () => { setFile(null); setIntake(null); setReview(null); setAiJob(null); setAiDecisions({}); setReviewAcknowledged(false); if (!caseRecord) setOpen(false); };
 
   if (!open) return <button className="outline-button" onClick={() => setOpen(true)}><FileSearch size={17} />Import admission order</button>;
   return <div className={caseRecord ? "space-y-6" : "modal-backdrop admission-backdrop"}>
@@ -79,6 +107,16 @@ export default function AdmissionOrderIntake({ caseRecord = null, cases = [], on
         <div className="casefile-panel intake-target"><div><p className="kicker">IMPORT TARGET</p><h3>{action === "create" ? "Create a new company workspace" : `Update: ${cases.find(item => item.id === targetCaseId)?.name || caseRecord?.name || "select a case"}`}</h3><p>This choice controls where all confirmed records will be written.</p></div>{!caseRecord && <div className="target-controls"><select value={action} onChange={event => setAction(event.target.value)}><option value="create">Create new case</option><option value="update">Update existing case</option></select>{action === "update" && <select value={targetCaseId} onChange={event => setTargetCaseId(event.target.value)}><option value="">Select company</option>{cases.map(item => <option key={item.id} value={item.id}>{item.name} · {item.petition_number || "No case number"}</option>)}</select>}</div>}</div>
         {intake.duplicate_candidates?.length > 0 && <div className="intake-warning"><b>Possible duplicate found.</b> {intake.duplicate_candidates.map(item => `${item.name} (${item.petition_number || item.cin || "no identifier"})`).join(", ")}. Select the existing workspace, or {action === "create" && <label><input type="checkbox" checked={allowDuplicate} onChange={event => setAllowDuplicate(event.target.checked)} /> confirm that this must remain a separate case.</label>}</div>}
         {review.case?.cin && !/^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/.test(review.case.cin) && <div className="intake-warning"><b>CIN requires verification.</b> The extracted value does not match the standard 21-character CIN structure. Compare it with MCA records before confirming.</div>}
+        <section className="casefile-panel ai-pilot-panel">
+          <div className="panel-heading"><div><p className="kicker">AI EXTRACTED — REQUIRES REVIEW</p><h3>Admission Order comparison pilot</h3></div><Brain size={22} /></div>
+          {!aiConfig?.available && <p className="panel-empty">AI is safely disabled or no backend API key is configured. The deterministic parser and manual import workflow remain fully available.</p>}
+          {aiConfig?.available && !aiJob && <div className="ai-run-row"><p>Run the configured AI extractor beside the existing parser. It will not change any review value automatically.</p><button className="outline-button" disabled={aiBusy} onClick={() => runAI(false)}>{aiBusy ? "Analyzing…" : "Run AI comparison"}</button></div>}
+          {aiJob && <>
+            <div className="ai-job-meta"><span>{aiJob.provider} · {aiJob.model}</span><span>{aiJob.api_calls || 0} API calls · {aiJob.latency_ms || 0} ms</span><span>{aiJob.input_tokens || 0} input / {aiJob.output_tokens || 0} output tokens</span><span>{aiJob.actual_cost == null ? "Actual cost not confirmed" : `Actual cost $${Number(aiJob.actual_cost).toFixed(6)}`}</span><span>{aiJob.estimated_list_cost == null ? "List-price estimate unavailable" : `List-price estimate $${Number(aiJob.estimated_list_cost).toFixed(6)}`}</span>{aiJob.cache_hit && <span>Cache hit · no new call</span>}</div>
+            <div className="ai-comparison-actions"><button className="outline-button" onClick={() => setAiDecisions(current => ({ ...current, ...Object.fromEntries((aiJob.comparison?.rows || []).filter(row => row.comparison_state === "MATCH").map(row => [row.field, { source: "match", value: row.parser_value, decided_at: new Date().toISOString() }])) }))}>Accept all safe matches</button><button className="outline-button" disabled={aiBusy} onClick={() => runAI(true)}>{aiBusy ? "Analyzing…" : "RE-ANALYZE"}</button></div>
+            <div className="module-table-wrap"><table className="module-table ai-comparison-table"><thead><tr><th>Field</th><th>Existing parser</th><th>AI value</th><th>Status</th><th>Page / evidence</th><th>Final selected value</th></tr></thead><tbody>{(aiJob.comparison?.rows || []).map(row => { const decision = aiDecisions[row.field]; const finalValue = decision ? decision.value : row.final_selected_value; const needsChoice = ["CONFLICT", "AI_ONLY"].includes(row.comparison_state); const candidates = row.ai_candidates || []; return <tr key={row.field} className={`ai-state-${row.comparison_state.toLowerCase()}`}><td><b>{row.label}</b><small>{row.validation_status}{row.validation_errors?.length ? ` · ${row.validation_errors.join("; ")}` : ""}</small></td><td>{row.parser_value || <span className="muted">NOT FOUND</span>}</td><td>{candidates.length ? candidates.map((item, index) => <small key={`${row.field}-candidate-${index}`}><b>Candidate {index + 1}:</b> {item.value}</small>) : row.ai_value || <span className="muted">NOT FOUND</span>}</td><td><span className={`fetch-status ${row.comparison_state === "MATCH" ? "done" : row.comparison_state === "BOTH_NOT_FOUND" ? "muted" : "warn"}`}>{row.comparison_state.replaceAll("_", " ")}</span></td><td>{candidates.length ? candidates.map((item, index) => <small key={`${row.field}-evidence-${index}`}>Page {item.page || "—"} · {item.source_text || "No evidence"}</small>) : <>{row.page ? `Page ${row.page}` : "—"}<small>{row.evidence || "No evidence"}</small></>}</td><td><div>{finalValue || <span className="muted">NOT SELECTED</span>}</div>{needsChoice && <div className="ai-choice-buttons"><button type="button" className={decision?.source === "parser" ? "selected" : ""} onClick={() => chooseAIValue(row, "parser")}>Use parser</button><button type="button" disabled={row.validation_status !== "VALID" || candidates.length > 0} className={decision?.source === "ai" ? "selected" : ""} onClick={() => chooseAIValue(row, "ai")}>Use AI</button></div>}</td></tr>; })}</tbody></table></div>
+          </>}
+        </section>
         <FieldGrid title="A. Case / proceeding" value={review.case} fields={caseFields} onChange={(key, value) => updateSection("case", key, value)} provenance={provenanceFor("case")} />
         <FieldGrid title="B. Applicant / financial creditor" value={review.applicant} fields={applicantFields} onChange={(key, value) => updateSection("applicant", key, value)} provenance={provenanceFor("applicant")} />
         <FieldGrid title="C. Corporate debtor" value={review.case} fields={corporateDebtorFields} onChange={(key, value) => updateSection("case", key, value)} provenance={provenanceFor("case")} />

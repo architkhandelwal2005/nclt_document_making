@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 7
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -777,6 +777,42 @@ class CasefileDatabase:
                     ON nclt_fetch_records(case_id, proceeding_date DESC);
                 CREATE INDEX IF NOT EXISTS ix_nclt_fetch_records_hash ON nclt_fetch_records(file_hash);
 
+                CREATE TABLE IF NOT EXISTS ai_jobs (
+                    id TEXT PRIMARY KEY,
+                    intake_id TEXT REFERENCES admission_order_intakes(id),
+                    case_id TEXT REFERENCES cases(id),
+                    document_id TEXT REFERENCES documents(id),
+                    document_hash TEXT NOT NULL,
+                    task_type TEXT NOT NULL,
+                    provider TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    prompt_version TEXT NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    input_tokens INTEGER NOT NULL DEFAULT 0,
+                    output_tokens INTEGER NOT NULL DEFAULT 0,
+                    api_calls INTEGER NOT NULL DEFAULT 0,
+                    latency_ms INTEGER NOT NULL DEFAULT 0,
+                    actual_cost REAL,
+                    estimated_list_cost REAL,
+                    estimated_cost REAL,
+                    started_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    error_code TEXT NOT NULL DEFAULT '',
+                    error_message TEXT NOT NULL DEFAULT '',
+                    parsed_result_json TEXT NOT NULL DEFAULT '{}',
+                    validation_json TEXT NOT NULL DEFAULT '{}',
+                    comparison_json TEXT NOT NULL DEFAULT '{}',
+                    review_json TEXT NOT NULL DEFAULT '{}',
+                    cache_hit_of TEXT REFERENCES ai_jobs(id),
+                    created_by TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_ai_jobs_intake_time ON ai_jobs(intake_id, started_at DESC);
+                CREATE INDEX IF NOT EXISTS ix_ai_jobs_case_time ON ai_jobs(case_id, started_at DESC);
+                CREATE INDEX IF NOT EXISTS ix_ai_jobs_cache ON ai_jobs(
+                    document_hash, task_type, provider, model, prompt_version, schema_version, status
+                );
+
                 CREATE TABLE IF NOT EXISTS activity_events (
                     id TEXT PRIMARY KEY,
                     case_id TEXT REFERENCES cases(id),
@@ -822,6 +858,10 @@ class CasefileDatabase:
             self._ensure_column(connection, "coc_meetings", "notice_place", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "coc_meetings", "quorum_threshold", "REAL NOT NULL DEFAULT 33")
             self._ensure_column(connection, "coc_meetings", "chair_name", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "ai_jobs", "api_calls", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "ai_jobs", "latency_ms", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "ai_jobs", "actual_cost", "REAL")
+            self._ensure_column(connection, "ai_jobs", "estimated_list_cost", "REAL")
             self._ensure_column(connection, "coc_meetings", "signed_at", "TEXT")
             self._seed_compliance_rules(connection)
 

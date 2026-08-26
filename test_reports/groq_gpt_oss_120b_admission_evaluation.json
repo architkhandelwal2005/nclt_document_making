@@ -1,0 +1,1567 @@
+{
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "strict_structured_outputs": true,
+  "cases": [
+    {
+      "name": "mahakali",
+      "estimated_document_tokens": 7336,
+      "chunking_required": true,
+      "page_ranges": [
+        [
+          1,
+          5
+        ],
+        [
+          6,
+          9
+        ],
+        [
+          10,
+          12
+        ],
+        [
+          13,
+          15
+        ],
+        [
+          16,
+          18
+        ]
+      ],
+      "chunk_errors": [
+        {
+          "chunk": 1,
+          "pages": [
+            1,
+            5
+          ],
+          "code": "INVALID_STRUCTURED_RESPONSE",
+          "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/appointed_irp' does not validate with /properties/appointed_irp/required: missing properties: 'registration_number', 'email'"
+        }
+      ],
+      "fields": [
+        {
+          "field": "case.bench",
+          "expected": "Indore Bench",
+          "parser": "Indore Bench",
+          "gpt_oss_120b": "NCLT Indore",
+          "evidence_page": 16,
+          "expected_evidence_page": 1,
+          "evidence_text": "NCLT Indore",
+          "validation": "VALID",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.court_number",
+          "expected": "1",
+          "parser": "1",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 1,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.case_number",
+          "expected": "CP(IB) 72/2024",
+          "parser": "CP(IB) 72/2024",
+          "gpt_oss_120b": "CP(IB) 72/2024",
+          "evidence_page": 6,
+          "expected_evidence_page": 2,
+          "evidence_text": "CP(IB) 72/2024",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.section",
+          "expected": "7",
+          "parser": "7",
+          "gpt_oss_120b": "Section 7",
+          "evidence_page": 15,
+          "expected_evidence_page": 2,
+          "evidence_text": "admitted in the Corporate Insolvency Resolution Process under Section 7 of the Insolvency and Bankruptcy Code, 2016",
+          "validation": "VALID",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.order_date",
+          "expected": "2026-07-31",
+          "parser": "2026-07-31",
+          "gpt_oss_120b": "2026-07-31",
+          "evidence_page": 6,
+          "expected_evidence_page": 2,
+          "evidence_text": "Order dated: 31.07.2026",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.cirp_commencement_date",
+          "expected": "2026-07-31",
+          "parser": "2026-07-31",
+          "gpt_oss_120b": "2026-07-31",
+          "evidence_page": 17,
+          "expected_evidence_page": 17,
+          "evidence_text": "The commencement of the Corporate Insolvency Resolution Process (CIRP) shall be effective from the date of this order.",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.order_upload_date",
+          "expected": null,
+          "parser": null,
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": null,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "BOTH_NOT_FOUND",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "applicant.name",
+          "expected": "Samunnati Financial Intermediation & Services Private Limited",
+          "parser": "Samunnati Financial Intermediation & Services Private Limited",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": [
+            {
+              "value": "M/s Samunnati Financial Intermediation & Services Pvt. Ltd.",
+              "page": 7,
+              "source_text": "M/s Samunnati Financial Intermediation & Services Pvt. Ltd. seeking initiation of the Corporate Insolvency Resolution Process",
+              "basis": "EXPLICIT"
+            },
+            {
+              "value": "Financial Creditor",
+              "page": 10,
+              "source_text": "The Financial Creditor has pleaded that it extended financial assistance",
+              "basis": "EXPLICIT"
+            }
+          ]
+        },
+        {
+          "field": "applicant.cin",
+          "expected": "U65990TN2014PTC096252",
+          "parser": "U65990TN2014PTC096252",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "applicant.address",
+          "expected": "Baid Hi Tech Park, No. 129 B, 8th Floor, SH 4, Thiruvanmiyur, Chennai, Tamil Nadu, India - 600041",
+          "parser": "Baid Hi Tech Park, No. 129 B, 8th Floor, SH 4, Thiruvanmiyur, Chennai, Tamil Nadu, India - 600041",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 3,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "corporate_debtor.name",
+          "expected": "Mahakali Foods Private Limited",
+          "parser": "Mahakali Foods Private Limited",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": [
+            {
+              "value": "M/s Mahakali Foods Private Limited",
+              "page": 7,
+              "source_text": "The Corporate Debtor, M/s Mahakali Foods Private Limited",
+              "basis": "EXPLICIT"
+            },
+            {
+              "value": "Corporate Debtor",
+              "page": 11,
+              "source_text": "The Corporate Debtor has acknowledged the debt",
+              "basis": "EXPLICIT"
+            },
+            {
+              "value": "M/s. Mahakali Foods Private Limited",
+              "page": 15,
+              "source_text": "Corporate Debtor M/s. Mahakali Foods Private Limited is admitted",
+              "basis": "EXPLICIT"
+            }
+          ]
+        },
+        {
+          "field": "corporate_debtor.cin",
+          "expected": "U15499MP2002PTC015006",
+          "parser": "U15499MP2002PTC015006",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "corporate_debtor.address",
+          "expected": "48 Bengali Colony, Kanadiya Road, Indore, Madhya Pradesh - 452001",
+          "parser": "48 Bengali Colony, Kanadiya Road, Indore, Madhya Pradesh - 452001",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 4,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.name",
+          "expected": "Navin Khandelwal",
+          "parser": "Navin Khandelwal",
+          "gpt_oss_120b": "Mr. Navin Khandelwal",
+          "evidence_page": 15,
+          "expected_evidence_page": 15,
+          "evidence_text": "We appoint Mr. Navin Khandelwal ... as IRP.",
+          "validation": "VALID",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.registration_number",
+          "expected": "IBBI/IPA-001/IP-P00703/2017-2018/11301",
+          "parser": "IBBI/IPA-001/IP-P00703/2017-2018/11301",
+          "gpt_oss_120b": "IBBI/IPA-001/IP-P00703/2017-2018/11301",
+          "evidence_page": 15,
+          "expected_evidence_page": 15,
+          "evidence_text": "Registration No. IBBI/IPA -001/IP- P00703/2017-2018/11301",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.address",
+          "expected": "206, Navneet Plaza, 5/2, Old Palasia, Indore - 452018, Madhya Pradesh",
+          "parser": "206, Navneet Plaza, 5/2, Old Palasia, Indore - 452018, Madhya Pradesh",
+          "gpt_oss_120b": "206, Navneet Plaza, 5/2, Old Palasia, Indore – 452018, Madhya Pradesh",
+          "evidence_page": 15,
+          "expected_evidence_page": 15,
+          "evidence_text": "Address : 206, Navneet Plaza, 5/2, Old Palasia, Indore – 452018, Madhya Pradesh",
+          "validation": "VALID",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.email",
+          "expected": "navink25@yahoo.com",
+          "parser": "navink25@yahoo.com",
+          "gpt_oss_120b": "navink25@yahoo.com",
+          "evidence_page": 15,
+          "expected_evidence_page": 15,
+          "evidence_text": "E-mail : navink25@yahoo.com",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.afa_valid_until",
+          "expected": "2026-12-31",
+          "parser": "2026-12-31",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 4,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        }
+      ],
+      "exact": 6,
+      "total": 18,
+      "api_calls": 9,
+      "input_tokens": 20305,
+      "output_tokens": 5205,
+      "latency_ms": 27717,
+      "actual_cost": 0.0,
+      "estimated_list_cost": 0.00616875
+    },
+    {
+      "name": "kshipra_motors",
+      "estimated_document_tokens": 5456,
+      "chunking_required": true,
+      "page_ranges": [
+        [
+          1,
+          5
+        ],
+        [
+          6,
+          10
+        ],
+        [
+          11,
+          14
+        ],
+        [
+          15,
+          16
+        ]
+      ],
+      "chunk_errors": [
+        {
+          "chunk": 1,
+          "pages": [
+            1,
+            5
+          ],
+          "code": "INVALID_STRUCTURED_RESPONSE",
+          "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/applicant' does not validate with /properties/applicant/additionalProperties: additionalProperties 'email', 'afa_details', 'afa_valid_until' not allowed"
+        }
+      ],
+      "fields": [
+        {
+          "field": "case.bench",
+          "expected": "Indore Bench",
+          "parser": "Indore Bench",
+          "gpt_oss_120b": "INDORE BENCH",
+          "evidence_page": 6,
+          "expected_evidence_page": 1,
+          "evidence_text": "INDORE BENCH",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.court_number",
+          "expected": "1",
+          "parser": "1",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 1,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.case_number",
+          "expected": "CP(IB) 72/2025",
+          "parser": "CP(IB) 72/2025",
+          "gpt_oss_120b": "CP(IB) 72/2025",
+          "evidence_page": 6,
+          "expected_evidence_page": 2,
+          "evidence_text": "CP(IB) 72/2025",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.section",
+          "expected": "7",
+          "parser": "7",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.order_date",
+          "expected": "2026-07-29",
+          "parser": "2026-07-29",
+          "gpt_oss_120b": "2026-07-29",
+          "evidence_page": 6,
+          "expected_evidence_page": 3,
+          "evidence_text": "Order Date: 29/07/2026",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.cirp_commencement_date",
+          "expected": "2026-07-29",
+          "parser": "2026-07-29",
+          "gpt_oss_120b": "2026-07-29",
+          "evidence_page": 15,
+          "expected_evidence_page": 15,
+          "evidence_text": "The commencement of the Corporate Insolvency Resolution Process (CIRP) shall be effective from the date of this order.",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.order_upload_date",
+          "expected": null,
+          "parser": null,
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": null,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "BOTH_NOT_FOUND",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "applicant.name",
+          "expected": "Axis Bank Limited",
+          "parser": "Axis Bank Limited",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "applicant.cin",
+          "expected": "L65110GJ1993PLC020769",
+          "parser": "L65110GJ1993PLC020769",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "applicant.address",
+          "expected": "\"Trishul\", 3rd Floor, Opposite Samartheshwar Temple, Near Law Garden, Ellis Bridge, Ahmedabad - 380006, Gujarat",
+          "parser": "\"Trishul\", 3rd Floor, Opposite Samartheshwar Temple, Near Law Garden, Ellis Bridge, Ahmedabad - 380006, Gujarat",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 3,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "corporate_debtor.name",
+          "expected": "Kshipra Motors Private Limited",
+          "parser": "Kshipra Motors Private Limited",
+          "gpt_oss_120b": "Kshipra Motors Private Limited",
+          "evidence_page": 13,
+          "expected_evidence_page": 2,
+          "evidence_text": "Corporate Debtor Kshipra Motors Private Limited is admitted",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "corporate_debtor.cin",
+          "expected": "U05010MP2003PTC016184",
+          "parser": "U05010MP2003PTC016184",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "corporate_debtor.address",
+          "expected": "74, Chimanganj Mandi, Agar Road, Ujjain - 456001, Madhya Pradesh",
+          "parser": "74, Chimanganj Mandi, Agar Road, Ujjain - 456001, Madhya Pradesh",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 4,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.name",
+          "expected": "Navin Khandelwal",
+          "parser": "Navin Khandelwal",
+          "gpt_oss_120b": "Mr. Navin Khandelwal",
+          "evidence_page": 13,
+          "expected_evidence_page": 13,
+          "evidence_text": "Name of IRP : Mr. Navin Khandelwal",
+          "validation": "VALID",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.registration_number",
+          "expected": "IBBI/IPA-001/IP-P00703/2017-2018/11301",
+          "parser": "IBBI/IPA-001/IP-P00703/2017-2018/11301",
+          "gpt_oss_120b": "IBBI/IPA-001/IP-P00703/2017-2018/11301",
+          "evidence_page": 13,
+          "expected_evidence_page": 13,
+          "evidence_text": "IBBI Reg No. : IBBI/IPA-001/IP-P00703/2017-2018/11301",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.address",
+          "expected": "206, Navneet Plaza, 5/2, Old Palasia, Indore - 452018, Madhya Pradesh",
+          "parser": "206, Navneet Plaza, 5/2, Old Palasia, Indore - 452018, Madhya Pradesh",
+          "gpt_oss_120b": "206, Navneet Plaza, 5/2, Old Palasia, Indore – 452018, Madhya Pradesh",
+          "evidence_page": 13,
+          "expected_evidence_page": 13,
+          "evidence_text": "Address : 206, Navneet Plaza, 5/2, Old Palasia, Indore – 452018, Madhya Pradesh",
+          "validation": "VALID",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.email",
+          "expected": "navink25@yahoo.com",
+          "parser": "navink25@yahoo.com",
+          "gpt_oss_120b": "navink25@yahoo.com",
+          "evidence_page": 13,
+          "expected_evidence_page": 13,
+          "evidence_text": "E-mail : navink25@yahoo.com",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.afa_valid_until",
+          "expected": "2026-12-31",
+          "parser": "2026-12-31",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 4,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        }
+      ],
+      "exact": 8,
+      "total": 18,
+      "api_calls": 10,
+      "input_tokens": 15226,
+      "output_tokens": 4090,
+      "latency_ms": 24329,
+      "actual_cost": 0.0,
+      "estimated_list_cost": 0.0047379
+    },
+    {
+      "name": "organic_world",
+      "estimated_document_tokens": 6345,
+      "chunking_required": true,
+      "page_ranges": [
+        [
+          1,
+          5
+        ],
+        [
+          6,
+          9
+        ],
+        [
+          10,
+          13
+        ],
+        [
+          14,
+          18
+        ]
+      ],
+      "chunk_errors": [
+        {
+          "chunk": 4,
+          "pages": [
+            14,
+            18
+          ],
+          "code": "INVALID_STRUCTURED_RESPONSE",
+          "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/appointed_irp' does not validate with /properties/appointed_irp/required: missing properties: 'email'"
+        }
+      ],
+      "fields": [
+        {
+          "field": "case.bench",
+          "expected": "Indore Bench",
+          "parser": "Indore Bench",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 1,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": [
+            {
+              "value": "Indore Bench",
+              "page": 1,
+              "source_text": "NATIONAL COMPANY LAW TRIBUNAL INDORE BENCH",
+              "basis": "EXPLICIT"
+            },
+            {
+              "value": "NCLT INDORE BENCH",
+              "page": 10,
+              "source_text": "NCLT INDORE BENCH",
+              "basis": "EXPLICIT"
+            }
+          ]
+        },
+        {
+          "field": "case.court_number",
+          "expected": "1",
+          "parser": "1",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 1,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": [
+            {
+              "value": "Court No. 1",
+              "page": 1,
+              "source_text": "COURT NO. 1",
+              "basis": "EXPLICIT"
+            },
+            {
+              "value": "CP (IB) No. 60 OF 2024",
+              "page": 6,
+              "source_text": "CP (IB) No. 60 OF 2024",
+              "basis": "EXPLICIT"
+            }
+          ]
+        },
+        {
+          "field": "case.case_number",
+          "expected": "CP(IB) 60/2024",
+          "parser": "CP(IB) 60/2024",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 2,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": [
+            {
+              "value": "CP (IB) No. 60/2024",
+              "page": 2,
+              "source_text": "CP (IB) No. 60/2024",
+              "basis": "EXPLICIT"
+            },
+            {
+              "value": "CP (IB) No. 60 OF 2024",
+              "page": 10,
+              "source_text": "CP (IB) No. 60 OF 2024",
+              "basis": "EXPLICIT"
+            }
+          ]
+        },
+        {
+          "field": "case.section",
+          "expected": "7",
+          "parser": "7",
+          "gpt_oss_120b": "Section 7 IBC",
+          "evidence_page": 1,
+          "expected_evidence_page": 2,
+          "evidence_text": "Order under Section 7 IBC",
+          "validation": "VALID",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.order_date",
+          "expected": "2026-08-03",
+          "parser": "2026-08-03",
+          "gpt_oss_120b": "2026-08-03",
+          "evidence_page": 2,
+          "expected_evidence_page": 2,
+          "evidence_text": "Date of Order: 03.08.2026",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.cirp_commencement_date",
+          "expected": "2026-08-03",
+          "parser": "2026-08-03",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 18,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "case.order_upload_date",
+          "expected": null,
+          "parser": null,
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": null,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "BOTH_NOT_FOUND",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "applicant.name",
+          "expected": "Tanay Securities & Services Private Limited",
+          "parser": "Tanay Securities & Services Private Limited",
+          "gpt_oss_120b": "Tanay Securities & Services Private Limited",
+          "evidence_page": 2,
+          "expected_evidence_page": 2,
+          "evidence_text": "Tanay Securities & Services Private Limited",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "applicant.cin",
+          "expected": "U74120MH2011PTC211734",
+          "parser": "U74120MH2011PTC211734",
+          "gpt_oss_120b": "U74120MH2011PTC211734",
+          "evidence_page": 3,
+          "expected_evidence_page": 3,
+          "evidence_text": "CIN U74120MH2011PTC211734",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "applicant.address",
+          "expected": "13, Gujarati Society, Nehru Road, Vile Parle (East), Mumbai - 400057, Maharashtra",
+          "parser": "13, Gujarati Society, Nehru Road, Vile Parle (East), Mumbai - 400057, Maharashtra",
+          "gpt_oss_120b": "13, Gujarati Society, Nehru Road, Vile Parle (East), Mumbai-400057, Maharashtra",
+          "evidence_page": 3,
+          "expected_evidence_page": 3,
+          "evidence_text": "registered office at 13, Gujarati Society, Nehru Road, Vile Parle (East), Mumbai -400057, Maharashtra",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": false,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "corporate_debtor.name",
+          "expected": "Organic World Private Limited",
+          "parser": "Organic World Private Limited",
+          "gpt_oss_120b": "Organic World Private Limited",
+          "evidence_page": 2,
+          "expected_evidence_page": 2,
+          "evidence_text": "Organic World Private Limited",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "corporate_debtor.cin",
+          "expected": "U01114MP2020PTC051205",
+          "parser": "U01114MP2020PTC051205",
+          "gpt_oss_120b": "U01114MP2020PTC051205",
+          "evidence_page": 3,
+          "expected_evidence_page": 3,
+          "evidence_text": "CIN U01114MP2020PTC051205",
+          "validation": "VALID",
+          "status": "MATCH",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "corporate_debtor.address",
+          "expected": "Survey No. 145/1/4, Gram Malikhedi, Nemawar Road, Indore, Madhya Pradesh - 452006",
+          "parser": "Survey No. 145/1/4, Gram Malikhedi, Nemawar Road, Indore, Madhya Pradesh - 452006",
+          "gpt_oss_120b": "Survey No. 145/1/4 Gram Malikhedi, Nemawar Road, Indore, Madhya Pradesh-452006",
+          "evidence_page": 3,
+          "expected_evidence_page": 3,
+          "evidence_text": "registered office at Survey No. 145/1/4 Gram Malikhedi, Nemawar Road, Indore, Madhya Pradesh-452006",
+          "validation": "VALID",
+          "status": "CONFLICT",
+          "exact": false,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.name",
+          "expected": "Prakul Thadi",
+          "parser": "Prakul Thadi",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 16,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.registration_number",
+          "expected": "IBBI/IPA-002/IP-N01149/2021-2022/13806",
+          "parser": "IBBI/IPA-002/IP-N01149/2021-2022/13806",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 16,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.address",
+          "expected": "Flat No. 1405, J Block, Rainbow Vistas, Green Hills Road, Moosapet, Hyderabad - 500018, Telangana",
+          "parser": "Flat No. 1405, J Block, Rainbow Vistas, Green Hills Road, Moosapet, Hyderabad - 500018, Telangana",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 16,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.email",
+          "expected": null,
+          "parser": null,
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": null,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "BOTH_NOT_FOUND",
+          "exact": true,
+          "page_accurate": true,
+          "evidence_supported": true,
+          "ai_candidates": []
+        },
+        {
+          "field": "appointed_irp.afa_valid_until",
+          "expected": "2027-06-30",
+          "parser": "2027-06-30",
+          "gpt_oss_120b": null,
+          "evidence_page": null,
+          "expected_evidence_page": 4,
+          "evidence_text": null,
+          "validation": "NOT_FOUND",
+          "status": "PARSER_ONLY",
+          "exact": false,
+          "page_accurate": false,
+          "evidence_supported": false,
+          "ai_candidates": []
+        }
+      ],
+      "exact": 7,
+      "total": 18,
+      "api_calls": 10,
+      "input_tokens": 16283,
+      "output_tokens": 4054,
+      "latency_ms": 26809,
+      "actual_cost": 0.0,
+      "estimated_list_cost": 0.00487485
+    }
+  ],
+  "critical_errors": [
+    {
+      "case": "mahakali",
+      "field": "applicant.name",
+      "expected": "Samunnati Financial Intermediation & Services Private Limited",
+      "parser": "Samunnati Financial Intermediation & Services Private Limited",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 2,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "CONFLICT",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": [
+        {
+          "value": "M/s Samunnati Financial Intermediation & Services Pvt. Ltd.",
+          "page": 7,
+          "source_text": "M/s Samunnati Financial Intermediation & Services Pvt. Ltd. seeking initiation of the Corporate Insolvency Resolution Process",
+          "basis": "EXPLICIT"
+        },
+        {
+          "value": "Financial Creditor",
+          "page": 10,
+          "source_text": "The Financial Creditor has pleaded that it extended financial assistance",
+          "basis": "EXPLICIT"
+        }
+      ]
+    },
+    {
+      "case": "mahakali",
+      "field": "applicant.cin",
+      "expected": "U65990TN2014PTC096252",
+      "parser": "U65990TN2014PTC096252",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 2,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "PARSER_ONLY",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": []
+    },
+    {
+      "case": "mahakali",
+      "field": "corporate_debtor.name",
+      "expected": "Mahakali Foods Private Limited",
+      "parser": "Mahakali Foods Private Limited",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 2,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "CONFLICT",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": [
+        {
+          "value": "M/s Mahakali Foods Private Limited",
+          "page": 7,
+          "source_text": "The Corporate Debtor, M/s Mahakali Foods Private Limited",
+          "basis": "EXPLICIT"
+        },
+        {
+          "value": "Corporate Debtor",
+          "page": 11,
+          "source_text": "The Corporate Debtor has acknowledged the debt",
+          "basis": "EXPLICIT"
+        },
+        {
+          "value": "M/s. Mahakali Foods Private Limited",
+          "page": 15,
+          "source_text": "Corporate Debtor M/s. Mahakali Foods Private Limited is admitted",
+          "basis": "EXPLICIT"
+        }
+      ]
+    },
+    {
+      "case": "mahakali",
+      "field": "corporate_debtor.cin",
+      "expected": "U15499MP2002PTC015006",
+      "parser": "U15499MP2002PTC015006",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 2,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "PARSER_ONLY",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": []
+    },
+    {
+      "case": "mahakali",
+      "field": "appointed_irp.name",
+      "expected": "Navin Khandelwal",
+      "parser": "Navin Khandelwal",
+      "gpt_oss_120b": "Mr. Navin Khandelwal",
+      "evidence_page": 15,
+      "expected_evidence_page": 15,
+      "evidence_text": "We appoint Mr. Navin Khandelwal ... as IRP.",
+      "validation": "VALID",
+      "status": "CONFLICT",
+      "exact": false,
+      "page_accurate": true,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "mahakali",
+      "type": "STRICT_SCHEMA_REJECTION",
+      "chunk": 1,
+      "pages": [
+        1,
+        5
+      ],
+      "code": "INVALID_STRUCTURED_RESPONSE",
+      "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/appointed_irp' does not validate with /properties/appointed_irp/required: missing properties: 'registration_number', 'email'"
+    },
+    {
+      "case": "kshipra_motors",
+      "field": "applicant.name",
+      "expected": "Axis Bank Limited",
+      "parser": "Axis Bank Limited",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 2,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "PARSER_ONLY",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": []
+    },
+    {
+      "case": "kshipra_motors",
+      "field": "applicant.cin",
+      "expected": "L65110GJ1993PLC020769",
+      "parser": "L65110GJ1993PLC020769",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 2,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "PARSER_ONLY",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": []
+    },
+    {
+      "case": "kshipra_motors",
+      "field": "corporate_debtor.cin",
+      "expected": "U05010MP2003PTC016184",
+      "parser": "U05010MP2003PTC016184",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 2,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "PARSER_ONLY",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": []
+    },
+    {
+      "case": "kshipra_motors",
+      "field": "appointed_irp.name",
+      "expected": "Navin Khandelwal",
+      "parser": "Navin Khandelwal",
+      "gpt_oss_120b": "Mr. Navin Khandelwal",
+      "evidence_page": 13,
+      "expected_evidence_page": 13,
+      "evidence_text": "Name of IRP : Mr. Navin Khandelwal",
+      "validation": "VALID",
+      "status": "CONFLICT",
+      "exact": false,
+      "page_accurate": true,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "kshipra_motors",
+      "type": "STRICT_SCHEMA_REJECTION",
+      "chunk": 1,
+      "pages": [
+        1,
+        5
+      ],
+      "code": "INVALID_STRUCTURED_RESPONSE",
+      "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/applicant' does not validate with /properties/applicant/additionalProperties: additionalProperties 'email', 'afa_details', 'afa_valid_until' not allowed"
+    },
+    {
+      "case": "organic_world",
+      "field": "case.case_number",
+      "expected": "CP(IB) 60/2024",
+      "parser": "CP(IB) 60/2024",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 2,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "CONFLICT",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": [
+        {
+          "value": "CP (IB) No. 60/2024",
+          "page": 2,
+          "source_text": "CP (IB) No. 60/2024",
+          "basis": "EXPLICIT"
+        },
+        {
+          "value": "CP (IB) No. 60 OF 2024",
+          "page": 10,
+          "source_text": "CP (IB) No. 60 OF 2024",
+          "basis": "EXPLICIT"
+        }
+      ]
+    },
+    {
+      "case": "organic_world",
+      "field": "case.cirp_commencement_date",
+      "expected": "2026-08-03",
+      "parser": "2026-08-03",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 18,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "PARSER_ONLY",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": []
+    },
+    {
+      "case": "organic_world",
+      "field": "appointed_irp.name",
+      "expected": "Prakul Thadi",
+      "parser": "Prakul Thadi",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 16,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "PARSER_ONLY",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": []
+    },
+    {
+      "case": "organic_world",
+      "field": "appointed_irp.registration_number",
+      "expected": "IBBI/IPA-002/IP-N01149/2021-2022/13806",
+      "parser": "IBBI/IPA-002/IP-N01149/2021-2022/13806",
+      "gpt_oss_120b": null,
+      "evidence_page": null,
+      "expected_evidence_page": 16,
+      "evidence_text": null,
+      "validation": "NOT_FOUND",
+      "status": "PARSER_ONLY",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": false,
+      "ai_candidates": []
+    },
+    {
+      "case": "organic_world",
+      "type": "STRICT_SCHEMA_REJECTION",
+      "chunk": 4,
+      "pages": [
+        14,
+        18
+      ],
+      "code": "INVALID_STRUCTURED_RESPONSE",
+      "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/appointed_irp' does not validate with /properties/appointed_irp/required: missing properties: 'email'"
+    }
+  ],
+  "hallucinations_or_unsupported": [
+    {
+      "case": "mahakali",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "case.bench",
+      "expected": "Indore Bench",
+      "parser": "Indore Bench",
+      "gpt_oss_120b": "NCLT Indore",
+      "evidence_page": 16,
+      "expected_evidence_page": 1,
+      "evidence_text": "NCLT Indore",
+      "validation": "VALID",
+      "status": "CONFLICT",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "mahakali",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "case.case_number",
+      "expected": "CP(IB) 72/2024",
+      "parser": "CP(IB) 72/2024",
+      "gpt_oss_120b": "CP(IB) 72/2024",
+      "evidence_page": 6,
+      "expected_evidence_page": 2,
+      "evidence_text": "CP(IB) 72/2024",
+      "validation": "VALID",
+      "status": "MATCH",
+      "exact": true,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "mahakali",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "case.section",
+      "expected": "7",
+      "parser": "7",
+      "gpt_oss_120b": "Section 7",
+      "evidence_page": 15,
+      "expected_evidence_page": 2,
+      "evidence_text": "admitted in the Corporate Insolvency Resolution Process under Section 7 of the Insolvency and Bankruptcy Code, 2016",
+      "validation": "VALID",
+      "status": "CONFLICT",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "mahakali",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "case.order_date",
+      "expected": "2026-07-31",
+      "parser": "2026-07-31",
+      "gpt_oss_120b": "2026-07-31",
+      "evidence_page": 6,
+      "expected_evidence_page": 2,
+      "evidence_text": "Order dated: 31.07.2026",
+      "validation": "VALID",
+      "status": "MATCH",
+      "exact": true,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "mahakali",
+      "type": "PROVIDER_REJECTED_ROLE_OR_SCHEMA_OUTPUT",
+      "chunk": 1,
+      "pages": [
+        1,
+        5
+      ],
+      "code": "INVALID_STRUCTURED_RESPONSE",
+      "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/appointed_irp' does not validate with /properties/appointed_irp/required: missing properties: 'registration_number', 'email'"
+    },
+    {
+      "case": "kshipra_motors",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "case.bench",
+      "expected": "Indore Bench",
+      "parser": "Indore Bench",
+      "gpt_oss_120b": "INDORE BENCH",
+      "evidence_page": 6,
+      "expected_evidence_page": 1,
+      "evidence_text": "INDORE BENCH",
+      "validation": "VALID",
+      "status": "MATCH",
+      "exact": true,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "kshipra_motors",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "case.case_number",
+      "expected": "CP(IB) 72/2025",
+      "parser": "CP(IB) 72/2025",
+      "gpt_oss_120b": "CP(IB) 72/2025",
+      "evidence_page": 6,
+      "expected_evidence_page": 2,
+      "evidence_text": "CP(IB) 72/2025",
+      "validation": "VALID",
+      "status": "MATCH",
+      "exact": true,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "kshipra_motors",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "case.order_date",
+      "expected": "2026-07-29",
+      "parser": "2026-07-29",
+      "gpt_oss_120b": "2026-07-29",
+      "evidence_page": 6,
+      "expected_evidence_page": 3,
+      "evidence_text": "Order Date: 29/07/2026",
+      "validation": "VALID",
+      "status": "MATCH",
+      "exact": true,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "kshipra_motors",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "corporate_debtor.name",
+      "expected": "Kshipra Motors Private Limited",
+      "parser": "Kshipra Motors Private Limited",
+      "gpt_oss_120b": "Kshipra Motors Private Limited",
+      "evidence_page": 13,
+      "expected_evidence_page": 2,
+      "evidence_text": "Corporate Debtor Kshipra Motors Private Limited is admitted",
+      "validation": "VALID",
+      "status": "MATCH",
+      "exact": true,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "kshipra_motors",
+      "type": "PROVIDER_REJECTED_ROLE_OR_SCHEMA_OUTPUT",
+      "chunk": 1,
+      "pages": [
+        1,
+        5
+      ],
+      "code": "INVALID_STRUCTURED_RESPONSE",
+      "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/applicant' does not validate with /properties/applicant/additionalProperties: additionalProperties 'email', 'afa_details', 'afa_valid_until' not allowed"
+    },
+    {
+      "case": "organic_world",
+      "type": "UNSUPPORTED_OR_WRONG_PAGE_EVIDENCE",
+      "field": "case.section",
+      "expected": "7",
+      "parser": "7",
+      "gpt_oss_120b": "Section 7 IBC",
+      "evidence_page": 1,
+      "expected_evidence_page": 2,
+      "evidence_text": "Order under Section 7 IBC",
+      "validation": "VALID",
+      "status": "CONFLICT",
+      "exact": false,
+      "page_accurate": false,
+      "evidence_supported": true,
+      "ai_candidates": []
+    },
+    {
+      "case": "organic_world",
+      "type": "PROVIDER_REJECTED_ROLE_OR_SCHEMA_OUTPUT",
+      "chunk": 4,
+      "pages": [
+        14,
+        18
+      ],
+      "code": "INVALID_STRUCTURED_RESPONSE",
+      "message": "Groq strict output failed schema validation: Generated JSON does not match the expected schema. Please adjust your prompt. See 'failed_generation' for more details. Error: jsonschema: '/appointed_irp' does not validate with /properties/appointed_irp/required: missing properties: 'email'"
+    }
+  ],
+  "totals": {
+    "api_calls": 29,
+    "input_tokens": 51814,
+    "output_tokens": 13349,
+    "latency_ms": 78855,
+    "actual_cost": 0.0,
+    "estimated_list_cost": 0.0157815
+  },
+  "metrics": {
+    "overall": {
+      "correct": 21,
+      "total": 54,
+      "percentage": 38.89
+    },
+    "critical": {
+      "correct": 14,
+      "total": 27,
+      "percentage": 51.85
+    },
+    "non_critical": {
+      "correct": 7,
+      "total": 27,
+      "percentage": 25.93
+    },
+    "entity_role": {
+      "correct": 3,
+      "total": 9,
+      "percentage": 33.33
+    },
+    "cin": {
+      "correct": 2,
+      "total": 6,
+      "percentage": 33.33
+    },
+    "date": {
+      "correct": 8,
+      "total": 12,
+      "percentage": 66.67
+    },
+    "address": {
+      "correct": 0,
+      "total": 9,
+      "percentage": 0.0
+    },
+    "irp": {
+      "correct": 5,
+      "total": 15,
+      "percentage": 33.33
+    },
+    "not_found": {
+      "correct": 4,
+      "total": 4,
+      "percentage": 100.0
+    },
+    "evidence": {
+      "correct": 11,
+      "total": 50,
+      "percentage": 22.0
+    }
+  },
+  "cache_test": {
+    "hit": true,
+    "new_api_calls": 0,
+    "new_input_tokens": 0,
+    "new_output_tokens": 0,
+    "same_extraction": true
+  }
+}

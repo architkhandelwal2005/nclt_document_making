@@ -8,6 +8,7 @@ load_dotenv(ROOT_DIR / ".env")
 
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
+import asyncio
 import io
 import json
 import logging
@@ -24,6 +25,7 @@ from mca_provider import ManualMcaProvider
 from coc_workflow import CocDocumentService
 from public_announcement import FORM_FIELDS, build_form_defaults, clean_registered_address, extract_published_pdf, generate_form_a
 from nclt_fetcher import NcltOrderFetcherService
+from ai import AdmissionAIService, AIServiceError
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
 STORAGE_MODE = os.environ.get("STORAGE_MODE", "local").strip().lower()
@@ -86,6 +88,7 @@ casefile_store.ensure_admin(ADMIN_ID, ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD_HA
 admission_intakes = AdmissionIntakeService(casefile_store, DATA_DIR, ManualMcaProvider())
 coc_documents = CocDocumentService(SOURCE_ROOT / "templates" / "coc")
 nclt_fetcher = NcltOrderFetcherService(casefile_store, DATA_DIR)
+admission_ai = AdmissionAIService(casefile_store, DATA_DIR)
 
 # In-memory state (resets on restart)
 LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
@@ -663,6 +666,15 @@ class NcltCandidateSelection(BaseModel):
     candidate_id: str = Field(min_length=1, max_length=100)
 
 
+class AIExtractionInput(BaseModel):
+    reanalyze: bool = False
+
+
+class AIReviewInput(BaseModel):
+    intake_id: str = Field(min_length=1, max_length=100)
+    decisions: Dict[str, Any] = Field(default_factory=dict)
+
+
 class CocDocumentInput(BaseModel):
     document_type: str = Field(pattern="^(notice|minutes)$")
     status: str = Field(default="review", pattern="^(draft|review|final)$")
@@ -939,7 +951,13 @@ async def save_admission_intake(intake_id: str, payload: Dict[str, Any], current
         raise HTTPException(status_code=404, detail="Admission intake not found")
     require_intake_access(record, current)
     try:
-        return admission_intakes.save(intake_id, payload.get("review", payload), current["id"])
+        saved = admission_intakes.save(intake_id, payload.get("review", payload), current["id"])
+        if payload.get("ai_job_id"):
+            try:
+                admission_ai.record_review(str(payload["ai_job_id"]), intake_id, payload.get("ai_review", {}), current["id"])
+            except AIServiceError as exc:
+                logging.getLogger(__name__).warning("AI review metadata was not saved: %s", exc.code)
+        return saved
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
     except ValueError as exc:
@@ -964,6 +982,11 @@ async def confirm_admission_intake(intake_id: str, payload: Dict[str, Any], curr
             action, target_case_id, bool(payload.get("allow_duplicate", False)),
             bool(payload.get("review_acknowledged", False)),
         )
+        if payload.get("ai_job_id"):
+            try:
+                admission_ai.record_review(str(payload["ai_job_id"]), intake_id, payload.get("ai_review", {}), current["id"])
+            except AIServiceError as exc:
+                logging.getLogger(__name__).warning("AI review metadata was not saved after import: %s", exc.code)
         if action == "create" and not casefile_store.has_full_case_access(current["role"]):
             casefile_store.set_case_assignments(result["case"]["id"], [current["id"]], current["id"])
         return result
@@ -979,6 +1002,47 @@ async def confirm_admission_intake(intake_id: str, payload: Dict[str, Any], curr
 async def list_case_admission_intakes(case_id: str, current=Depends(get_current_user)):
     require_case_access(case_id, current)
     return admission_intakes.list_for_case(case_id)
+
+
+@api_router.get("/ai/config")
+async def get_ai_config(current=Depends(get_current_user)):
+    return admission_ai.public_config()
+
+
+@api_router.get("/admission-intakes/{intake_id}/ai-extraction")
+async def get_admission_ai_extraction(intake_id: str, current=Depends(get_current_user)):
+    record = admission_intakes.get(intake_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Admission intake not found")
+    require_intake_access(record, current)
+    return admission_ai.latest_for_intake(intake_id) or {}
+
+
+@api_router.post("/admission-intakes/{intake_id}/ai-extraction")
+async def run_admission_ai_extraction(intake_id: str, payload: AIExtractionInput, current=Depends(get_current_user)):
+    record = admission_intakes.get(intake_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Admission intake not found")
+    require_intake_access(record, current)
+    if record.get("status") == "confirmed":
+        raise HTTPException(status_code=409, detail="Confirmed admission intakes cannot be re-extracted")
+    try:
+        return await asyncio.to_thread(admission_ai.run, record, current["id"], payload.reanalyze)
+    except AIServiceError as exc:
+        status = 409 if exc.code in {"AI_DISABLED", "API_KEY_NOT_CONFIGURED", "GROQ_API_KEY_NOT_CONFIGURED"} else 413 if exc.code == "DOCUMENT_TOO_LARGE" else 502
+        raise HTTPException(status_code=status, detail={"code": exc.code, "message": str(exc)}) from exc
+
+
+@api_router.put("/ai-jobs/{job_id}/review")
+async def save_ai_review(job_id: str, payload: AIReviewInput, current=Depends(get_current_user)):
+    record = admission_intakes.get(payload.intake_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Admission intake not found")
+    require_intake_access(record, current)
+    try:
+        return admission_ai.record_review(job_id, payload.intake_id, payload.decisions, current["id"])
+    except AIServiceError as exc:
+        raise HTTPException(status_code=422, detail={"code": exc.code, "message": str(exc)}) from exc
 
 
 # ---------------- NCLT Order Fetcher ----------------
