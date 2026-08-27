@@ -1,0 +1,100 @@
+{
+  "fixture": {
+    "file_name": "mahakali_form_c_with_annexures.pdf",
+    "sha256": "69b61f3afe9d6acbc8c988eacd61efde12103bdef98b429883831cf2621e8c07",
+    "page_count": 83,
+    "confidential_pdf_committed": false,
+    "ground_truth_method": "Independent visual review of the source PDF; not copied from parser or AI output",
+    "reviewed_on": "2026-08-27"
+  },
+  "claim_form": {
+    "claim_form_type": {"value": "Form C", "page": 1, "source_snippet": "FORM C - SUBMISSION OF CLAIM BY FINANCIAL CREDITORS", "status": "CONFIRMED"},
+    "creditor_name": {"value": "Samunnati Finance Private Limited", "page": 1, "source_snippet": "Samunnati Finance Private Limited, Represented by its Authorised Representative", "status": "CONFIRMED"},
+    "creditor_identifier": {"value": "U65990TN2021PTC146392", "page": 2, "source_snippet": "Identification number ... U65990TN2021PTC146392 - SFPL", "status": "CONFIRMED"},
+    "creditor_category": {"value": "FINANCIAL_CREDITOR", "page": 1, "source_snippet": "SUBMISSION OF CLAIM BY FINANCIAL CREDITORS", "status": "CONFIRMED"},
+    "claim_submission_date": {"value": "2026-08-17", "page": 1, "source_snippet": "17.08.2026", "status": "CONFIRMED"},
+    "claim_as_on_date": {"value": "2026-07-31", "page": 2, "source_snippet": "as on 31.07.2026 ie. Insolvency Commencement Date", "status": "CONFIRMED"},
+    "total_claimed": {"value": "60855576.00", "page": 2, "source_snippet": "Rs. 6,08,55,576/- ... as on 31.07.2026", "status": "CONFIRMED"},
+    "principal_claimed": {"value": null, "page": null, "source_snippet": null, "status": "NOT_FOUND"},
+    "interest_claimed": {"value": null, "page": null, "source_snippet": null, "status": "NOT_FOUND"},
+    "other_amount_claimed": {"value": null, "page": null, "source_snippet": null, "status": "NOT_FOUND"},
+    "currency": {"value": "INR", "page": 2, "source_snippet": "Rs. 6,08,55,576/-", "status": "CONFIRMED"},
+    "corporate_debtor_name": {"value": "Mahakali Foods Private Limited", "page": 1, "source_snippet": "resolution process of M/s Mahakali Foods Private Limited (Corporate Debtor)", "status": "CONFIRMED"},
+    "secured_status_as_claimed": {"value": "UNSECURED", "page": 2, "source_snippet": "Unsecured.", "status": "CONFIRMED"},
+    "guarantors_as_claimed": [
+      {"value": "Pankaj Saha", "page": 2, "source_snippet": "Mr Pankaj Saha", "status": "CONFIRMED"},
+      {"value": "Paritosh Saha", "page": 2, "source_snippet": "Mr Paritosh Saha", "status": "CONFIRMED"}
+    ],
+    "claim_reference": {"value": null, "page": null, "source_snippet": null, "status": "NOT_FOUND"},
+    "phone": {"value": null, "page": null, "source_snippet": null, "status": "MANUAL_CONFIRMATION_REQUIRED"}
+  },
+  "facility": {
+    "facility_type": {"value": "Long Term Loan", "page": 9, "source_snippet": "Facility # 2: Long Term Loan", "status": "CONFIRMED"},
+    "original_facility_amount": {"value": "30000000.00", "page": 9, "source_snippet": "Rs. 3,00,00,000 (Rupees Three Crores only)", "status": "CONFIRMED"},
+    "sanction_letter_reference": {"value": "SAMFIN/AE/0234/2021-22", "page": 9, "source_snippet": "Ref : SAMFIN/AE/0234/2021-22", "status": "CONFIRMED"},
+    "sanction_date": {"value": "2021-09-20", "page": 9, "source_snippet": "Date : 20th September 2021", "status": "CONFIRMED"},
+    "agreement_date": {"value": "2021-10-01", "page": 45, "source_snippet": "Date of execution of document 01-10-2021", "status": "CONFIRMED"},
+    "contractual_interest_rate": {"value": "19.00", "page": 11, "source_snippet": "Long Term Loan 19% p.a.", "status": "CONFIRMED"},
+    "facility_purpose": {"value": "Working capital for procurement and processing of soya and other commodities", "page": 9, "source_snippet": "To meet working capital requirement for procurement and processing of Soya and other commodities", "status": "CONFIRMED"},
+    "demand_promissory_note_rate": {"value": "17.00", "page": 59, "source_snippet": "Handwritten 17% adjacent to printed/corrected interest wording", "status": "MANUAL_CONFIRMATION_REQUIRED"}
+  },
+  "supporting_security": {
+    "security_evidenced": {"value": true, "page": 9, "source_snippet": "Primary Security - Hypothecation of stock and book debts", "status": "CONFIRMED"},
+    "security_type": {"value": "HYPOTHECATION_OF_STOCK_AND_BOOK_DEBTS", "page": 45, "source_snippet": "Hypothecation of stock and book debts to the extent of loan outstanding", "status": "CONFIRMED"},
+    "collateral": {"value": "NIL", "page": 45, "source_snippet": "Security ... b) Collateral - Nil", "status": "CONFIRMED"},
+    "security_value": {"value": null, "page": null, "source_snippet": null, "status": "NOT_FOUND"}
+  },
+  "guarantees": [
+    {"guarantor": "Pankaj Saha", "guarantee_type": "PERSONAL", "guarantee_date": "2021-10-01", "page": 50, "status": "CONFIRMED"},
+    {"guarantor": "Paritosh Saha", "guarantee_type": "PERSONAL", "guarantee_date": "2021-10-01", "page": 50, "status": "CONFIRMED"}
+  ],
+  "default_and_award": {
+    "recall_notice_date": {"value": "2024-02-12", "page": 60, "source_snippet": "February 12th, 2024 - Recall of Credit Facility", "status": "CONFIRMED"},
+    "recall_amount_as_on_2024_02_11": {"value": "40252695.00", "page": 61, "source_snippet": "As on February 11th, 2024, an amount of Rs. 4,02,52,695/- is overdue", "status": "CONFIRMED"},
+    "proceeding_type": {"value": "ARBITRATION", "page": 71, "source_snippet": "ACP NO.6 OF 2024 ... AWARD", "status": "CONFIRMED"},
+    "case_reference": {"value": "ACP No. 6 of 2024", "page": 71, "source_snippet": "ACP NO.6 OF 2024", "status": "CONFIRMED"},
+    "award_date": {"value": "2024-08-05", "page": 71, "source_snippet": "Date of Award : 05-08-2024", "status": "CONFIRMED"},
+    "award_amount": {"value": "40252695.00", "page": 81, "source_snippet": "a sum of Rs. 4,02,52,695/-", "status": "CONFIRMED"},
+    "costs_awarded": {"value": "100000.00", "page": 81, "source_snippet": "a sum of Rs.1,00,000/- ... towards cost", "status": "CONFIRMED"},
+    "pre_award_interest_rate": {"value": "26.00", "page": 81, "source_snippet": "interest at the rate of 26% p.a from ... 08.04.2024 till ... 05.08.2024", "status": "CONFIRMED"},
+    "post_award_interest_rate": {"value": "18.00", "page": 81, "source_snippet": "future interest @18% p.a ... from 05.08.2024 till realisation", "status": "CONFIRMED"}
+  },
+  "amount_reconciliation": {
+    "source_page": 83,
+    "principal_outstanding": "28648224.00",
+    "total_interest_due": "23210701.49",
+    "late_charge_due": "8996650.84",
+    "calculated_total": "60855576.33",
+    "form_total": "60855576.00",
+    "difference": "0.33",
+    "expected_status": "RECONCILED",
+    "source_snippet": "Outstanding as on 31.07.2026 ... Net Payoff Amt (Total Outstanding) 6,08,55,576.33"
+  },
+  "expected_page_ranges": [
+    {"start_page": 1, "end_page": 4, "document_type": "CLAIM_FORM"},
+    {"start_page": 5, "end_page": 5, "document_type": "KYC"},
+    {"start_page": 6, "end_page": 7, "document_type": "DECLARATION"},
+    {"start_page": 8, "end_page": 8, "document_type": "VERIFICATION"},
+    {"start_page": 9, "end_page": 21, "document_type": "SANCTION_LETTER"},
+    {"start_page": 22, "end_page": 24, "document_type": "BOARD_RESOLUTION"},
+    {"start_page": 25, "end_page": 47, "document_type": "LOAN_AGREEMENT"},
+    {"start_page": 48, "end_page": 58, "document_type": "GUARANTEE"},
+    {"start_page": 59, "end_page": 59, "document_type": "OTHER"},
+    {"start_page": 60, "end_page": 62, "document_type": "RECALL_NOTICE"},
+    {"start_page": 63, "end_page": 64, "document_type": "STATEMENT_OF_ACCOUNT"},
+    {"start_page": 65, "end_page": 69, "document_type": "CORRESPONDENCE"},
+    {"start_page": 70, "end_page": 82, "document_type": "ARBITRATION_AWARD"},
+    {"start_page": 83, "end_page": 83, "document_type": "INTEREST_CALCULATION"}
+  ],
+  "expected_discrepancies": [
+    "SECURITY_STATUS_CONFLICT",
+    "INTEREST_RATE_CONFLICT",
+    "AWARD_VS_CLAIM_RECONCILIATION"
+  ],
+  "prohibited_conflations": [
+    "Do not use original facility amount as current claim amount",
+    "Do not use award amount as current claim amount",
+    "Do not replace Form C unsecured assertion with hypothecation evidence",
+    "Do not treat 19% contractual, 26% pre-award/default and 18% post-award rates as the same semantic field"
+  ]
+}

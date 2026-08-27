@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from pydantic import BaseModel
+
 
 class AIProviderError(RuntimeError):
     def __init__(self, code: str, message: str, *, retry_after_seconds: float | None = None,
@@ -33,5 +35,7 @@ class AIProvider(ABC):
     name: str
 
     @abstractmethod
-    def extract(self, *, system_prompt: str, document_text: str, model: str) -> ProviderResult:
+    def extract(self, *, system_prompt: str, document_text: str, model: str,
+                output_schema: type[BaseModel] | None = None,
+                schema_name: str = "admission_order_extraction") -> ProviderResult:
         """Return a schema-conforming extraction or raise ``AIProviderError``."""

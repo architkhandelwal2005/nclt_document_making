@@ -28,6 +28,7 @@ api.interceptors.response.use(
 export function errorMessage(error, fallback = "The operation could not be completed.") {
   const detail = error?.response?.data?.detail;
   if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object" && !Array.isArray(detail)) return detail.message || fallback;
   if (Array.isArray(detail)) return detail.map(item => item.msg || String(item)).join(" ");
   return fallback;
 }

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .provider import AIProvider, AIProviderError, ProviderResult
-from .schemas.admission_order import AdmissionOrderExtraction
+from pydantic import BaseModel
 
 
 class OpenAIProvider(AIProvider):
@@ -15,7 +15,12 @@ class OpenAIProvider(AIProvider):
         self.api_key = api_key
         self.timeout_seconds = timeout_seconds
 
-    def extract(self, *, system_prompt: str, document_text: str, model: str) -> ProviderResult:
+    def extract(self, *, system_prompt: str, document_text: str, model: str,
+                output_schema: type[BaseModel] | None = None,
+                schema_name: str = "admission_order_extraction") -> ProviderResult:
+        if output_schema is None:
+            from .schemas.admission_order import AdmissionOrderExtraction
+            output_schema = AdmissionOrderExtraction
         try:
             import openai
             from openai import OpenAI
@@ -29,7 +34,7 @@ class OpenAIProvider(AIProvider):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": document_text},
                 ],
-                text_format=AdmissionOrderExtraction,
+                text_format=output_schema,
                 store=False,
             )
             parsed = response.output_parsed

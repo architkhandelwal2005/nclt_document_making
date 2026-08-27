@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -41,7 +41,11 @@ MODULE_FIELDS: Dict[str, tuple[str, ...]] = {
         "security_details", "secured_status", "security_value", "charge_details", "date_debt_incurred", "due_date",
         "default_date", "interest_rate", "interest_basis", "status", "deficiency_notes", "verification_notes",
         "issues_identified", "documents_checked", "decision_date", "decision_by", "decision_reason", "revision",
-        "parent_claim_id", "idempotency_key", "override_reason",
+        "parent_claim_id", "idempotency_key", "override_reason", "claim_submission_date", "claim_as_on_date",
+        "claim_reference", "creditor_identifier", "authorized_representative",
+        "authorized_representative_designation", "nature_of_debt", "basis_of_claim", "facility_type",
+        "original_facility_amount", "sanction_letter_reference", "sanction_date", "agreement_date", "bank_details",
+        "supporting_evidence_json", "reconciliation_json",
     ),
     "claim-documents": ("claim_id", "name", "required", "received", "document_id", "notes"),
     "coc-members": ("claim_id", "contact_id", "admitted_debt", "voting_share", "valid_from", "valid_to", "authorized_representative"),
@@ -905,6 +909,104 @@ class CasefileDatabase:
                     document_hash, task_type, provider, model, prompt_version, schema_version, status
                 );
 
+                CREATE TABLE IF NOT EXISTS claim_bundles (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    source_hash TEXT NOT NULL DEFAULT '',
+                    review_json TEXT NOT NULL DEFAULT '{}',
+                    inventory_json TEXT NOT NULL DEFAULT '[]',
+                    reconciliation_json TEXT NOT NULL DEFAULT '{}',
+                    query_suggestions_json TEXT NOT NULL DEFAULT '[]',
+                    confirmed_at TEXT,
+                    confirmed_by TEXT,
+                    created_by TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_claim_bundles_claim_time
+                    ON claim_bundles(case_id, claim_id, created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS claim_bundle_documents (
+                    id TEXT PRIMARY KEY,
+                    bundle_id TEXT NOT NULL REFERENCES claim_bundles(id),
+                    document_id TEXT NOT NULL REFERENCES documents(id),
+                    document_hash TEXT NOT NULL,
+                    page_count INTEGER NOT NULL DEFAULT 0,
+                    extraction_status TEXT NOT NULL DEFAULT 'PENDING',
+                    position INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(bundle_id, document_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS claim_bundle_segments (
+                    id TEXT PRIMARY KEY,
+                    bundle_id TEXT NOT NULL REFERENCES claim_bundles(id),
+                    document_id TEXT NOT NULL REFERENCES documents(id),
+                    start_page INTEGER NOT NULL,
+                    end_page INTEGER NOT NULL,
+                    document_type TEXT NOT NULL,
+                    classification_status TEXT NOT NULL,
+                    confidence TEXT NOT NULL,
+                    title_text TEXT NOT NULL DEFAULT '',
+                    evidence_text TEXT NOT NULL DEFAULT '',
+                    user_document_type TEXT,
+                    corrected_by TEXT,
+                    corrected_at TEXT,
+                    ai_job_id TEXT REFERENCES ai_jobs(id),
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_claim_bundle_segments
+                    ON claim_bundle_segments(bundle_id, document_id, start_page);
+
+                CREATE TABLE IF NOT EXISTS claim_evidence_facts (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    bundle_id TEXT NOT NULL REFERENCES claim_bundles(id),
+                    layer TEXT NOT NULL,
+                    topic TEXT NOT NULL,
+                    field_name TEXT NOT NULL,
+                    value_json TEXT NOT NULL,
+                    document_id TEXT,
+                    bundle_file TEXT NOT NULL DEFAULT '',
+                    document_type TEXT NOT NULL,
+                    page INTEGER,
+                    source_text TEXT NOT NULL DEFAULT '',
+                    basis TEXT NOT NULL,
+                    confidence TEXT NOT NULL,
+                    review_status TEXT NOT NULL,
+                    reviewed_value_json TEXT,
+                    reviewed_by TEXT,
+                    reviewed_at TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_claim_evidence_facts
+                    ON claim_evidence_facts(claim_id, bundle_id, layer, field_name);
+
+                CREATE TABLE IF NOT EXISTS claim_conflicts (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    bundle_id TEXT NOT NULL REFERENCES claim_bundles(id),
+                    conflict_type TEXT NOT NULL,
+                    topic TEXT NOT NULL,
+                    source_a_json TEXT NOT NULL,
+                    source_b_json TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'OPEN',
+                    user_resolution TEXT NOT NULL DEFAULT '',
+                    resolved_by TEXT,
+                    resolved_at TEXT,
+                    notes TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_claim_conflicts_open
+                    ON claim_conflicts(claim_id, bundle_id, status);
+
                 CREATE TABLE IF NOT EXISTS activity_events (
                     id TEXT PRIMARY KEY,
                     case_id TEXT REFERENCES cases(id),
@@ -954,6 +1056,13 @@ class CasefileDatabase:
             self._ensure_column(connection, "ai_jobs", "latency_ms", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(connection, "ai_jobs", "actual_cost", "REAL")
             self._ensure_column(connection, "ai_jobs", "estimated_list_cost", "REAL")
+            self._ensure_column(connection, "ai_jobs", "claim_id", "TEXT REFERENCES claims(id)")
+            self._ensure_column(connection, "ai_jobs", "bundle_id", "TEXT REFERENCES claim_bundles(id)")
+            self._ensure_column(connection, "ai_jobs", "page_start", "INTEGER")
+            self._ensure_column(connection, "ai_jobs", "page_end", "INTEGER")
+            self._ensure_column(connection, "ai_jobs", "parent_job_id", "TEXT REFERENCES ai_jobs(id)")
+            self._ensure_column(connection, "ai_jobs", "input_fingerprint", "TEXT NOT NULL DEFAULT ''")
+            connection.execute("CREATE INDEX IF NOT EXISTS ix_ai_jobs_granular_cache ON ai_jobs(input_fingerprint, status)")
             self._ensure_column(connection, "coc_meetings", "signed_at", "TEXT")
             claim_columns = {
                 "claim_number": "TEXT NOT NULL DEFAULT ''", "creditor_name": "TEXT NOT NULL DEFAULT ''",
@@ -972,6 +1081,13 @@ class CasefileDatabase:
                 "issues_identified": "TEXT NOT NULL DEFAULT ''", "documents_checked": "TEXT NOT NULL DEFAULT ''",
                 "decision_date": "TEXT", "decision_by": "TEXT NOT NULL DEFAULT ''", "idempotency_key": "TEXT",
                 "override_reason": "TEXT NOT NULL DEFAULT ''",
+                "claim_submission_date": "TEXT", "claim_as_on_date": "TEXT", "claim_reference": "TEXT NOT NULL DEFAULT ''",
+                "creditor_identifier": "TEXT NOT NULL DEFAULT ''", "authorized_representative": "TEXT NOT NULL DEFAULT ''",
+                "authorized_representative_designation": "TEXT NOT NULL DEFAULT ''", "nature_of_debt": "TEXT NOT NULL DEFAULT ''",
+                "basis_of_claim": "TEXT NOT NULL DEFAULT ''", "facility_type": "TEXT NOT NULL DEFAULT ''",
+                "original_facility_amount": "REAL", "sanction_letter_reference": "TEXT NOT NULL DEFAULT ''",
+                "sanction_date": "TEXT", "agreement_date": "TEXT", "bank_details": "TEXT NOT NULL DEFAULT ''",
+                "supporting_evidence_json": "TEXT NOT NULL DEFAULT '{}'", "reconciliation_json": "TEXT NOT NULL DEFAULT '{}'",
             }
             for column, declaration in claim_columns.items():
                 self._ensure_column(connection, "claims", column, declaration)

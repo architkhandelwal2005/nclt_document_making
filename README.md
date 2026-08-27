@@ -212,6 +212,26 @@ produces DOCX only because the application does not yet have a reliable free
 local DOCX-to-PDF conversion engine for end users. Microsoft Word can be used
 by the office to save the reviewed DOCX as PDF when required.
 
+## Staged Claim Bundle AI (optional)
+
+Inside a Claim, **AI Claim Review** analyzes the same canonical manual Claim
+record; it does not create a parallel AI claim. The pipeline performs local
+page-aware preparation, logical page/document classification, Claim Form
+assertion extraction, annexure evidence extraction, deterministic amount
+reconciliation, and mandatory human review. Results are organized as Claim
+Summary, Creditor, Amount, Underlying Debt, Security/Guarantee,
+Default/Litigation/Award, Inventory, Discrepancies, and Query Suggestions.
+
+The configured provider is optional. When disabled or unconfigured, manual
+Claim creation, document upload, verification, queries, admission decisions,
+Claims Register, and List of Creditors continue to work. AI can never admit or
+reject a Claim and never sends query emails. See `docs/AI_CLAIM_PRIVACY.md` for
+the privacy and provider-handling boundary.
+
+The confidential Mahakali benchmark PDF is intentionally Git-ignored. A local
+copy belongs at `backend/tests/fixtures/claims_real/mahakali_form_c_with_annexures.pdf`.
+Its reviewed expected JSON is independent of model output.
+
 ## Verification
 
 Backend:

@@ -118,7 +118,9 @@ class AdmissionAIService:
 
     @staticmethod
     def _extract_with_bounded_rate_retry(provider: AIProvider, *, system_prompt: str,
-                                         document_text: str, model: str):
+                                         document_text: str, model: str,
+                                         output_schema=AdmissionOrderExtraction,
+                                         schema_name: str = "admission_order_extraction"):
         failed_calls = 0
         failed_latency = 0
         # At most two rate-limit retries. Groq's rolling TPM window can require
@@ -127,6 +129,7 @@ class AdmissionAIService:
             try:
                 result = provider.extract(
                     system_prompt=system_prompt, document_text=document_text, model=model,
+                    output_schema=output_schema, schema_name=schema_name,
                 )
                 return replace(
                     result, api_calls=result.api_calls + failed_calls,

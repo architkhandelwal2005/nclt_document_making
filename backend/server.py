@@ -26,6 +26,7 @@ from coc_workflow import CocDocumentService
 from public_announcement import FORM_FIELDS, build_form_defaults, clean_registered_address, extract_published_pdf, generate_form_a
 from nclt_fetcher import NcltOrderFetcherService
 from ai import AdmissionAIService, AIServiceError
+from ai.claim_bundle_service import ClaimBundleError, ClaimBundleService
 from claims_workflow import ClaimsWorkflow, QUERY_TEMPLATES
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
@@ -90,6 +91,7 @@ admission_intakes = AdmissionIntakeService(casefile_store, DATA_DIR, ManualMcaPr
 coc_documents = CocDocumentService(SOURCE_ROOT / "templates" / "coc")
 nclt_fetcher = NcltOrderFetcherService(casefile_store, DATA_DIR)
 admission_ai = AdmissionAIService(casefile_store, DATA_DIR)
+claim_bundle_ai = ClaimBundleService(casefile_store, DATA_DIR)
 
 # In-memory state (resets on restart)
 LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
@@ -674,6 +676,30 @@ class AIExtractionInput(BaseModel):
 class AIReviewInput(BaseModel):
     intake_id: str = Field(min_length=1, max_length=100)
     decisions: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ClaimBundleCreateInput(BaseModel):
+    name: str = Field(default="", max_length=200)
+    document_ids: List[str] = Field(default_factory=list)
+
+
+class ClaimBundleAnalyzeInput(BaseModel):
+    reanalyze: bool = False
+
+
+class ClaimBundleClassificationInput(BaseModel):
+    corrections: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ClaimBundleReviewInput(BaseModel):
+    decisions: List[Dict[str, Any]] = Field(default_factory=list)
+    conflict_resolutions: List[Dict[str, Any]] = Field(default_factory=list)
+    accept_all_non_conflicting: bool = False
+    confirm: bool = False
+
+
+class ClaimBundleSuggestionInput(BaseModel):
+    action: str = Field(pattern="^(ADDED_TO_QUERY|IGNORED|NOT_REQUIRED)$")
 
 
 class CocDocumentInput(BaseModel):
@@ -1500,6 +1526,101 @@ async def export_list_of_creditors(case_id: str, current=Depends(get_current_use
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
     return FileResponse(output, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document", filename=f"List_of_Creditors_{case_id[:8]}.docx")
+
+
+def _claim_bundle_error(exc: ClaimBundleError) -> HTTPException:
+    if exc.code in {
+        "CLAIM_NOT_FOUND", "BUNDLE_NOT_FOUND", "DOCUMENT_NOT_FOUND", "SEGMENT_NOT_FOUND",
+        "CONFLICT_NOT_FOUND", "SUGGESTION_NOT_FOUND",
+    }:
+        status = 404
+    elif exc.code in {"AI_DISABLED", "API_KEY_NOT_CONFIGURED", "GROQ_API_KEY_NOT_CONFIGURED"}:
+        status = 409
+    elif exc.code in {"DOCUMENT_TOO_LARGE", "DOCUMENT_CHUNK_TOO_LARGE"}:
+        status = 413
+    elif exc.code in {"API_TIMEOUT", "API_RATE_LIMIT", "API_PROVIDER_ERROR"}:
+        status = 502
+    else:
+        status = 422
+    return HTTPException(status_code=status, detail={"code": exc.code, "message": str(exc)})
+
+
+@api_router.get("/cases/{case_id}/claims/{claim_id}/ai/config")
+async def claim_bundle_ai_config(case_id: str, claim_id: str, current=Depends(get_current_user)):
+    _claims(case_id, current).get(case_id, claim_id)
+    return claim_bundle_ai.public_config()
+
+
+@api_router.get("/cases/{case_id}/claims/{claim_id}/ai/bundles")
+async def list_claim_bundles(case_id: str, claim_id: str, current=Depends(get_current_user)):
+    _claims(case_id, current).get(case_id, claim_id)
+    return claim_bundle_ai.list_bundles(case_id, claim_id)
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/ai/bundles")
+async def create_claim_bundle(case_id: str, claim_id: str, payload: ClaimBundleCreateInput, current=Depends(get_current_user)):
+    _claims(case_id, current).get(case_id, claim_id)
+    try:
+        return claim_bundle_ai.create_bundle(case_id, claim_id, current["id"], name=payload.name,
+                                             document_ids=payload.document_ids or None)
+    except ClaimBundleError as exc:
+        raise _claim_bundle_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/claims/{claim_id}/ai/bundles/{bundle_id}")
+async def get_claim_bundle(case_id: str, claim_id: str, bundle_id: str, current=Depends(get_current_user)):
+    _claims(case_id, current).get(case_id, claim_id)
+    try:
+        return claim_bundle_ai.get_bundle(case_id, claim_id, bundle_id)
+    except ClaimBundleError as exc:
+        raise _claim_bundle_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/ai/bundles/{bundle_id}/analyze")
+async def analyze_claim_bundle(case_id: str, claim_id: str, bundle_id: str, payload: ClaimBundleAnalyzeInput,
+                               current=Depends(get_current_user)):
+    _claims(case_id, current).get(case_id, claim_id)
+    try:
+        return await asyncio.to_thread(claim_bundle_ai.analyze, case_id, claim_id, bundle_id, current["id"],
+                                       reanalyze=payload.reanalyze)
+    except ClaimBundleError as exc:
+        raise _claim_bundle_error(exc) from exc
+
+
+@api_router.put("/cases/{case_id}/claims/{claim_id}/ai/bundles/{bundle_id}/classifications")
+async def correct_claim_bundle_classifications(case_id: str, claim_id: str, bundle_id: str,
+                                                payload: ClaimBundleClassificationInput,
+                                                current=Depends(get_current_user)):
+    _claims(case_id, current).get(case_id, claim_id)
+    try:
+        return claim_bundle_ai.correct_segments(case_id, claim_id, bundle_id, payload.corrections, current["id"])
+    except ClaimBundleError as exc:
+        raise _claim_bundle_error(exc) from exc
+
+
+@api_router.put("/cases/{case_id}/claims/{claim_id}/ai/bundles/{bundle_id}/review")
+async def review_claim_bundle(case_id: str, claim_id: str, bundle_id: str, payload: ClaimBundleReviewInput,
+                              current=Depends(get_current_user)):
+    _claims(case_id, current).get(case_id, claim_id)
+    try:
+        result = claim_bundle_ai.review(
+            case_id, claim_id, bundle_id, payload.decisions, current["id"],
+            accept_all_non_conflicting=payload.accept_all_non_conflicting, confirm=payload.confirm,
+            conflict_resolutions=payload.conflict_resolutions,
+        )
+        return result
+    except ClaimBundleError as exc:
+        raise _claim_bundle_error(exc) from exc
+
+
+@api_router.put("/cases/{case_id}/claims/{claim_id}/ai/bundles/{bundle_id}/suggestions/{suggestion_index}")
+async def decide_claim_bundle_suggestion(case_id: str, claim_id: str, bundle_id: str, suggestion_index: int,
+                                         payload: ClaimBundleSuggestionInput, current=Depends(get_current_user)):
+    _claims(case_id, current).get(case_id, claim_id)
+    try:
+        return claim_bundle_ai.decide_suggestion(case_id, claim_id, bundle_id, suggestion_index, payload.action, current["id"])
+    except ClaimBundleError as exc:
+        raise _claim_bundle_error(exc) from exc
 
 
 @api_router.get("/cases/{case_id}/claims/{claim_id}")

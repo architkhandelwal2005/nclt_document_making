@@ -9,7 +9,7 @@ from time import perf_counter
 from pydantic import ValidationError
 
 from .provider import AIProvider, AIProviderError, ProviderResult
-from .schemas.admission_order import AdmissionOrderExtraction
+from pydantic import BaseModel
 
 
 class GroqProvider(AIProvider):
@@ -21,7 +21,12 @@ class GroqProvider(AIProvider):
         self.api_key = api_key
         self.timeout_seconds = timeout_seconds
 
-    def extract(self, *, system_prompt: str, document_text: str, model: str) -> ProviderResult:
+    def extract(self, *, system_prompt: str, document_text: str, model: str,
+                output_schema: type[BaseModel] | None = None,
+                schema_name: str = "admission_order_extraction") -> ProviderResult:
+        if output_schema is None:
+            from .schemas.admission_order import AdmissionOrderExtraction
+            output_schema = AdmissionOrderExtraction
         try:
             import groq
             from groq import Groq
@@ -42,9 +47,9 @@ class GroqProvider(AIProvider):
                 response_format={
                     "type": "json_schema",
                     "json_schema": {
-                        "name": "admission_order_extraction",
+                        "name": schema_name,
                         "strict": True,
-                        "schema": AdmissionOrderExtraction.model_json_schema(),
+                        "schema": output_schema.model_json_schema(),
                     },
                 },
                 reasoning_effort="low",
@@ -55,7 +60,7 @@ class GroqProvider(AIProvider):
             content = response.choices[0].message.content if response.choices else None
             if not content:
                 raise AIProviderError("INVALID_STRUCTURED_RESPONSE", "Groq returned no structured output")
-            parsed = AdmissionOrderExtraction.model_validate(json.loads(content))
+            parsed = output_schema.model_validate(json.loads(content))
             usage = getattr(response, "usage", None)
             return ProviderResult(
                 parsed=parsed.model_dump(mode="json"),
@@ -70,7 +75,7 @@ class GroqProvider(AIProvider):
         except AIProviderError:
             raise
         except (json.JSONDecodeError, ValidationError) as error:
-            raise AIProviderError("INVALID_STRUCTURED_RESPONSE", "Groq output did not match the admission schema") from error
+            raise AIProviderError("INVALID_STRUCTURED_RESPONSE", "Groq output did not match the requested schema") from error
         except getattr(groq, "APITimeoutError", TimeoutError) as error:
             raise AIProviderError("API_TIMEOUT", "The Groq request timed out") from error
         except getattr(groq, "RateLimitError", RuntimeError) as error:
