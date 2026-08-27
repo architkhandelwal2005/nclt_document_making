@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server
-from database import CasefileDatabase
+from database import SCHEMA_VERSION, CasefileDatabase
 from nclt_fetcher import (
     ERROR_MESSAGES, NcltFetcherConfig, NcltOrderFetcherService,
     case_reference_matches, parse_case_details, parse_search_results,
@@ -134,7 +134,7 @@ def test_schema_contains_fetch_tracking_and_preserves_existing_modules(tmp_path)
         tables = {row["name"] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         version = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
     assert {"nclt_fetch_runs", "nclt_fetch_records", "cases", "documents", "hearings", "orders"} <= tables
-    assert version == 9
+    assert version == SCHEMA_VERSION
 
 
 def test_valid_download_is_registered_once_in_case_documents(tmp_path):

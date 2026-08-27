@@ -28,6 +28,7 @@ from nclt_fetcher import NcltOrderFetcherService
 from ai import AdmissionAIService, AIServiceError
 from ai.claim_bundle_service import ClaimBundleError, ClaimBundleService
 from claims_workflow import ClaimsWorkflow, QUERY_TEMPLATES
+from workflow import EventEngine, WorkflowError, WorkflowService
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
 STORAGE_MODE = os.environ.get("STORAGE_MODE", "local").strip().lower()
@@ -718,6 +719,51 @@ class PublicAnnouncementReviewInput(BaseModel):
 class PublicAnnouncementConfirmInput(BaseModel):
     accept_conflicts: bool = False
 
+
+class WorkflowEventInput(BaseModel):
+    event_type: str
+    event_date: str
+    source_type: str = "manual"
+    source_id: str = ""
+    source_document_id: Optional[str] = None
+    status: str = "CONFIRMED"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: Optional[str] = None
+
+
+class WorkflowStepActionInput(BaseModel):
+    reason: str = ""
+    remarks: str = ""
+    evidence_override_reason: str = ""
+
+
+class WorkflowAssignmentInput(BaseModel):
+    owner_user_id: Optional[str] = None
+    checker_user_id: Optional[str] = None
+    internal_due_date: Optional[str] = None
+    priority: Optional[str] = None
+
+
+class WorkflowEvidenceInput(BaseModel):
+    evidence_type: str
+    document_id: Optional[str] = None
+    event_id: Optional[str] = None
+    source_type: str = "document"
+    source_id: str = ""
+
+
+class WorkflowDeadlineOverrideInput(BaseModel):
+    due_date: str
+    reason: str
+
+
+def _workflow_error(exc: WorkflowError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=exc.as_detail())
+
+
+def _workflow_services() -> tuple[WorkflowService, EventEngine]:
+    return WorkflowService(casefile_store), EventEngine(casefile_store)
+
 # ---------------- Matter and profile routes ----------------
 @api_router.get("/cases")
 @api_router.get("/matters")
@@ -930,6 +976,192 @@ async def get_case_audit(case_id: str, limit: int = 100, current=Depends(get_cur
         raise HTTPException(status_code=404, detail="Case not found") from exc
 
 
+# ---------------- CIRP workflow / event / deadline engine ----------------
+@api_router.get("/workflow/definitions")
+async def get_workflow_definitions(workflow_version: Optional[str] = None, current=Depends(get_current_user)):
+    workflow, _ = _workflow_services()
+    return workflow.definitions(workflow_version)
+
+
+@api_router.get("/workflow/definitions/{step_code}")
+async def get_workflow_definition(step_code: str, workflow_version: Optional[str] = None,
+                                  current=Depends(get_current_user)):
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.definition(step_code, workflow_version)
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/workflow/initialize")
+async def initialize_case_workflow(case_id: str, payload: Optional[Dict[str, Any]] = None,
+                                   current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.initialize_cirp(case_id, current["id"], (payload or {}).get("workflow_version"))
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/workflow")
+async def get_case_workflow(case_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.get_case_workflow(case_id)
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/workflow/summary")
+async def get_case_workflow_summary(case_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.summary(case_id)
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/events")
+async def record_case_event(case_id: str, payload: WorkflowEventInput, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    _, events = _workflow_services()
+    try:
+        return events.record_event(
+            case_id, payload.event_type, payload.event_date, current["id"], payload.source_type,
+            payload.source_id, payload.source_document_id, payload.status, payload.metadata,
+            payload.idempotency_key,
+        )
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/events")
+async def get_case_events(case_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    _, events = _workflow_services()
+    try:
+        return events.list_events(case_id)
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/events/{event_id}/confirm")
+async def confirm_case_event(case_id: str, event_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    if current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+        raise HTTPException(status_code=403, detail={"code": "UNAUTHORIZED", "message": "Only an authorised professional or manager may confirm a case event."})
+    _, events = _workflow_services()
+    try:
+        return events.confirm_event(case_id, event_id, current["id"])
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/workflow/steps/{step_id}/start")
+async def start_workflow_step(case_id: str, step_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.start_step(case_id, step_id, current["id"])
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/workflow/steps/{step_id}/complete")
+async def complete_workflow_step(case_id: str, step_id: str, payload: WorkflowStepActionInput,
+                                 current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    if payload.evidence_override_reason and current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+        raise HTTPException(status_code=403, detail={"code": "UNAUTHORIZED", "message": "Only an authorised professional or manager may override evidence requirements."})
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.complete_step(
+            case_id, step_id, current["id"], payload.remarks, payload.evidence_override_reason,
+        )
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/workflow/steps/{step_id}/block")
+async def block_workflow_step(case_id: str, step_id: str, payload: WorkflowStepActionInput,
+                              current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.block_step(case_id, step_id, payload.reason, current["id"])
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/workflow/steps/{step_id}/waive")
+async def waive_workflow_step(case_id: str, step_id: str, payload: WorkflowStepActionInput,
+                              current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    if current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+        raise HTTPException(status_code=403, detail={"code": "UNAUTHORIZED", "message": "Only an authorised professional or manager may waive a workflow step."})
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.waive_step(case_id, step_id, payload.reason, current["id"])
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/workflow/steps/{step_id}/approve")
+async def approve_workflow_step(case_id: str, step_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    if current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+        raise HTTPException(status_code=403, detail={"code": "UNAUTHORIZED", "message": "Only an authorised professional or manager may approve a workflow step."})
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.approve_step(case_id, step_id, current["id"])
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.patch("/cases/{case_id}/workflow/steps/{step_id}/assignment")
+async def assign_workflow_step(case_id: str, step_id: str, payload: WorkflowAssignmentInput,
+                               current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.assign_step(
+            case_id, step_id, current["id"], payload.owner_user_id, payload.checker_user_id,
+            payload.internal_due_date, payload.priority,
+        )
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/workflow/steps/{step_id}/evidence")
+async def attach_workflow_evidence(case_id: str, step_id: str, payload: WorkflowEvidenceInput,
+                                   current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.attach_evidence(
+            case_id, step_id, current["id"], payload.evidence_type, payload.document_id,
+            payload.event_id, payload.source_type, payload.source_id,
+        )
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/workflow/steps/{step_id}/deadline-override")
+async def override_workflow_deadline(case_id: str, step_id: str, payload: WorkflowDeadlineOverrideInput,
+                                     current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    if current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+        raise HTTPException(status_code=403, detail={"code": "UNAUTHORIZED", "message": "Only an authorised professional or manager may override a statutory deadline."})
+    workflow, _ = _workflow_services()
+    try:
+        return workflow.deadlines.override(case_id, step_id, payload.due_date, payload.reason, current["id"])
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
+
+
 # ---------------- Admission-order intake ----------------
 @api_router.post("/admission-intakes")
 async def create_admission_intake(
@@ -1016,6 +1248,26 @@ async def confirm_admission_intake(intake_id: str, payload: Dict[str, Any], curr
                 logging.getLogger(__name__).warning("AI review metadata was not saved after import: %s", exc.code)
         if action == "create" and not casefile_store.has_full_case_access(current["role"]):
             casefile_store.set_case_assignments(result["case"]["id"], [current["id"]], current["id"])
+        case_data = payload.get("review", {}).get("case", {})
+        irp_data = payload.get("review", {}).get("irp", {})
+        try:
+            workflow_event = EventEngine(casefile_store).record_event(
+                result["case"]["id"], "ADMISSION_ORDER_CONFIRMED",
+                case_data.get("order_date") or case_data.get("commencement_date") or datetime.now().date().isoformat(),
+                current["id"], source_type="admission_order_intake", source_id=intake_id,
+                source_document_id=result.get("intake", {}).get("document_id"),
+                metadata={
+                    "cirp_commencement_date": case_data.get("commencement_date"),
+                    "irp_appointment_date": irp_data.get("appointment_date") or case_data.get("commencement_date"),
+                },
+                idempotency_key=f"admission-intake-confirmed:{intake_id}",
+            )
+            result["workflow_event"] = workflow_event
+        except WorkflowError as exc:
+            # The reviewed admission import is already durable. Preserve that
+            # mature flow and expose an explicit retryable integration warning.
+            logging.getLogger(__name__).exception("Admission workflow hook failed: %s", exc.code)
+            result["workflow_warning"] = exc.as_detail()
         return result
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
@@ -1272,6 +1524,14 @@ async def generate_public_announcement(case_id: str, payload: PublicAnnouncement
             {"name": filename, "storage_path": str(output.relative_to(DATA_DIR)),
              "metadata": {"form": "Form A", "reference_pages": "1-2", "editable": True}},
         )
+        EventEngine(casefile_store).record_event(
+            case_id, "PUBLIC_ANNOUNCEMENT_DRAFT_READY",
+            str(values.get("announcement_date") or datetime.now().date().isoformat())[:10],
+            current["id"], source_type="public_announcement", source_id=record["id"],
+            source_document_id=record.get("draft_document_id"),
+            metadata={"status": record["status"]},
+            idempotency_key=f"public-announcement-draft-ready:{record['id']}:{record.get('draft_document_id')}",
+        )
         return record
     except Exception:
         output.unlink(missing_ok=True)
@@ -1282,7 +1542,16 @@ async def generate_public_announcement(case_id: str, payload: PublicAnnouncement
 async def finalise_public_announcement(case_id: str, current=Depends(get_current_user)):
     require_case_access(case_id, current)
     try:
-        return casefile_store.set_public_announcement_stage(case_id, "READY_FOR_PUBLICATION", current["id"])
+        record = casefile_store.set_public_announcement_stage(case_id, "READY_FOR_PUBLICATION", current["id"])
+        EventEngine(casefile_store).record_event(
+            case_id, "PUBLIC_ANNOUNCEMENT_DRAFT_READY", datetime.now().date().isoformat(), current["id"],
+            source_type="public_announcement", source_id=record["id"],
+            source_document_id=record.get("draft_document_id"), metadata={"status": record["status"]},
+            idempotency_key=f"public-announcement-ready:{record['id']}",
+        )
+        return record
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1291,7 +1560,16 @@ async def finalise_public_announcement(case_id: str, current=Depends(get_current
 async def mark_public_announcement_sent(case_id: str, current=Depends(get_current_user)):
     require_case_access(case_id, current)
     try:
-        return casefile_store.set_public_announcement_stage(case_id, "SENT_FOR_PUBLICATION", current["id"])
+        record = casefile_store.set_public_announcement_stage(case_id, "SENT_FOR_PUBLICATION", current["id"])
+        EventEngine(casefile_store).record_event(
+            case_id, "PUBLIC_ANNOUNCEMENT_SENT_FOR_PUBLICATION", datetime.now().date().isoformat(), current["id"],
+            source_type="public_announcement", source_id=record["id"],
+            source_document_id=record.get("draft_document_id"), metadata={"status": record["status"]},
+            idempotency_key=f"public-announcement-sent:{record['id']}",
+        )
+        return record
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1320,10 +1598,19 @@ async def upload_published_public_announcement(case_id: str, file: UploadFile = 
             raise ValueError("Generate Form A before uploading the published announcement")
         review = {key: extraction.get("fields", {}).get(key, "") for key in FORM_FIELDS}
         conflicts = _announcement_conflicts(casefile_store.get_case(case_id) or {}, existing.get("draft_data", {}), review)
-        return casefile_store.store_published_announcement(
+        record = casefile_store.store_published_announcement(
             case_id, original_name, str(target.relative_to(DATA_DIR)), file.content_type or "application/pdf",
             extraction, review, conflicts, current["id"],
         )
+        EventEngine(casefile_store).record_event(
+            case_id, "PUBLIC_ANNOUNCEMENT_PUBLISHED",
+            str(review.get("publication_date") or datetime.now().date().isoformat())[:10],
+            current["id"], source_type="public_announcement", source_id=record["id"],
+            source_document_id=record.get("published_document_id"), status="PENDING_REVIEW",
+            metadata={"status": record["status"], "extraction_method": record.get("extraction_method")},
+            idempotency_key=f"public-announcement-published-upload:{record['id']}:{record.get('published_document_id')}",
+        )
+        return record
     except (ValueError, OSError) as exc:
         target.unlink(missing_ok=True)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1352,7 +1639,19 @@ async def confirm_published_public_announcement(case_id: str, payload: PublicAnn
     if current.get("role") not in {"admin", "administrator", "professional", "manager"}:
         raise HTTPException(status_code=403, detail="Only an authorised professional or manager may confirm publication")
     try:
-        return casefile_store.confirm_published_announcement(case_id, current["id"], payload.accept_conflicts)
+        record = casefile_store.confirm_published_announcement(case_id, current["id"], payload.accept_conflicts)
+        review = record.get("published_review", {})
+        EventEngine(casefile_store).record_event(
+            case_id, "PUBLIC_ANNOUNCEMENT_CONFIRMED",
+            str(review.get("publication_date") or datetime.now().date().isoformat())[:10],
+            current["id"], source_type="public_announcement", source_id=record["id"],
+            source_document_id=record.get("published_document_id"),
+            metadata={"status": record["status"], "claims_submission_last_date": review.get("claims_submission_last_date")},
+            idempotency_key=f"public-announcement-confirmed:{record['id']}:{record.get('published_document_id')}",
+        )
+        return record
+    except WorkflowError as exc:
+        raise _workflow_error(exc) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

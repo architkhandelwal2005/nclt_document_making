@@ -24,3 +24,13 @@ Automated testing verifies software behaviour but does not replace office-user a
 | AI Query Suggestions | Explicitly add a draft; confirm that no email is sent | PENDING | |
 | AI Claim Review | Nine sections, source/page/evidence and mandatory user confirmation | PENDING | |
 | AI Claim Re-analysis | Reuse cache, retain history and surface changed/new evidence | PENDING | |
+| CIRP Workflow Initialization | Initialize one versioned workflow per case without duplicate case steps | PENDING | |
+| CIRP Event Engine | Record, review and confirm case events; verify repeated events do not duplicate work | PENDING | |
+| CIRP Deadline Engine | Confirm T, inspect calculated dates and verify reviewed overrides remain unchanged | PENDING | |
+| CIRP Workflow Steps 1–23 | Review admission, takeover and Public Announcement step content and statuses | PENDING | |
+| Workflow Task Linkage | Verify active workflow steps reuse/create ordinary assigned tasks correctly | PENDING | |
+| Workflow Evidence Controls | Attach proof, test mandatory-evidence blocking and authorised override reasons | PENDING | |
+| Workflow Summary API | Verify counts, overdue indicators, approvals and next statutory deadline | PENDING | |
+| Case Event Ledger | Verify chronological source, document, actor and confirmation traceability | PENDING | |
+| Admission → Workflow Integration | Confirm an admission import initializes and activates the CIRP workflow | PENDING | |
+| Public Announcement → Workflow Integration | Confirm Form A states advance CIRP-021–023 without duplicating Form A data | PENDING | |

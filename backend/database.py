@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -1007,6 +1007,210 @@ class CasefileDatabase:
                 CREATE INDEX IF NOT EXISTS ix_claim_conflicts_open
                     ON claim_conflicts(claim_id, bundle_id, status);
 
+                CREATE TABLE IF NOT EXISTS workflow_phases (
+                    id TEXT PRIMARY KEY,
+                    workflow_type TEXT NOT NULL,
+                    workflow_version TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    sequence INTEGER NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(workflow_version, code)
+                );
+                CREATE INDEX IF NOT EXISTS ix_workflow_phases_version_sequence
+                    ON workflow_phases(workflow_version, sequence);
+
+                CREATE TABLE IF NOT EXISTS workflow_step_definitions (
+                    id TEXT PRIMARY KEY,
+                    workflow_type TEXT NOT NULL,
+                    workflow_version TEXT NOT NULL,
+                    step_code TEXT NOT NULL,
+                    phase_id TEXT NOT NULL REFERENCES workflow_phases(id),
+                    sequence INTEGER NOT NULL,
+                    day_trigger_text TEXT NOT NULL DEFAULT '',
+                    legal_reference TEXT NOT NULL DEFAULT '',
+                    area TEXT NOT NULL DEFAULT '',
+                    activity TEXT NOT NULL,
+                    staff_action TEXT NOT NULL DEFAULT '',
+                    standard_output TEXT NOT NULL DEFAULT '',
+                    automation_type TEXT NOT NULL,
+                    approval_role TEXT NOT NULL DEFAULT '',
+                    depends_on_description TEXT NOT NULL DEFAULT '',
+                    requires_coc_approval INTEGER NOT NULL DEFAULT 0,
+                    requires_nclt_filing INTEGER NOT NULL DEFAULT 0,
+                    requires_ibbi_filing INTEGER NOT NULL DEFAULT 0,
+                    evidence_requirement_text TEXT NOT NULL DEFAULT '',
+                    trigger_event_type TEXT NOT NULL,
+                    creates_task INTEGER NOT NULL DEFAULT 1,
+                    task_title TEXT NOT NULL DEFAULT '',
+                    default_priority TEXT NOT NULL DEFAULT 'normal',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    rule_version INTEGER NOT NULL DEFAULT 1,
+                    effective_from TEXT NOT NULL,
+                    effective_to TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(workflow_version, step_code, rule_version)
+                );
+                CREATE INDEX IF NOT EXISTS ix_workflow_definitions_trigger
+                    ON workflow_step_definitions(workflow_version, trigger_event_type, is_active);
+                CREATE INDEX IF NOT EXISTS ix_workflow_definitions_phase
+                    ON workflow_step_definitions(phase_id, sequence);
+
+                CREATE TABLE IF NOT EXISTS workflow_dependencies (
+                    id TEXT PRIMARY KEY,
+                    parent_step_definition_id TEXT NOT NULL REFERENCES workflow_step_definitions(id),
+                    child_step_definition_id TEXT NOT NULL REFERENCES workflow_step_definitions(id),
+                    dependency_type TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(parent_step_definition_id, child_step_definition_id, dependency_type),
+                    CHECK(parent_step_definition_id <> child_step_definition_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS deadline_rules (
+                    id TEXT PRIMARY KEY,
+                    step_definition_id TEXT NOT NULL REFERENCES workflow_step_definitions(id),
+                    anchor_event_type TEXT NOT NULL,
+                    offset_days INTEGER,
+                    offset_direction TEXT NOT NULL DEFAULT 'AFTER',
+                    calendar_basis TEXT NOT NULL DEFAULT 'CALENDAR_DAYS',
+                    rule_text TEXT NOT NULL DEFAULT '',
+                    legal_reference TEXT NOT NULL DEFAULT '',
+                    rule_version INTEGER NOT NULL DEFAULT 1,
+                    effective_from TEXT NOT NULL,
+                    effective_to TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(step_definition_id, rule_version)
+                );
+
+                CREATE TABLE IF NOT EXISTS workflow_template_links (
+                    id TEXT PRIMARY KEY,
+                    step_definition_id TEXT NOT NULL REFERENCES workflow_step_definitions(id),
+                    template_id TEXT NOT NULL,
+                    template_role TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    UNIQUE(step_definition_id, template_id, template_role)
+                );
+
+                CREATE TABLE IF NOT EXISTS workflow_evidence_requirements (
+                    id TEXT PRIMARY KEY,
+                    step_definition_id TEXT NOT NULL REFERENCES workflow_step_definitions(id),
+                    evidence_type TEXT NOT NULL,
+                    mandatory INTEGER NOT NULL DEFAULT 0,
+                    description TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    UNIQUE(step_definition_id, evidence_type)
+                );
+
+                CREATE TABLE IF NOT EXISTS case_workflows (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                    workflow_type TEXT NOT NULL,
+                    workflow_version TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'ACTIVE',
+                    started_at TEXT NOT NULL,
+                    closed_at TEXT,
+                    created_by TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(case_id, workflow_type)
+                );
+                CREATE INDEX IF NOT EXISTS ix_case_workflows_case
+                    ON case_workflows(case_id, status);
+
+                CREATE TABLE IF NOT EXISTS case_events (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                    event_type TEXT NOT NULL,
+                    event_date TEXT NOT NULL,
+                    source_type TEXT NOT NULL DEFAULT 'manual',
+                    source_id TEXT NOT NULL DEFAULT '',
+                    source_document_id TEXT REFERENCES documents(id),
+                    status TEXT NOT NULL DEFAULT 'PENDING_REVIEW',
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    idempotency_key TEXT NOT NULL,
+                    processed_at TEXT,
+                    created_by TEXT NOT NULL,
+                    confirmed_by TEXT,
+                    confirmed_at TEXT,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(case_id, idempotency_key)
+                );
+                CREATE INDEX IF NOT EXISTS ix_case_events_case_date
+                    ON case_events(case_id, event_date, created_at);
+                CREATE INDEX IF NOT EXISTS ix_case_events_type_status
+                    ON case_events(case_id, event_type, status);
+
+                CREATE TABLE IF NOT EXISTS case_workflow_steps (
+                    id TEXT PRIMARY KEY,
+                    case_workflow_id TEXT NOT NULL REFERENCES case_workflows(id) ON DELETE CASCADE,
+                    case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                    step_definition_id TEXT NOT NULL REFERENCES workflow_step_definitions(id),
+                    status TEXT NOT NULL DEFAULT 'NOT_TRIGGERED',
+                    trigger_event_id TEXT REFERENCES case_events(id),
+                    trigger_date TEXT,
+                    statutory_due_date TEXT,
+                    internal_due_date TEXT,
+                    owner_user_id TEXT REFERENCES users(id),
+                    checker_user_id TEXT REFERENCES users(id),
+                    approval_status TEXT NOT NULL DEFAULT 'NOT_REQUIRED',
+                    approved_by TEXT REFERENCES users(id),
+                    approved_at TEXT,
+                    priority TEXT NOT NULL DEFAULT 'normal',
+                    started_at TEXT,
+                    completed_at TEXT,
+                    remarks TEXT NOT NULL DEFAULT '',
+                    evidence_override_reason TEXT NOT NULL DEFAULT '',
+                    evidence_override_by TEXT REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(case_workflow_id, step_definition_id)
+                );
+                CREATE INDEX IF NOT EXISTS ix_case_workflow_steps_case_status
+                    ON case_workflow_steps(case_id, status, statutory_due_date);
+
+                CREATE TABLE IF NOT EXISTS case_deadlines (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                    case_workflow_step_id TEXT NOT NULL REFERENCES case_workflow_steps(id) ON DELETE CASCADE,
+                    deadline_rule_id TEXT NOT NULL REFERENCES deadline_rules(id),
+                    anchor_event_id TEXT REFERENCES case_events(id),
+                    anchor_date TEXT,
+                    calculated_due_date TEXT,
+                    override_due_date TEXT,
+                    override_reason TEXT NOT NULL DEFAULT '',
+                    override_by TEXT REFERENCES users(id),
+                    status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED',
+                    rule_version INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(case_workflow_step_id, deadline_rule_id)
+                );
+                CREATE INDEX IF NOT EXISTS ix_case_deadlines_case_due
+                    ON case_deadlines(case_id, calculated_due_date, override_due_date, status);
+
+                CREATE TABLE IF NOT EXISTS workflow_step_evidence (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+                    case_workflow_step_id TEXT NOT NULL REFERENCES case_workflow_steps(id) ON DELETE CASCADE,
+                    evidence_requirement_id TEXT REFERENCES workflow_evidence_requirements(id),
+                    evidence_type TEXT NOT NULL,
+                    document_id TEXT REFERENCES documents(id),
+                    event_id TEXT REFERENCES case_events(id),
+                    source_type TEXT NOT NULL DEFAULT 'document',
+                    source_id TEXT NOT NULL DEFAULT '',
+                    override_reason TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_workflow_evidence_step
+                    ON workflow_step_evidence(case_workflow_step_id, evidence_type);
+
                 CREATE TABLE IF NOT EXISTS activity_events (
                     id TEXT PRIMARY KEY,
                     case_id TEXT REFERENCES cases(id),
@@ -1064,6 +1268,11 @@ class CasefileDatabase:
             self._ensure_column(connection, "ai_jobs", "input_fingerprint", "TEXT NOT NULL DEFAULT ''")
             connection.execute("CREATE INDEX IF NOT EXISTS ix_ai_jobs_granular_cache ON ai_jobs(input_fingerprint, status)")
             self._ensure_column(connection, "coc_meetings", "signed_at", "TEXT")
+            self._ensure_column(connection, "tasks", "workflow_step_id", "TEXT REFERENCES case_workflow_steps(id)")
+            self._ensure_column(connection, "documents", "workflow_step_id", "TEXT REFERENCES case_workflow_steps(id)")
+            self._ensure_column(connection, "documents", "event_id", "TEXT REFERENCES case_events(id)")
+            connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_tasks_workflow_step ON tasks(workflow_step_id) WHERE workflow_step_id IS NOT NULL")
+            connection.execute("CREATE INDEX IF NOT EXISTS ix_documents_workflow_event ON documents(workflow_step_id, event_id)")
             claim_columns = {
                 "claim_number": "TEXT NOT NULL DEFAULT ''", "creditor_name": "TEXT NOT NULL DEFAULT ''",
                 "contact_person": "TEXT NOT NULL DEFAULT ''", "email": "TEXT NOT NULL DEFAULT ''",
@@ -1094,6 +1303,8 @@ class CasefileDatabase:
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_number ON claims(case_id, claim_number) WHERE claim_number <> ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_idempotency ON claims(case_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''")
             self._seed_compliance_rules(connection)
+            from workflow.seed_loader import seed_cirp_workflow
+            seed_cirp_workflow(connection, Path(__file__).parent / "workflow" / "seeds" / "cirp_2026_v1.json")
 
     @staticmethod
     def _ensure_column(connection: sqlite3.Connection, table: str, column: str, declaration: str) -> None:

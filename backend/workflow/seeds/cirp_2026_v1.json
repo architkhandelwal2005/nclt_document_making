@@ -1,0 +1,268 @@
+{
+  "workflow_type": "CIRP",
+  "workflow_version": "CIRP_2026_V1",
+  "seeded_at": "2026-08-27T00:00:00+00:00",
+  "phases": [
+    {
+      "code": "ADMISSION_TAKEOVER",
+      "name": "Admission & Takeover",
+      "sequence": 1,
+      "description": "Admission-order verification, statutory commencement controls, takeover and initial communications.",
+      "is_active": true
+    },
+    {
+      "code": "PUBLIC_ANNOUNCEMENT",
+      "name": "Public Announcement",
+      "sequence": 2,
+      "description": "Form A preparation, publication and proof controls under Regulation 6.",
+      "is_active": true
+    }
+  ],
+  "steps": [
+    {
+      "step_code": "CIRP-001", "phase_code": "ADMISSION_TAKEOVER", "sequence": 1,
+      "day_trigger_text": "T / admission order", "legal_reference": "Sections 7/9",
+      "area": "Admission", "activity": "Download and circulate the admission order; verify effective date, moratorium, IRP name and directions.",
+      "standard_output": "Admission Order Extraction Sheet", "automation_type": "AUTO", "approval_role": "RP review",
+      "evidence_requirement_text": "PDF order + source/date", "trigger_event_type": "ADMISSION_ORDER_CONFIRMED",
+      "task_title": "Verify and circulate admission order", "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 0, "rule_text": "T"},
+      "evidence_requirements": [{"evidence_type": "ADMISSION_ORDER", "mandatory": true, "description": "Confirmed PDF admission order with source and date."}]
+    },
+    {
+      "step_code": "CIRP-002", "phase_code": "ADMISSION_TAKEOVER", "sequence": 2,
+      "day_trigger_text": "T", "legal_reference": "Section 14", "area": "Moratorium",
+      "activity": "Record the moratorium and create a prohibited-action alert for staff.",
+      "standard_output": "Moratorium Alert", "automation_type": "AUTO", "approval_role": "Internal",
+      "depends_on_description": "Order-specific exceptions", "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED",
+      "task_title": "Record moratorium and prohibited-action alert", "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 0, "rule_text": "T; order-specific exceptions require review"},
+      "evidence_requirements": [{"evidence_type": "SYSTEM_ALERT", "mandatory": false, "description": "System alert record."}]
+    },
+    {
+      "step_code": "CIRP-003", "phase_code": "ADMISSION_TAKEOVER", "sequence": 3,
+      "day_trigger_text": "T", "legal_reference": "Section 16", "area": "IRP appointment",
+      "activity": "Verify IRP appointment, registration, AFA and contact particulars.",
+      "standard_output": "IRP Credential Checklist", "automation_type": "AUTO", "approval_role": "IRP",
+      "depends_on_description": "IRP particulars", "trigger_event_type": "IRP_APPOINTMENT_CONFIRMED",
+      "task_title": "Verify IRP credentials and AFA", "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 0, "rule_text": "T"},
+      "evidence_requirements": [{"evidence_type": "IRP_CREDENTIAL_FILE", "mandatory": false, "description": "Registration and AFA credential file."}]
+    },
+    {
+      "step_code": "CIRP-004", "phase_code": "ADMISSION_TAKEOVER", "sequence": 4,
+      "day_trigger_text": "T", "legal_reference": "Case administration", "area": "Case administration",
+      "activity": "Create the electronic and physical CIRP master file.", "standard_output": "Case Master",
+      "automation_type": "AUTO", "approval_role": "Internal", "depends_on_description": "Corporate debtor and case particulars",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Create CIRP case master file",
+      "effective_from": "2026-06-09", "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 0, "rule_text": "T"},
+      "evidence_requirements": [{"evidence_type": "CASE_MASTER", "mandatory": false, "description": "Unique case master identifier."}]
+    },
+    {
+      "step_code": "CIRP-005", "phase_code": "ADMISSION_TAKEOVER", "sequence": 5,
+      "day_trigger_text": "T", "legal_reference": "Regulation 40A / applicable timeline", "area": "Timeline",
+      "activity": "Generate the statutory and internal compliance calendar.", "standard_output": "CIRP Calendar",
+      "automation_type": "AUTO", "approval_role": "RP review", "depends_on_description": "Confirmed commencement or appointment date",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Review generated CIRP calendar",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 0, "rule_text": "Generate the baseline calendar from confirmed T"},
+      "evidence_requirements": [{"evidence_type": "LOCKED_BASELINE_DATES", "mandatory": false, "description": "Versioned baseline dates."}]
+    },
+    {
+      "step_code": "CIRP-006", "phase_code": "ADMISSION_TAKEOVER", "sequence": 6,
+      "day_trigger_text": "T", "legal_reference": "Governance", "area": "Governance",
+      "activity": "Assign staff owner, checker, legal coordinator and escalation structure.",
+      "standard_output": "Responsibility Matrix", "automation_type": "AUTO", "approval_role": "RP",
+      "depends_on_description": "Team availability", "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED",
+      "task_title": "Assign CIRP responsibility matrix", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 0, "rule_text": "T"},
+      "evidence_requirements": [{"evidence_type": "OWNER_ASSIGNMENTS", "mandatory": false, "description": "Owner and checker assignments."}]
+    },
+    {
+      "step_code": "CIRP-007", "phase_code": "ADMISSION_TAKEOVER", "sequence": 7,
+      "day_trigger_text": "T to T+1", "legal_reference": "Section 17", "area": "Suspended management",
+      "activity": "Notify the suspended Board and KMP that management powers stand suspended and vest in the IRP.",
+      "standard_output": "Takeover Letter", "automation_type": "AUTO", "approval_role": "RP",
+      "depends_on_description": "Names and service addresses", "evidence_requirement_text": "Service proof",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Issue takeover letter to suspended management",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 1, "rule_text": "Complete no later than T+1"},
+      "evidence_requirements": [{"evidence_type": "SERVICE_PROOF", "mandatory": true, "description": "Email, postal or acknowledged service proof."}]
+    },
+    {
+      "step_code": "CIRP-008", "phase_code": "ADMISSION_TAKEOVER", "sequence": 8,
+      "day_trigger_text": "T to T+1", "legal_reference": "Sections 18/19", "area": "Books and records",
+      "activity": "Demand books, records, assets, passwords, contracts and statutory information.",
+      "standard_output": "Information Requisition", "automation_type": "SEMI", "approval_role": "RP",
+      "depends_on_description": "Business-specific records", "evidence_requirement_text": "Response tracker",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Send information requisition to suspended management",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 1, "rule_text": "Complete no later than T+1"},
+      "evidence_requirements": [{"evidence_type": "RESPONSE_TRACKER", "mandatory": false, "description": "Request and response tracking record."}]
+    },
+    {
+      "step_code": "CIRP-009", "phase_code": "ADMISSION_TAKEOVER", "sequence": 9,
+      "day_trigger_text": "T to T+1", "legal_reference": "Section 19", "area": "Cooperation",
+      "activity": "Seek written cooperation and identify nodal persons from suspended management.",
+      "standard_output": "Cooperation / Nodal Officer Letter", "automation_type": "AUTO", "approval_role": "RP",
+      "depends_on_description": "Suspended-management personnel", "evidence_requirement_text": "Acknowledgement",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Obtain management cooperation under Section 19",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 1, "rule_text": "Complete no later than T+1"},
+      "evidence_requirements": [{"evidence_type": "ACKNOWLEDGEMENT", "mandatory": false, "description": "Written acknowledgement or service record."}]
+    },
+    {
+      "step_code": "CIRP-010", "phase_code": "ADMISSION_TAKEOVER", "sequence": 10,
+      "day_trigger_text": "T to T+2", "legal_reference": "Section 18", "area": "Custody and control",
+      "activity": "Take control or custody of available assets and records and document gaps.",
+      "standard_output": "Takeover Memorandum", "automation_type": "SEMI", "approval_role": "RP",
+      "depends_on_description": "Actual possession", "evidence_requirement_text": "Photos / inventory / signatures",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Document takeover of assets and records",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "TAKEOVER_RECORD", "mandatory": true, "description": "Photos, inventory or signed takeover record."}]
+    },
+    {
+      "step_code": "CIRP-011", "phase_code": "ADMISSION_TAKEOVER", "sequence": 11,
+      "day_trigger_text": "T to T+2", "legal_reference": "Section 20", "area": "Going concern",
+      "activity": "Assess whether the business is operating and identify immediate going-concern risks.",
+      "standard_output": "Initial Operations Note", "automation_type": "SEMI", "approval_role": "RP",
+      "depends_on_description": "Business condition", "evidence_requirement_text": "Risk register",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Prepare initial operations and going-concern note",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "RISK_REGISTER", "mandatory": false, "description": "Initial operations risk register."}]
+    },
+    {
+      "step_code": "CIRP-012", "phase_code": "ADMISSION_TAKEOVER", "sequence": 12,
+      "day_trigger_text": "T to T+2", "legal_reference": "Banking", "area": "Banking",
+      "activity": "Write to banks for statements, balances, facilities, liens and the signatory or control process.",
+      "standard_output": "Bank Intimation", "automation_type": "AUTO", "approval_role": "RP",
+      "depends_on_description": "Bank accounts and lenders", "evidence_requirement_text": "Email + bank reply",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Send bank intimations and access requests",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "BANK_CORRESPONDENCE", "mandatory": true, "description": "Sent communication and bank response where received."}]
+    },
+    {
+      "step_code": "CIRP-013", "phase_code": "ADMISSION_TAKEOVER", "sequence": 13,
+      "day_trigger_text": "T to T+2", "legal_reference": "Receivables", "area": "Receivables",
+      "activity": "Issue payment instructions to material debtors and customers where appropriate.",
+      "standard_output": "Debtor Intimation", "automation_type": "SEMI", "approval_role": "RP",
+      "depends_on_description": "Debtor list and accounts", "evidence_requirement_text": "Dispatch proof",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Issue debtor payment intimations",
+      "effective_from": "2026-06-09", "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "DISPATCH_PROOF", "mandatory": false, "description": "Dispatch or email proof."}]
+    },
+    {
+      "step_code": "CIRP-014", "phase_code": "ADMISSION_TAKEOVER", "sequence": 14,
+      "day_trigger_text": "T to T+2", "legal_reference": "Suppliers", "area": "Suppliers",
+      "activity": "Notify critical suppliers and seek continuity of essential and critical supplies.",
+      "standard_output": "Vendor Continuity Letter", "automation_type": "SEMI", "approval_role": "RP",
+      "depends_on_description": "Operational need", "evidence_requirement_text": "Vendor response",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Send critical vendor continuity letters",
+      "effective_from": "2026-06-09", "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "VENDOR_RESPONSE", "mandatory": false, "description": "Vendor response or dispatch proof."}]
+    },
+    {
+      "step_code": "CIRP-015", "phase_code": "ADMISSION_TAKEOVER", "sequence": 15,
+      "day_trigger_text": "T to T+2", "legal_reference": "Employees", "area": "Employees",
+      "activity": "Communicate CIRP commencement and continuity instructions to employees.",
+      "standard_output": "Employee Communication", "automation_type": "AUTO", "approval_role": "RP",
+      "depends_on_description": "Operational status", "evidence_requirement_text": "Circulation proof",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Issue employee CIRP communication",
+      "effective_from": "2026-06-09", "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "CIRCULATION_PROOF", "mandatory": false, "description": "Employee circulation proof."}]
+    },
+    {
+      "step_code": "CIRP-016", "phase_code": "ADMISSION_TAKEOVER", "sequence": 16,
+      "day_trigger_text": "T to T+2", "legal_reference": "Government and statutory authorities", "area": "Government",
+      "activity": "Notify key tax and statutory authorities and seek records or dues where relevant.",
+      "standard_output": "Government Intimation", "automation_type": "SEMI", "approval_role": "RP",
+      "depends_on_description": "Applicable registrations", "evidence_requirement_text": "Acknowledgement",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Send statutory-authority intimations",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "AUTHORITY_ACKNOWLEDGEMENT", "mandatory": false, "description": "Income-tax, GST, PF, ESIC or other authority acknowledgement."}]
+    },
+    {
+      "step_code": "CIRP-017", "phase_code": "ADMISSION_TAKEOVER", "sequence": 17,
+      "day_trigger_text": "T to T+2", "legal_reference": "Utilities", "area": "Utilities",
+      "activity": "Notify electricity, water, telecom and other essential providers where needed.",
+      "standard_output": "Utility Continuity Letter", "automation_type": "SEMI", "approval_role": "RP",
+      "depends_on_description": "Essential services", "evidence_requirement_text": "Acknowledgement",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Send essential-utility continuity letters",
+      "effective_from": "2026-06-09", "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "UTILITY_ACKNOWLEDGEMENT", "mandatory": false, "description": "Utility-provider acknowledgement."}]
+    },
+    {
+      "step_code": "CIRP-018", "phase_code": "ADMISSION_TAKEOVER", "sequence": 18,
+      "day_trigger_text": "T to T+2", "legal_reference": "Insurance", "area": "Insurance",
+      "activity": "Verify insurance policies, premium status, insured assets and claims.",
+      "standard_output": "Insurance Checklist / Letter", "automation_type": "AUTO", "approval_role": "RP",
+      "depends_on_description": "Policies", "evidence_requirement_text": "Policy copies",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Verify insurance policies and coverage",
+      "effective_from": "2026-06-09", "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "POLICY_COPIES", "mandatory": false, "description": "Insurance policies or verification correspondence."}]
+    },
+    {
+      "step_code": "CIRP-019", "phase_code": "ADMISSION_TAKEOVER", "sequence": 19,
+      "day_trigger_text": "T to T+2", "legal_reference": "Litigation", "area": "Litigation",
+      "activity": "Obtain the complete litigation list and contact existing advocates.",
+      "standard_output": "Litigation Requisition", "automation_type": "AUTO", "approval_role": "RP/legal",
+      "depends_on_description": "Pending cases", "evidence_requirement_text": "Case status register",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Obtain litigation register and counsel details",
+      "effective_from": "2026-06-09", "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "CASE_STATUS_REGISTER", "mandatory": false, "description": "Litigation status register."}]
+    },
+    {
+      "step_code": "CIRP-020", "phase_code": "ADMISSION_TAKEOVER", "sequence": 20,
+      "day_trigger_text": "T to T+2", "legal_reference": "IT and records", "area": "IT / Records",
+      "activity": "Secure ERP, accounting, email, domain, cloud, DSC and backup access.",
+      "standard_output": "Digital Access Checklist", "automation_type": "SEMI", "approval_role": "RP/IT",
+      "depends_on_description": "Systems", "evidence_requirement_text": "Access log",
+      "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "task_title": "Secure digital systems and backup access",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 2, "rule_text": "Complete no later than T+2"},
+      "evidence_requirements": [{"evidence_type": "ACCESS_LOG", "mandatory": false, "description": "Digital-access and credential-control log."}]
+    },
+    {
+      "step_code": "CIRP-021", "phase_code": "PUBLIC_ANNOUNCEMENT", "sequence": 21,
+      "day_trigger_text": "No later than T+3", "legal_reference": "Regulation 6(1)", "area": "Public Announcement",
+      "activity": "Make the Public Announcement inviting claims.", "standard_output": "Public Announcement",
+      "automation_type": "AUTO", "approval_role": "IRP", "depends_on_description": "Prescribed format and confirmed foundational case particulars",
+      "evidence_requirement_text": "Newspaper/web proof", "trigger_event_type": "CIRP_COMMENCEMENT_CONFIRMED",
+      "task_title": "Make public announcement", "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 3, "rule_text": "Public Announcement must be made no later than three days from IRP appointment / confirmed T", "legal_reference": "Regulation 6(1)"},
+      "evidence_requirements": [{"evidence_type": "PUBLICATION_PROOF", "mandatory": true, "description": "Published newspaper or web proof."}],
+      "template_links": [{"template_id": "public-announcement-form-a", "template_role": "FORM_A"}]
+    },
+    {
+      "step_code": "CIRP-022", "phase_code": "PUBLIC_ANNOUNCEMENT", "sequence": 22,
+      "day_trigger_text": "No later than T+3", "legal_reference": "Regulation 6", "area": "Publication",
+      "activity": "Publish in English and regional-language newspapers at the required locations.",
+      "standard_output": "Publication Instruction", "automation_type": "AUTO", "approval_role": "IRP",
+      "depends_on_description": "Locations and newspapers", "evidence_requirement_text": "Full-page copies/invoices",
+      "trigger_event_type": "PUBLIC_ANNOUNCEMENT_DRAFT_READY", "task_title": "Issue Public Announcement publication instructions",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 3, "rule_text": "Complete no later than T+3", "legal_reference": "Regulation 6"},
+      "evidence_requirements": [{"evidence_type": "NEWSPAPER_COPIES_INVOICES", "mandatory": true, "description": "Full-page newspaper copies and publication invoices."}]
+    },
+    {
+      "step_code": "CIRP-023", "phase_code": "PUBLIC_ANNOUNCEMENT", "sequence": 23,
+      "day_trigger_text": "No later than T+3", "legal_reference": "Regulation 6", "area": "Publication upload",
+      "activity": "Upload or display the Public Announcement on the corporate debtor website and relevant mechanism where applicable.",
+      "standard_output": "Upload Record", "automation_type": "AUTO", "approval_role": "IRP",
+      "depends_on_description": "Website access", "evidence_requirement_text": "Screenshot / acknowledgement",
+      "trigger_event_type": "PUBLIC_ANNOUNCEMENT_SENT_FOR_PUBLICATION", "task_title": "Upload Public Announcement and preserve proof",
+      "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 3, "rule_text": "Complete no later than T+3", "legal_reference": "Regulation 6"},
+      "evidence_requirements": [{"evidence_type": "UPLOAD_SCREENSHOT", "mandatory": true, "description": "Website screenshot or acknowledgement."}]
+    }
+  ],
+  "dependencies": [
+    {"parent_step_code": "CIRP-001", "child_step_code": "CIRP-021", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-021", "child_step_code": "CIRP-022", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-022", "child_step_code": "CIRP-023", "dependency_type": "TRIGGERED_BY"}
+  ]
+}
