@@ -56,3 +56,37 @@ Automated testing verifies software behaviour but does not replace office-user a
 | CoC Constitution | Confirm validation and immutable Version 1 member snapshot | PENDING | |
 | CoC Constitution Report | Confirm retained-template DRAFT/FINAL DOCX versions and professional approval | PENDING | |
 | CoC Reconstitution | Confirm Claim changes preserve Version 1 and produce Version 2 only after RP confirmation | PENDING | |
+| First CoC Meeting Creation | Confirm confirmed Constitution linkage, deterministic number and no duplicate number in one case | PENDING | |
+| First CoC Deadline | Confirm DeadlineEngine date or REVIEW_REQUIRED state; test reviewed override trail | PENDING | |
+| Meeting Scheduling | Confirm scheduled versus actual times, mode, venue/link and status changes | PENDING | |
+| First CoC Notice Generation | Confirm retained first-Notice template and deterministic case/meeting values | PENDING | |
+| Notice Versioning | Confirm DRAFT V1/V2 and issued Notice immutability | PENDING | |
+| Notice Issue | Confirm professional approval/issue control and agenda/member snapshot freeze | PENDING | |
+| Notice Dispatch Record | Confirm manual method, recipient, status, date and service proof record without Gmail | PENDING | |
+| CoC Member Snapshot | Confirm issued recipient, debt and voting share remain historical after reconstitution | PENDING | |
+| Agenda Versioning | Confirm add/edit/reorder in draft and controlled new version after freeze | PENDING | |
+| Agenda Freeze | Confirm issued Notice remains tied to its exact Agenda version | PENDING | |
+| Supporting Papers | Confirm Agenda items link only documents from the same case | PENDING | |
+| Attendance / Roll Call | Confirm member, representative and invitee attendance fields | PENDING | |
+| Representative Authorization | Confirm VALID/REVIEW_REQUIRED/NOT_APPLICABLE and evidence linking | PENDING | |
+| Quorum Calculation | Confirm frozen voting shares and a configured versioned quorum rule are used | PENDING | |
+| No-Quorum / Adjournment | Confirm attendance/history stays preserved and ordinary completion is blocked | PENDING | |
+| RP Appointment Resolution | Confirm continuation/replacement wording is professional-controlled | PENDING | |
+| CIRP Cost Statement | Confirm exact paise totals, rows and supporting papers | PENDING | |
+| Operations Update | Confirm structured meeting support without starting the operations engine | PENDING | |
+| Professional Appointment / Fee Agenda | Confirm scope, fee, tax, support and linked resolution | PENDING | |
+| Resolution Management | Confirm resolution lifecycle and source Agenda linkage | PENDING | |
+| Final Resolution Wording | Confirm proposed and final wording remain separately preserved | PENDING | |
+| Minutes Text Entry | Confirm staff-entered factual text is retained verbatim with no automated rewriting | PENDING | |
+| Agenda-wise Minutes Entry | Confirm issued Agenda order drives all Minutes entry fields | PENDING | |
+| Minutes DOCX Generation | Confirm retained first/subsequent Minutes template output | PENDING | |
+| Minutes Versioning | Confirm draft/final versions and historical snapshot preservation | PENDING | |
+| Minutes Finalization | Confirm missing substantive text/disposition blocks finalization | PENDING | |
+| Minutes Circulation Record | Confirm manual circulation status, recipients and proof without Gmail | PENDING | |
+| E-voting Session | Confirm DRAFT/OPEN/CLOSED lifecycle and frozen eligible-voter snapshot | PENDING | |
+| Vote Recording | Confirm actual member/source/time and frozen share are captured | PENDING | |
+| Vote Correction | Confirm closed vote correction requires reason and retains audit history | PENDING | |
+| Voting Result | Confirm exact FOR/AGAINST/ABSTAIN/NOT_VOTED result and rule review block | PENDING | |
+| Action Items | Confirm decisions link to existing Tasks and completion evidence | PENDING | |
+| Action Taken Report | Confirm ATR reflects linked Task state rather than copied status | PENDING | |
+| Membership Change After Notice | Confirm post-notice reconstitution raises professional review without changing Notice snapshot | PENDING | |

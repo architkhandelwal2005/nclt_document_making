@@ -44,10 +44,16 @@ def _set_text(paragraph: etree._Element, value: str) -> None:
     run = etree.SubElement(paragraph, qn("r"))
     if run_properties is not None:
         run.append(run_properties)
-    text = etree.SubElement(run, qn("t"))
-    if value.startswith(" ") or value.endswith(" "):
-        text.set(f"{{{XML}}}space", "preserve")
-    text.text = value
+    # Office-supplied Minutes text is authoritative.  Keep deliberate line
+    # breaks as Word breaks rather than flattening it or grammar-transforming it.
+    lines = str(value).replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    for index, line in enumerate(lines):
+        if index:
+            etree.SubElement(run, qn("br"))
+        text = etree.SubElement(run, qn("t"))
+        if line.startswith(" ") or line.endswith(" "):
+            text.set(f"{{{XML}}}space", "preserve")
+        text.text = line
 
 
 def _remove_numbering(paragraph: etree._Element) -> None:
@@ -375,9 +381,14 @@ def _vote_summary(agenda_item: Dict[str, Any], votes: Sequence[Dict[str, Any]]) 
 def _build_minutes(root: etree._Element, case: Dict[str, Any], workflow: Dict[str, Any], profile: Dict[str, Any]) -> None:
     meeting = workflow["meeting"]
     agenda = workflow.get("agenda", [])
-    missing = [str(item.get("position")) for item in agenda if not str(item.get("discussion") or "").strip()]
+    missing = [
+        str(item.get("position")) for item in agenda
+        if str(item.get("section") or "discussion") != "procedural"
+        and not str(item.get("minutes_text", item.get("discussion", "")) or "").strip()
+        and not str(item.get("minutes_disposition") or "").strip()
+    ]
     if missing:
-        raise ValueError(f"Manual discussion is required for agenda item(s): {', '.join(missing)}")
+        raise ValueError(f"Office-provided Minutes text or disposition is required for agenda item(s): {', '.join(missing)}")
     body = root.find("w:body", NS)
     if body is None:
         raise ValueError("DOCX has no document body")
@@ -418,7 +429,14 @@ def _build_minutes(root: etree._Element, case: Dict[str, Any], workflow: Dict[st
     for position, item in enumerate(agenda, 1):
         body.append(_clone_paragraph(agenda_no_ex, f"AGENDA NO. {position}"))
         body.append(_clone_paragraph(agenda_title_ex, str(item.get("title") or "").upper()))
-        body.append(_clone_paragraph(discussion_ex, str(item.get("discussion") or "")))
+        minutes_text = str(item.get("minutes_text", item.get("discussion", "")) or "")
+        if minutes_text:
+            # A blank line in pasted office text is a paragraph boundary.  A
+            # single newline stays a line break through _set_text above.
+            for paragraph_text in re.split(r"\n\s*\n", minutes_text.replace("\r\n", "\n").replace("\r", "\n")):
+                body.append(_clone_paragraph(discussion_ex, paragraph_text))
+        elif str(item.get("minutes_disposition") or ""):
+            body.append(_clone_paragraph(discussion_ex, f"Disposition: {item['minutes_disposition']}"))
         if str(item.get("decision") or "").strip():
             body.append(_clone_paragraph(discussion_ex, f"Decision: {item['decision']}"))
         resolution = str(item.get("resolution_text") or item.get("proposed_resolution") or "").strip()

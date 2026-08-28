@@ -41,6 +41,14 @@ EVENT_TYPES = {
     "COC_ELIGIBILITY_CONFIRMED", "COC_VOTING_SHARE_CALCULATED", "CREDITORS_IN_CLASS_CONFIRMED",
     "AR_REQUIRED", "COC_CONSTITUTED", "COC_REVIEW_REQUIRED", "COC_RECONSTITUTED",
     "COC_CONSTITUTION_REPORT_GENERATED", "COC_CONSTITUTION_REPORT_FINALIZED",
+    "FIRST_COC_MEETING_REQUIRED", "COC_MEETING_CREATED", "COC_MEETING_SCHEDULED",
+    "COC_NOTICE_DRAFTED", "COC_AGENDA_FINALIZED", "COC_NOTICE_ISSUED", "COC_NOTICE_DISPATCH_RECORDED",
+    "COC_ATTENDANCE_RECORDED", "COC_QUORUM_CONFIRMED", "COC_QUORUM_NOT_MET", "COC_MEETING_STARTED",
+    "COC_MEETING_HELD", "COC_MEETING_ADJOURNED", "COC_RESOLUTION_PLACED", "COC_COST_STATEMENT_RECORDED",
+    "COC_OPERATIONS_UPDATE_RECORDED", "COC_PROFESSIONAL_PROPOSAL_RECORDED", "COC_VOTING_OPENED", "COC_VOTE_RECORDED",
+    "COC_VOTING_CLOSED", "COC_MINUTES_CONTENT_READY", "COC_MINUTES_DRAFTED", "COC_MINUTES_FINALIZED",
+    "COC_MINUTES_CIRCULATED", "COC_VOTING_RESULT_FINALIZED", "COC_ATR_CREATED",
+    "MEETING_MEMBERSHIP_REVIEW_REQUIRED",
 }
 
 
@@ -743,6 +751,8 @@ class WorkflowService:
         # domain during module initialization.
         from claims_coc_core import ClaimsCocCore
         result.update(ClaimsCocCore(self.database).workflow_summary(case_id))
+        from coc_meeting_core import CocMeetingCore
+        result.update(CocMeetingCore(self.database).workflow_summary(case_id))
         return result
 
 
@@ -955,6 +965,27 @@ class EventEngine:
             "COC_CONSTITUTION_REPORT_GENERATED": {"CIRP-044": "IN_PROGRESS"},
             "COC_CONSTITUTION_REPORT_FINALIZED": {"CIRP-044": "COMPLETED"},
             "COC_RECONSTITUTED": {"CIRP-045": "COMPLETED"},
+            "FIRST_COC_MEETING_REQUIRED": {"CIRP-046": "READY"},
+            "COC_MEETING_CREATED": {"CIRP-046": "IN_PROGRESS", "CIRP-047": "READY"},
+            "COC_MEETING_SCHEDULED": {"CIRP-046": "IN_PROGRESS"},
+            "COC_NOTICE_DRAFTED": {"CIRP-046": "IN_PROGRESS", "CIRP-047": "IN_PROGRESS"},
+            "COC_AGENDA_FINALIZED": {"CIRP-047": "COMPLETED"},
+            "COC_NOTICE_ISSUED": {"CIRP-046": "COMPLETED", "CIRP-048": "READY", "CIRP-049": "READY"},
+            "COC_ATTENDANCE_RECORDED": {"CIRP-049": "IN_PROGRESS"},
+            "COC_QUORUM_CONFIRMED": {"CIRP-048": "COMPLETED", "CIRP-049": "IN_PROGRESS"},
+            "COC_QUORUM_NOT_MET": {"CIRP-048": "IN_PROGRESS"},
+            "COC_RESOLUTION_PLACED": {"CIRP-050": "IN_PROGRESS"},
+            "COC_COST_STATEMENT_RECORDED": {"CIRP-051": "COMPLETED"},
+            "COC_OPERATIONS_UPDATE_RECORDED": {"CIRP-052": "COMPLETED"},
+            "COC_PROFESSIONAL_PROPOSAL_RECORDED": {"CIRP-053": "COMPLETED"},
+            "COC_MEETING_HELD": {"CIRP-054": "READY"},
+            "COC_MINUTES_CONTENT_READY": {"CIRP-054": "IN_PROGRESS"},
+            "COC_MINUTES_DRAFTED": {"CIRP-054": "IN_PROGRESS"},
+            "COC_MINUTES_FINALIZED": {"CIRP-054": "COMPLETED"},
+            "COC_VOTING_OPENED": {"CIRP-055": "IN_PROGRESS"},
+            "COC_VOTING_CLOSED": {"CIRP-055": "COMPLETED", "CIRP-056": "READY"},
+            "COC_VOTING_RESULT_FINALIZED": {"CIRP-056": "COMPLETED"},
+            "COC_ATR_CREATED": {"CIRP-056": "IN_PROGRESS"},
         }
         if event_type in domain_states:
             self._set_step_states(connection, case_id, domain_states[event_type], actor_id, event)
@@ -964,6 +995,26 @@ class EventEngine:
                 SELECT id FROM coc_constitutions WHERE case_id=? ORDER BY constitution_version DESC LIMIT 1)""",
                 (case_id,),
             )
+        if event_type == "COC_CONSTITUTED":
+            derived = self._derived_event(connection, case_id, "FIRST_COC_MEETING_REQUIRED", event["event_date"], event, actor_id)
+            activated = self.workflow._activate_for_event(connection, case_id, derived, actor_id)
+            connection.execute("UPDATE case_events SET processed_at=? WHERE id=?", (utc_now(), derived["id"]))
+            actions.append({"action": "DERIVED_EVENT", "event_id": derived["id"], "event_type": derived["event_type"]})
+            actions.extend({"action": "WORKFLOW_STEP_ACTIVATED", "workflow_step_id": step_id} for step_id in activated)
+        if event_type == "COC_RECONSTITUTED":
+            issued = connection.execute(
+                """SELECT id FROM coc_meetings WHERE case_id=? AND archived_at IS NULL
+                AND (status='NOTICE_ISSUED' OR notice_snapshot_json <> '{}')""", (case_id,)
+            ).fetchall()
+            if issued:
+                connection.execute(
+                    """UPDATE coc_meetings SET membership_review_required=1,updated_by=?,updated_at=?
+                    WHERE case_id=? AND archived_at IS NULL AND (status='NOTICE_ISSUED' OR notice_snapshot_json <> '{}')""",
+                    (actor_id, utc_now(), case_id),
+                )
+                derived = self._derived_event(connection, case_id, "MEETING_MEMBERSHIP_REVIEW_REQUIRED", event["event_date"], event, actor_id)
+                connection.execute("UPDATE case_events SET processed_at=? WHERE id=?", (utc_now(), derived["id"]))
+                actions.append({"action": "DERIVED_EVENT", "event_id": derived["id"], "event_type": derived["event_type"], "meeting_count": len(issued)})
 
         workflow = connection.execute(
             "SELECT id FROM case_workflows WHERE case_id=? AND workflow_type='CIRP'", (case_id,)

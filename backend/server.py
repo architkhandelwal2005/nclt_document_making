@@ -29,6 +29,7 @@ from ai import AdmissionAIService, AIServiceError
 from ai.claim_bundle_service import ClaimBundleError, ClaimBundleService
 from claims_workflow import ClaimsWorkflow, QUERY_TEMPLATES
 from claims_coc_core import ClaimsCocCore
+from coc_meeting_core import CocMeetingCore
 from workflow import EventEngine, WorkflowError, WorkflowService
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
@@ -175,6 +176,8 @@ TEMPLATE_CONFIG = [
     ("constitution-coc", "Constitution of CoC", "CIRP constitution", "Formal constitution notice with the creditor composition.", "Constitution_of_CoC_Template.docx", ["loc_date", "cd_name", "cin", "nclt_bench", "cp_ib_number", "claim_cutoff_date", "df_creditors", "ip_name", "ibbi_reg_no", "afa_validity", "process_email", "ip_email", "ip_reg_address"]),
     ("notice-first-coc", "Notice of 1st CoC", "CoC meeting", "Notice for the first meeting of the Committee of Creditors.", "Notice_1st_CoC_Template.docx", ["cd_name", "cirp_order_date", "meeting_date", "meeting_time", "meeting_mode", "notice_date", "evoting_link", "ip_name", "ibbi_reg_no", "ip_email", "ip_fee", "ip_reg_address", "process_bank", "process_email", "df_creditors", "df_suspended_mgmt"]),
     ("notice-second-coc", "Notice of 2nd CoC", "CoC meeting", "Notice for a subsequent meeting of the Committee of Creditors.", "Notice_2nd_CoC_Template.docx", ["cd_name", "cirp_order_date", "meeting_date", "meeting_time", "meeting_mode", "meeting_venue", "notice_date", "evoting_link", "ip_name", "ibbi_reg_no", "afa_validity", "ip_email", "ip_reg_address", "process_email", "df_creditors", "df_suspended_mgmt"]),
+    ("minutes-first-coc", "Minutes of 1st CoC", "CoC meeting", "Minutes for the first meeting, populated solely from office-provided minutes text.", "Minutes_1st_CoC_Template.docx", ["cd_name", "meeting_date", "meeting_time", "meeting_mode", "ip_name", "ibbi_reg_no", "df_agenda"]),
+    ("minutes-subsequent-coc", "Minutes of subsequent CoC", "CoC meeting", "Minutes for a subsequent meeting, populated solely from office-provided minutes text.", "Minutes_Subsequent_CoC_Template.docx", ["cd_name", "meeting_date", "meeting_time", "meeting_mode", "ip_name", "ibbi_reg_no", "df_agenda"]),
     ("loc-filing", "LOC Filing & CoC Report", "NCLT filing", "Interlocutory application filing with index and list of dates.", "LOC_Filing_Template.docx", ["loc_ia_number", "cp_ib_number", "cd_name", "md_name", "ip_name", "cirp_order_date", "order_upload_date", "pa_date", "claim_cutoff_date", "loc_date", "loc_filing_date", "nclt_fee", "ip_reg_address", "process_email", "ip_email", "ibbi_reg_no", "afa_validity"]),
 ]
 
@@ -2117,6 +2120,15 @@ def _claims_coc_http(exc: Exception) -> HTTPException:
     return HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'"))
 
 
+def _coc_meetings(case_id: str, current: Dict[str, str]) -> CocMeetingCore:
+    require_case_access(case_id, current)
+    return CocMeetingCore(casefile_store)
+
+
+def _coc_meeting_http(exc: Exception) -> HTTPException:
+    return HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'"))
+
+
 @api_router.get("/cases/{case_id}/claims/list-of-creditors/current")
 async def get_current_list_of_creditors(case_id: str, current=Depends(get_current_user)):
     return _claims_coc(case_id, current).current_loc(case_id)
@@ -2282,6 +2294,383 @@ async def upsert_authorised_representative_process(case_id: str, class_id: str, 
         return _claims_coc(case_id, current).upsert_ar_process(case_id, class_id, payload, current["id"])
     except (KeyError, ValueError) as exc:
         raise _claims_coc_http(exc) from exc
+
+
+# ---------------- Phase 3 CoC meeting lifecycle ----------------
+
+@api_router.get("/cases/{case_id}/coc/meetings")
+async def list_coc_meetings_v3(case_id: str, current=Depends(get_current_user)):
+    return _coc_meetings(case_id, current).list_meetings(case_id)
+
+
+@api_router.post("/cases/{case_id}/coc/meetings")
+async def create_coc_meeting_v3(case_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).create_meeting(case_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/meetings/{meeting_id}")
+async def get_coc_meeting_v3(case_id: str, meeting_id: str, current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).get_meeting(case_id, meeting_id)
+    except KeyError as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.put("/cases/{case_id}/coc/meetings/{meeting_id}/schedule")
+async def schedule_coc_meeting_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).schedule_meeting(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/start")
+async def start_coc_meeting_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).start_meeting(case_id, meeting_id, current["id"], payload.get("actual_start_at"))
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/complete")
+async def complete_coc_meeting_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "complete a CoC meeting")
+    try:
+        return _coc_meetings(case_id, current).complete_meeting(case_id, meeting_id, current["id"], payload.get("actual_end_at"))
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/adjourn")
+async def adjourn_coc_meeting_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "adjourn a CoC meeting")
+    try:
+        return _coc_meetings(case_id, current).adjourn_meeting(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/cancel")
+async def cancel_coc_meeting_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "cancel a CoC meeting")
+    try:
+        return _coc_meetings(case_id, current).cancel_meeting(case_id, meeting_id, str(payload.get("reason") or ""), current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/meetings/{meeting_id}/agendas")
+async def list_coc_agendas_v3(case_id: str, meeting_id: str, current=Depends(get_current_user)):
+    return _coc_meetings(case_id, current).list_agenda_versions(case_id, meeting_id)
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/agendas")
+async def create_coc_agenda_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).create_agenda_version(case_id, meeting_id, current["id"], payload)
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/agendas/{agenda_id}/items")
+async def add_coc_agenda_item_v3(case_id: str, meeting_id: str, agenda_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).add_agenda_item(case_id, meeting_id, agenda_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.put("/cases/{case_id}/coc/meetings/{meeting_id}/agendas/{agenda_id}/items/{item_id}")
+async def update_coc_agenda_item_v3(case_id: str, meeting_id: str, agenda_id: str, item_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).update_agenda_item(case_id, meeting_id, agenda_id, item_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/agendas/{agenda_id}/finalize")
+async def finalize_coc_agenda_v3(case_id: str, meeting_id: str, agenda_id: str, current=Depends(get_current_user)):
+    require_professional_action(current, "finalize a CoC Agenda")
+    try:
+        return _coc_meetings(case_id, current).finalize_agenda(case_id, meeting_id, agenda_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/meetings/{meeting_id}/notices")
+async def list_coc_notices_v3(case_id: str, meeting_id: str, current=Depends(get_current_user)):
+    return _coc_meetings(case_id, current).get_meeting(case_id, meeting_id)["notice_versions"]
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/notices")
+async def create_coc_notice_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).create_notice_draft(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/notices/{notice_id}/approve")
+async def approve_coc_notice_v3(case_id: str, meeting_id: str, notice_id: str, current=Depends(get_current_user)):
+    require_professional_action(current, "approve a CoC Notice")
+    try:
+        return _coc_meetings(case_id, current).approve_notice(case_id, meeting_id, notice_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/notices/{notice_id}/issue")
+async def issue_coc_notice_v3(case_id: str, meeting_id: str, notice_id: str, current=Depends(get_current_user)):
+    require_professional_action(current, "issue a CoC Notice")
+    try:
+        return _coc_meetings(case_id, current).issue_notice(case_id, meeting_id, notice_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/notices/{notice_id}/dispatches")
+async def dispatch_coc_notice_v3(case_id: str, meeting_id: str, notice_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).record_notice_dispatch(case_id, meeting_id, notice_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/coc/quorum-rules")
+async def create_coc_quorum_rule_v3(payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "configure a quorum rule")
+    try:
+        return CocMeetingCore(casefile_store).upsert_quorum_rule(payload, current["id"])
+    except ValueError as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/attendance")
+async def record_coc_attendance_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).record_attendance(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/quorum/calculate")
+async def calculate_coc_quorum_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).calculate_quorum(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/resolutions")
+async def create_coc_resolution_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).create_resolution(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.put("/cases/{case_id}/coc/meetings/{meeting_id}/resolutions/{resolution_id}")
+async def update_coc_resolution_v3(case_id: str, meeting_id: str, resolution_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).update_resolution(case_id, meeting_id, resolution_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/resolutions/{resolution_id}/place")
+async def place_coc_resolution_v3(case_id: str, meeting_id: str, resolution_id: str, current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).place_resolution(case_id, meeting_id, resolution_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/coc/approval-rules")
+async def create_coc_approval_rule_v3(payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "configure an approval rule")
+    try:
+        return CocMeetingCore(casefile_store).upsert_approval_rule(payload, current["id"])
+    except ValueError as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/minutes/entries/{agenda_item_id}")
+async def save_coc_minutes_entry_v3(case_id: str, meeting_id: str, agenda_item_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).save_minutes_entry(case_id, meeting_id, agenda_item_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/meetings/{meeting_id}/minutes/validation")
+async def validate_coc_minutes_v3(case_id: str, meeting_id: str, current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).validate_minutes(case_id, meeting_id)
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/minutes/drafts")
+async def create_coc_minutes_draft_v3(case_id: str, meeting_id: str, current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).create_minutes_version(case_id, meeting_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/minutes/{version_id}/finalize")
+async def finalize_coc_minutes_v3(case_id: str, meeting_id: str, version_id: str, current=Depends(get_current_user)):
+    require_professional_action(current, "finalize CoC Minutes")
+    try:
+        return _coc_meetings(case_id, current).finalize_minutes(case_id, meeting_id, version_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/minutes/{version_id}/circulation")
+async def circulate_coc_minutes_v3(case_id: str, meeting_id: str, version_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).record_minutes_circulation(case_id, meeting_id, version_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/voting-sessions")
+async def create_coc_voting_session_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).create_voting_session(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/voting-sessions/{session_id}/open")
+async def open_coc_voting_v3(case_id: str, meeting_id: str, session_id: str, current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).open_voting(case_id, meeting_id, session_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/voting-sessions/{session_id}/resolutions/{resolution_id}/votes")
+async def record_coc_vote_v3(case_id: str, meeting_id: str, session_id: str, resolution_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).record_vote(case_id, meeting_id, session_id, resolution_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/voting-sessions/{session_id}/close")
+async def close_coc_voting_v3(case_id: str, meeting_id: str, session_id: str, current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).close_voting(case_id, meeting_id, session_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/votes/{vote_id}/correct")
+async def correct_coc_vote_v3(case_id: str, meeting_id: str, vote_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "correct a closed CoC vote")
+    try:
+        return _coc_meetings(case_id, current).correct_vote(case_id, meeting_id, vote_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/voting-sessions/{session_id}/resolutions/{resolution_id}/result")
+async def calculate_coc_voting_result_v3(case_id: str, meeting_id: str, session_id: str, resolution_id: str, current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).calculate_voting_result(case_id, meeting_id, session_id, resolution_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/voting-results/{result_id}/finalize")
+async def finalize_coc_voting_result_v3(case_id: str, meeting_id: str, result_id: str, current=Depends(get_current_user)):
+    require_professional_action(current, "finalize a CoC voting result")
+    try:
+        return _coc_meetings(case_id, current).finalize_voting_result(case_id, meeting_id, result_id, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/cost-statements")
+async def record_coc_cost_statement_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).record_cost_statement(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.put("/cases/{case_id}/coc/meetings/{meeting_id}/operations-update")
+async def save_coc_operations_update_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).save_operations_update(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/professional-proposals")
+async def create_coc_professional_proposal_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).create_professional_proposal(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/actions")
+async def create_coc_action_v3(case_id: str, meeting_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _coc_meetings(case_id, current).create_action_item(case_id, meeting_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/meetings/{meeting_id}/atr")
+async def get_coc_atr_v3(case_id: str, meeting_id: str, current=Depends(get_current_user)):
+    return _coc_meetings(case_id, current).list_atr(case_id, meeting_id)
+
+
+def _generate_coc_lifecycle_document(case_id: str, meeting_id: str, kind: str, version_id: str, status: str, current: Dict[str, str]) -> Dict[str, Any]:
+    core = _coc_meetings(case_id, current)
+    context = core.document_context(case_id, meeting_id, kind, version_id)
+    profile = casefile_store.get_profile(current["id"])
+    document_id = str(uuid.uuid4())
+    output = CASE_FILES_DIR / case_id / "coc" / f"phase3-{kind}-{document_id}.docx"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    coc_documents.generate(kind, context["case"], context["workflow"], casefile_store.list_contacts(case_id), profile, output)
+    meeting_number = int(context["workflow"]["meeting"].get("meeting_number") or 1)
+    label = "CoC Notice" if kind == "notice" else "CoC Minutes"
+    document = casefile_store.store_coc_document(
+        case_id, meeting_id, label,
+        f"{label} - Meeting {meeting_number} - {context['case']['name']}.docx",
+        str(output.relative_to(DATA_DIR)), status.lower(),
+        {"meeting_number": meeting_number, "retained_template": True, "document_type": kind, "lifecycle_version_id": version_id,
+         "office_provided_minutes_text_only": kind == "minutes"}, current["id"],
+    )
+    return {"document": document, "core": core}
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/notices/{notice_id}/document")
+async def generate_coc_notice_document_v3(case_id: str, meeting_id: str, notice_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        generated = _generate_coc_lifecycle_document(case_id, meeting_id, "notice", notice_id, str(payload.get("status") or "DRAFT"), current)
+        notice = generated["core"].link_notice_document(case_id, meeting_id, notice_id, generated["document"]["id"], current["id"])
+        return {"notice": notice, "document": generated["document"]}
+    except (KeyError, ValueError, FileNotFoundError) as exc:
+        raise _coc_meeting_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/meetings/{meeting_id}/minutes/{version_id}/document")
+async def generate_coc_minutes_document_v3(case_id: str, meeting_id: str, version_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        generated = _generate_coc_lifecycle_document(case_id, meeting_id, "minutes", version_id, str(payload.get("status") or "DRAFT"), current)
+        minutes = generated["core"].link_minutes_document(case_id, meeting_id, version_id, generated["document"]["id"], current["id"])
+        return {"minutes": minutes, "document": generated["document"]}
+    except (KeyError, ValueError, FileNotFoundError) as exc:
+        raise _coc_meeting_http(exc) from exc
 
 
 @api_router.get("/cases/{case_id}/coc-meetings/{meeting_id}/workflow")

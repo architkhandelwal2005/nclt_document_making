@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -57,10 +57,10 @@ MODULE_FIELDS: Dict[str, tuple[str, ...]] = {
     ),
     "claim-documents": ("claim_id", "name", "required", "received", "document_id", "notes"),
     "coc-members": ("claim_id", "contact_id", "admitted_debt", "voting_share", "valid_from", "valid_to", "authorized_representative"),
-    "coc-meetings": ("meeting_number", "meeting_at", "actual_start_at", "actual_end_at", "mode", "venue_or_link", "notice_date", "notice_place", "voting_start", "voting_end", "status", "agenda_json", "notice_snapshot_json", "minutes", "quorum_threshold", "chair_name", "signed_at"),
-    "coc-agenda-items": ("meeting_id", "position", "section", "title", "notes", "discussion", "decision", "proposed_resolution", "resolution_text", "voting_required", "status"),
-    "coc-attendance": ("meeting_id", "member_id", "participant_name", "organization", "capacity", "email", "present", "attendance_mode", "joined_at", "left_at", "voting_share_snapshot", "notes"),
-    "coc-votes": ("meeting_id", "member_id", "agenda_key", "vote", "voting_share", "cast_at"),
+    "coc-meetings": ("meeting_number", "meeting_type", "coc_constitution_id", "meeting_at", "scheduled_start_at", "scheduled_end_at", "actual_start_at", "actual_end_at", "mode", "venue_or_link", "notice_date", "notice_place", "notice_due_date", "meeting_due_date", "voting_start", "voting_end", "status", "agenda_json", "notice_snapshot_json", "minutes", "quorum_threshold", "chair_name", "membership_review_required", "signed_at"),
+    "coc-agenda-items": ("meeting_id", "position", "section", "title", "notes", "discussion", "minutes_text", "minutes_disposition", "decision", "proposed_resolution", "resolution_text", "voting_required", "status"),
+    "coc-attendance": ("meeting_id", "member_id", "meeting_member_snapshot_id", "participant_name", "organization", "capacity", "participant_role", "email", "present", "attendance_mode", "authorization_status", "authorization_document_id", "voting_entitled", "joined_at", "left_at", "voting_share_snapshot", "voting_share_units", "notes"),
+    "coc-votes": ("meeting_id", "member_id", "meeting_member_snapshot_id", "resolution_id", "agenda_key", "vote", "voting_share", "voting_share_units", "method", "source", "remarks", "cast_at"),
     "documents": ("template_id", "name", "category", "status", "version", "parent_document_id", "storage_path", "mime_type", "source_type", "linked_type", "linked_id", "metadata_json"),
     "communications": ("channel", "direction", "occurred_at", "sender", "recipients", "subject", "summary", "delivery_status", "proof_document_id", "linked_type", "linked_id", "follow_up_task_id"),
     "assets": ("category", "description", "ownership", "location", "book_value", "security_interest", "possession", "insurance", "encumbrance", "status"),
@@ -1264,6 +1264,27 @@ class CasefileDatabase:
             self._ensure_column(connection, "coc_meetings", "notice_place", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "coc_meetings", "quorum_threshold", "REAL NOT NULL DEFAULT 33")
             self._ensure_column(connection, "coc_meetings", "chair_name", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "coc_meetings", "meeting_type", "TEXT NOT NULL DEFAULT 'SUBSEQUENT_COC'")
+            self._ensure_column(connection, "coc_meetings", "coc_constitution_id", "TEXT REFERENCES coc_constitutions(id)")
+            self._ensure_column(connection, "coc_meetings", "scheduled_start_at", "TEXT")
+            self._ensure_column(connection, "coc_meetings", "scheduled_end_at", "TEXT")
+            self._ensure_column(connection, "coc_meetings", "notice_due_date", "TEXT")
+            self._ensure_column(connection, "coc_meetings", "meeting_due_date", "TEXT")
+            self._ensure_column(connection, "coc_meetings", "membership_review_required", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "coc_agenda_items", "minutes_text", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "coc_agenda_items", "minutes_disposition", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "coc_attendance", "meeting_member_snapshot_id", "TEXT")
+            self._ensure_column(connection, "coc_attendance", "participant_role", "TEXT NOT NULL DEFAULT 'OTHER'")
+            self._ensure_column(connection, "coc_attendance", "authorization_status", "TEXT NOT NULL DEFAULT 'NOT_APPLICABLE'")
+            self._ensure_column(connection, "coc_attendance", "authorization_document_id", "TEXT REFERENCES documents(id)")
+            self._ensure_column(connection, "coc_attendance", "voting_entitled", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "coc_attendance", "voting_share_units", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "coc_votes", "meeting_member_snapshot_id", "TEXT")
+            self._ensure_column(connection, "coc_votes", "resolution_id", "TEXT")
+            self._ensure_column(connection, "coc_votes", "voting_share_units", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "coc_votes", "method", "TEXT NOT NULL DEFAULT 'MEETING'")
+            self._ensure_column(connection, "coc_votes", "source", "TEXT NOT NULL DEFAULT 'MANUAL'")
+            self._ensure_column(connection, "coc_votes", "remarks", "TEXT NOT NULL DEFAULT ''")
             self._ensure_column(connection, "ai_jobs", "api_calls", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(connection, "ai_jobs", "latency_ms", "INTEGER NOT NULL DEFAULT 0")
             self._ensure_column(connection, "ai_jobs", "actual_cost", "REAL")
@@ -1559,10 +1580,357 @@ class CasefileDatabase:
                     updated_at TEXT NOT NULL,
                     UNIQUE(case_id, class_id)
                 );
+
+                -- Phase 3 extends the retained CoC meeting tables with versioned,
+                -- historical records.  Generic legacy CoC rows remain readable;
+                -- these tables are the authoritative lifecycle records for new work.
+                CREATE TABLE IF NOT EXISTS coc_agenda_versions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    version_number INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    agenda_kind TEXT NOT NULL DEFAULT 'STANDARD',
+                    parent_agenda_version_id TEXT REFERENCES coc_agenda_versions(id),
+                    frozen_at TEXT,
+                    frozen_by TEXT REFERENCES users(id),
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(meeting_id, version_number)
+                );
+                CREATE TABLE IF NOT EXISTS coc_agenda_version_items (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    agenda_version_id TEXT NOT NULL REFERENCES coc_agenda_versions(id) ON DELETE CASCADE,
+                    agenda_number TEXT NOT NULL,
+                    sequence INTEGER NOT NULL,
+                    agenda_type TEXT NOT NULL DEFAULT 'FOR_DISCUSSION',
+                    title TEXT NOT NULL,
+                    agenda_note TEXT NOT NULL DEFAULT '',
+                    proposed_resolution_text TEXT NOT NULL DEFAULT '',
+                    requires_resolution INTEGER NOT NULL DEFAULT 0,
+                    requires_voting INTEGER NOT NULL DEFAULT 0,
+                    supporting_document_ids_json TEXT NOT NULL DEFAULT '[]',
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    updated_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(agenda_version_id, sequence)
+                );
+                CREATE INDEX IF NOT EXISTS ix_coc_agenda_versions_meeting
+                    ON coc_agenda_versions(case_id, meeting_id, version_number DESC);
+                CREATE INDEX IF NOT EXISTS ix_coc_agenda_version_items
+                    ON coc_agenda_version_items(case_id, meeting_id, agenda_version_id, sequence);
+
+                CREATE TABLE IF NOT EXISTS coc_meeting_member_snapshots (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    coc_constitution_id TEXT NOT NULL REFERENCES coc_constitutions(id),
+                    operational_member_id TEXT REFERENCES coc_members(id),
+                    claim_id TEXT REFERENCES claims(id),
+                    creditor_name TEXT NOT NULL,
+                    representative_name TEXT NOT NULL DEFAULT '',
+                    recipient_email TEXT NOT NULL DEFAULT '',
+                    recipient_address TEXT NOT NULL DEFAULT '',
+                    recipient_category TEXT NOT NULL DEFAULT 'COC_MEMBER',
+                    admitted_debt_paise INTEGER NOT NULL DEFAULT 0,
+                    voting_share_units INTEGER NOT NULL DEFAULT 0,
+                    voting_share_text TEXT NOT NULL DEFAULT '0.0000',
+                    participation_rights INTEGER NOT NULL DEFAULT 1,
+                    voting_rights INTEGER NOT NULL DEFAULT 1,
+                    frozen_at TEXT NOT NULL,
+                    frozen_by TEXT NOT NULL REFERENCES users(id),
+                    UNIQUE(meeting_id, claim_id)
+                );
+                CREATE INDEX IF NOT EXISTS ix_coc_meeting_snapshot_meeting
+                    ON coc_meeting_member_snapshots(case_id, meeting_id, recipient_category);
+
+                CREATE TABLE IF NOT EXISTS coc_notice_versions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    version_number INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    coc_constitution_id TEXT NOT NULL REFERENCES coc_constitutions(id),
+                    agenda_version_id TEXT NOT NULL REFERENCES coc_agenda_versions(id),
+                    snapshot_json TEXT NOT NULL DEFAULT '{}',
+                    document_id TEXT REFERENCES documents(id),
+                    approved_by TEXT REFERENCES users(id),
+                    approved_at TEXT,
+                    issued_by TEXT REFERENCES users(id),
+                    issued_at TEXT,
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(meeting_id, version_number)
+                );
+                CREATE TABLE IF NOT EXISTS coc_notice_dispatches (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    notice_version_id TEXT NOT NULL REFERENCES coc_notice_versions(id) ON DELETE CASCADE,
+                    meeting_member_snapshot_id TEXT REFERENCES coc_meeting_member_snapshots(id),
+                    recipient_name TEXT NOT NULL,
+                    recipient_address TEXT NOT NULL DEFAULT '',
+                    dispatch_method TEXT NOT NULL DEFAULT '',
+                    dispatch_datetime TEXT,
+                    status TEXT NOT NULL DEFAULT 'NOT_SENT',
+                    service_proof_document_id TEXT REFERENCES documents(id),
+                    remarks TEXT NOT NULL DEFAULT '',
+                    recorded_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_coc_notice_dispatch_meeting
+                    ON coc_notice_dispatches(case_id, meeting_id, notice_version_id);
+
+                CREATE TABLE IF NOT EXISTS coc_quorum_rules (
+                    id TEXT PRIMARY KEY,
+                    rule_code TEXT NOT NULL,
+                    process_type TEXT NOT NULL DEFAULT 'CIRP',
+                    effective_from TEXT NOT NULL,
+                    effective_to TEXT,
+                    minimum_voting_share_units INTEGER NOT NULL,
+                    rule_reference TEXT NOT NULL DEFAULT '',
+                    rule_version INTEGER NOT NULL DEFAULT 1,
+                    status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    UNIQUE(rule_code, rule_version)
+                );
+                CREATE TABLE IF NOT EXISTS coc_meeting_quorum_records (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    quorum_rule_id TEXT REFERENCES coc_quorum_rules(id),
+                    required_voting_share_units INTEGER NOT NULL DEFAULT 0,
+                    present_voting_share_units INTEGER NOT NULL DEFAULT 0,
+                    quorum_met INTEGER,
+                    status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED',
+                    constitution_id TEXT NOT NULL REFERENCES coc_constitutions(id),
+                    calculated_at TEXT NOT NULL,
+                    calculated_by TEXT NOT NULL REFERENCES users(id),
+                    UNIQUE(meeting_id, calculated_at)
+                );
+
+                CREATE TABLE IF NOT EXISTS coc_approval_rules (
+                    id TEXT PRIMARY KEY,
+                    rule_code TEXT NOT NULL,
+                    process_type TEXT NOT NULL DEFAULT 'CIRP',
+                    effective_from TEXT NOT NULL,
+                    effective_to TEXT,
+                    minimum_for_share_units INTEGER NOT NULL,
+                    rule_reference TEXT NOT NULL DEFAULT '',
+                    rule_version INTEGER NOT NULL DEFAULT 1,
+                    status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    UNIQUE(rule_code, rule_version)
+                );
+                CREATE TABLE IF NOT EXISTS coc_resolutions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    agenda_item_id TEXT NOT NULL REFERENCES coc_agenda_version_items(id),
+                    resolution_number TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    proposed_resolution_text TEXT NOT NULL DEFAULT '',
+                    final_resolution_text TEXT NOT NULL DEFAULT '',
+                    resolution_category TEXT NOT NULL DEFAULT 'OTHER_APPLICABLE_DECISION',
+                    voting_required INTEGER NOT NULL DEFAULT 0,
+                    approval_rule_id TEXT REFERENCES coc_approval_rules(id),
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    updated_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(meeting_id, resolution_number)
+                );
+                CREATE TABLE IF NOT EXISTS coc_voting_sessions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    opened_at TEXT,
+                    scheduled_close_at TEXT,
+                    actual_close_at TEXT,
+                    communication_document_id TEXT REFERENCES documents(id),
+                    dispatch_status TEXT NOT NULL DEFAULT 'NOT_SENT',
+                    eligible_voter_snapshot_json TEXT NOT NULL DEFAULT '[]',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS coc_voting_session_resolutions (
+                    voting_session_id TEXT NOT NULL REFERENCES coc_voting_sessions(id) ON DELETE CASCADE,
+                    resolution_id TEXT NOT NULL REFERENCES coc_resolutions(id) ON DELETE CASCADE,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    PRIMARY KEY(voting_session_id, resolution_id)
+                );
+                CREATE TABLE IF NOT EXISTS coc_vote_corrections (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    vote_id TEXT NOT NULL REFERENCES coc_votes(id),
+                    old_vote TEXT NOT NULL,
+                    new_vote TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    corrected_by TEXT NOT NULL REFERENCES users(id),
+                    corrected_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS coc_voting_results (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    voting_session_id TEXT NOT NULL REFERENCES coc_voting_sessions(id),
+                    resolution_id TEXT NOT NULL REFERENCES coc_resolutions(id),
+                    approval_rule_id TEXT REFERENCES coc_approval_rules(id),
+                    required_for_share_units INTEGER NOT NULL DEFAULT 0,
+                    for_share_units INTEGER NOT NULL DEFAULT 0,
+                    against_share_units INTEGER NOT NULL DEFAULT 0,
+                    abstain_share_units INTEGER NOT NULL DEFAULT 0,
+                    not_voted_share_units INTEGER NOT NULL DEFAULT 0,
+                    result TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED',
+                    status TEXT NOT NULL DEFAULT 'CALCULATED',
+                    calculated_by TEXT NOT NULL REFERENCES users(id),
+                    calculated_at TEXT NOT NULL,
+                    finalized_by TEXT REFERENCES users(id),
+                    finalized_at TEXT,
+                    snapshot_json TEXT NOT NULL DEFAULT '{}',
+                    UNIQUE(voting_session_id, resolution_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS coc_minutes_entries (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    agenda_item_id TEXT NOT NULL REFERENCES coc_agenda_version_items(id),
+                    minutes_text TEXT NOT NULL DEFAULT '',
+                    disposition TEXT NOT NULL DEFAULT '',
+                    updated_by TEXT NOT NULL REFERENCES users(id),
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(meeting_id, agenda_item_id)
+                );
+                CREATE TABLE IF NOT EXISTS coc_minutes_versions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    version_number INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    document_id TEXT REFERENCES documents(id),
+                    snapshot_json TEXT NOT NULL DEFAULT '{}',
+                    generated_by TEXT NOT NULL REFERENCES users(id),
+                    generated_at TEXT NOT NULL,
+                    finalized_by TEXT REFERENCES users(id),
+                    finalized_at TEXT,
+                    parent_minutes_version_id TEXT REFERENCES coc_minutes_versions(id),
+                    UNIQUE(meeting_id, version_number)
+                );
+                CREATE TABLE IF NOT EXISTS coc_minutes_circulations (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    minutes_version_id TEXT NOT NULL REFERENCES coc_minutes_versions(id) ON DELETE CASCADE,
+                    recipient_snapshot_json TEXT NOT NULL DEFAULT '[]',
+                    circulation_datetime TEXT,
+                    method TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'NOT_SENT',
+                    service_proof_document_id TEXT REFERENCES documents(id),
+                    remarks TEXT NOT NULL DEFAULT '',
+                    recorded_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS coc_cost_statements (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    total_paise INTEGER NOT NULL DEFAULT 0,
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS coc_cost_statement_rows (
+                    id TEXT PRIMARY KEY,
+                    cost_statement_id TEXT NOT NULL REFERENCES coc_cost_statements(id) ON DELETE CASCADE,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    category TEXT NOT NULL,
+                    vendor_name TEXT NOT NULL DEFAULT '',
+                    description TEXT NOT NULL DEFAULT '',
+                    period_date TEXT,
+                    amount_paise INTEGER NOT NULL DEFAULT 0,
+                    gst_paise INTEGER NOT NULL DEFAULT 0,
+                    paid_status TEXT NOT NULL DEFAULT 'UNPAID',
+                    approval_required INTEGER NOT NULL DEFAULT 0,
+                    supporting_document_id TEXT REFERENCES documents(id),
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS coc_operations_updates (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    payload_json TEXT NOT NULL DEFAULT '{}',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(meeting_id)
+                );
+                CREATE TABLE IF NOT EXISTS coc_professional_proposals (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    agenda_item_id TEXT REFERENCES coc_agenda_version_items(id),
+                    service_category TEXT NOT NULL,
+                    professional_name TEXT NOT NULL DEFAULT '',
+                    scope TEXT NOT NULL DEFAULT '',
+                    proposed_fee_paise INTEGER NOT NULL DEFAULT 0,
+                    tax_paise INTEGER NOT NULL DEFAULT 0,
+                    appointment_status TEXT NOT NULL DEFAULT 'PROPOSED',
+                    approval_type TEXT NOT NULL DEFAULT '',
+                    supporting_document_id TEXT REFERENCES documents(id),
+                    resolution_id TEXT REFERENCES coc_resolutions(id),
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS coc_action_items (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    agenda_item_id TEXT REFERENCES coc_agenda_version_items(id),
+                    resolution_id TEXT REFERENCES coc_resolutions(id),
+                    task_id TEXT REFERENCES tasks(id),
+                    action_text TEXT NOT NULL,
+                    owner TEXT NOT NULL DEFAULT '',
+                    due_date TEXT,
+                    status TEXT NOT NULL DEFAULT 'OPEN',
+                    completion_evidence_document_id TEXT REFERENCES documents(id),
+                    remarks TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS coc_meeting_adjournments (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    meeting_id TEXT NOT NULL REFERENCES coc_meetings(id) ON DELETE CASCADE,
+                    adjourned_at TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    next_scheduled_start_at TEXT,
+                    recorded_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_coc_action_items_case
+                    ON coc_action_items(case_id, meeting_id, status);
                 """
             )
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_number ON claims(case_id, claim_number) WHERE claim_number <> ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_idempotency ON claims(case_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''")
+            connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_coc_meetings_case_number ON coc_meetings(case_id, meeting_number) WHERE archived_at IS NULL")
             self._seed_compliance_rules(connection)
             from workflow.seed_loader import seed_cirp_workflow
             seed_cirp_workflow(connection, Path(__file__).parent / "workflow" / "seeds" / "cirp_2026_v1.json")

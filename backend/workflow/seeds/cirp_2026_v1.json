@@ -37,6 +37,13 @@
       "sequence": 5,
       "description": "Versioned CoC constitution, report and claim-change reconstitution controls.",
       "is_active": true
+    },
+    {
+      "code": "COC_MEETINGS",
+      "name": "CoC Meetings & Voting",
+      "sequence": 6,
+      "description": "First and subsequent CoC meeting lifecycle, notice, agenda, attendance, minutes, voting and action tracking.",
+      "is_active": true
     }
   ],
   "steps": [
@@ -421,6 +428,74 @@
       "day_trigger_text": "When a later Claim change affects CoC", "legal_reference": "Section 21 / continuing claims administration", "area": "CoC reconstitution",
       "activity": "Review the downstream effect and confirm a new Constitution version without mutating history.", "standard_output": "CoC Reconstitution / Update Sheet", "automation_type": "SEMI", "approval_role": "RP",
       "trigger_event_type": "COC_REVIEW_REQUIRED", "task_title": "Review and confirm CoC reconstitution", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-046", "phase_code": "COC_MEETINGS", "sequence": 46,
+      "day_trigger_text": "After CoC Constitution; legal timing requires configured DeadlineRule", "legal_reference": "Section 22 / Regulation 19", "area": "First CoC Meeting",
+      "activity": "Create, schedule and issue the first CoC Meeting Notice from a confirmed CoC Constitution.", "standard_output": "First CoC Notice", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_CONSTITUTED", "task_title": "Prepare First CoC Meeting", "default_priority": "high", "effective_from": "2026-06-09",
+      "template_links": [{"template_id": "notice-first-coc", "template_role": "NOTICE"}]
+    },
+    {
+      "step_code": "CIRP-047", "phase_code": "COC_MEETINGS", "sequence": 47,
+      "day_trigger_text": "Before Notice issue", "legal_reference": "Regulation 21", "area": "Agenda Pack",
+      "activity": "Prepare versioned Agenda, notes, supporting papers and proposed resolutions; freeze the issued version.", "standard_output": "First CoC Agenda Pack", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_MEETING_CREATED", "task_title": "Finalize CoC Agenda", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-048", "phase_code": "COC_MEETINGS", "sequence": 48,
+      "day_trigger_text": "At meeting", "legal_reference": "Regulation 22", "area": "Quorum",
+      "activity": "Record a deterministic quorum calculation from the frozen meeting-member snapshot and a versioned rule.", "standard_output": "Structured Quorum Record", "automation_type": "AUTO", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_NOTICE_ISSUED", "task_title": "Confirm CoC quorum", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-049", "phase_code": "COC_MEETINGS", "sequence": 49,
+      "day_trigger_text": "At meeting", "legal_reference": "Regulation 24", "area": "Roll Call / Attendance",
+      "activity": "Record attendance, representative authority and voting entitlement against the frozen snapshot.", "standard_output": "Structured Attendance Record", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_NOTICE_ISSUED", "task_title": "Record CoC attendance", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-050", "phase_code": "COC_MEETINGS", "sequence": 50,
+      "day_trigger_text": "When placed before CoC", "legal_reference": "Section 22", "area": "RP Appointment Resolution",
+      "activity": "Record proposed and final wording for continuation, replacement or other IRP/RP decision.", "standard_output": "Resolution Record", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_RESOLUTION_PLACED", "task_title": "Record CoC resolution", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-051", "phase_code": "COC_MEETINGS", "sequence": 51,
+      "day_trigger_text": "When placed before CoC", "legal_reference": "CIRP costs / CoC approval", "area": "CIRP Costs",
+      "activity": "Record a structured CIRP cost statement and supporting documents for ratification or approval.", "standard_output": "Structured CIRP Cost Statement", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_COST_STATEMENT_RECORDED", "task_title": "Prepare CIRP Cost Statement", "default_priority": "normal", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-052", "phase_code": "COC_MEETINGS", "sequence": 52,
+      "day_trigger_text": "When placed before CoC", "legal_reference": "CoC process update", "area": "Operations Update",
+      "activity": "Record structured operational status only to support the meeting Agenda and Minutes.", "standard_output": "Structured Operations Update", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_OPERATIONS_UPDATE_RECORDED", "task_title": "Prepare operations update", "default_priority": "normal", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-053", "phase_code": "COC_MEETINGS", "sequence": 53,
+      "day_trigger_text": "When professional appointment is proposed", "legal_reference": "CIRP professional appointments", "area": "Professional Appointment / Fees",
+      "activity": "Record professional scope, proposed fees, support and linked resolution without creating a vendor-management system.", "standard_output": "Structured Professional Proposal", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_PROFESSIONAL_PROPOSAL_RECORDED", "task_title": "Review professional proposal", "default_priority": "normal", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-054", "phase_code": "COC_MEETINGS", "sequence": 54,
+      "day_trigger_text": "After meeting", "legal_reference": "Regulation 25", "area": "Minutes",
+      "activity": "Assemble retained-template Minutes from office-provided agenda-wise factual text and immutable snapshots.", "standard_output": "CoC Minutes", "automation_type": "DOCUMENT_ASSEMBLY", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_MEETING_HELD", "task_title": "Finalize CoC Minutes", "default_priority": "high", "effective_from": "2026-06-09",
+      "template_links": [{"template_id": "minutes-first-coc", "template_role": "MINUTES"}]
+    },
+    {
+      "step_code": "CIRP-055", "phase_code": "COC_MEETINGS", "sequence": 55,
+      "day_trigger_text": "Where voting is required", "legal_reference": "Regulation 26", "area": "E-voting",
+      "activity": "Record a structured e-voting session and actual external/manual vote inputs from frozen voting shares.", "standard_output": "E-voting Session", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_VOTING_OPENED", "task_title": "Record CoC votes", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-056", "phase_code": "COC_MEETINGS", "sequence": 56,
+      "day_trigger_text": "After voting / resolutions", "legal_reference": "CoC voting and action tracking", "area": "Voting Result / ATR",
+      "activity": "Calculate and finalize deterministic voting results and link meeting decisions to action items and existing tasks.", "standard_output": "Structured Voting Result and ATR", "automation_type": "AUTO", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_VOTING_CLOSED", "task_title": "Finalize voting result and ATR", "default_priority": "high", "effective_from": "2026-06-09"
     }
   ],
   "dependencies": [
@@ -438,6 +513,14 @@
     {"parent_step_code": "CIRP-039", "child_step_code": "CIRP-040", "dependency_type": "TRIGGERED_BY"},
     {"parent_step_code": "CIRP-040", "child_step_code": "CIRP-043", "dependency_type": "TRIGGERED_BY"},
     {"parent_step_code": "CIRP-043", "child_step_code": "CIRP-044", "dependency_type": "TRIGGERED_BY"},
-    {"parent_step_code": "CIRP-043", "child_step_code": "CIRP-045", "dependency_type": "TRIGGERED_BY"}
+    {"parent_step_code": "CIRP-043", "child_step_code": "CIRP-045", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-043", "child_step_code": "CIRP-046", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-046", "child_step_code": "CIRP-047", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-047", "child_step_code": "CIRP-048", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-048", "child_step_code": "CIRP-049", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-049", "child_step_code": "CIRP-050", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-050", "child_step_code": "CIRP-054", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-054", "child_step_code": "CIRP-055", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-055", "child_step_code": "CIRP-056", "dependency_type": "TRIGGERED_BY"}
   ]
 }

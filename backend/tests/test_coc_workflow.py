@@ -61,5 +61,5 @@ def test_retained_templates_generate_without_cross_company_contamination(tmp_pat
 def test_minutes_reject_missing_manual_discussion(tmp_path):
     service = CocDocumentService(Path(__file__).resolve().parents[1] / "templates" / "coc")
     workflow = {"meeting": {"meeting_number": 1, "meeting_at": "2026-02-01T10:00:00"}, "agenda": [{"position": 1, "title": "Item", "discussion": ""}], "attendance": [], "members": [], "votes": [], "quorum": {}}
-    with pytest.raises(ValueError, match="Manual discussion"):
+    with pytest.raises(ValueError, match="Office-provided Minutes text"):
         service.generate("minutes", {"name": "Acme Foods Limited"}, workflow, [], {}, tmp_path / "minutes.docx")
