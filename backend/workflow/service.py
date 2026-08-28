@@ -31,6 +31,16 @@ EVENT_TYPES = {
     "PUBLIC_ANNOUNCEMENT_CONFIRMED",
     "DOCUMENT_RECEIVED",
     "WORKFLOW_STEP_COMPLETED",
+    "CLAIM_RECEIVED", "CLAIM_ACKNOWLEDGED", "CLAIM_CLASSIFICATION_CONFIRMED",
+    "CLAIM_DEFICIENCY_IDENTIFIED", "CLAIM_QUERY_CREATED", "CLAIM_QUERY_SENT",
+    "CLAIM_QUERY_RESPONSE_RECEIVED", "CLAIM_QUERY_CLOSED", "CLAIM_VERIFICATION_STARTED",
+    "CLAIM_VERIFICATION_COMPLETED", "CLAIM_ADMITTED", "CLAIM_PARTLY_ADMITTED",
+    "CLAIM_NOT_ADMITTED", "CLAIM_REVISED", "LATE_CLAIM_IDENTIFIED",
+    "RELATED_PARTY_STATUS_CONFIRMED", "RELATED_PARTY_STATUS_CHANGED", "SECURITY_REVIEW_REQUIRED",
+    "LIST_OF_CREDITORS_SNAPSHOT_CREATED", "LIST_OF_CREDITORS_PUBLISHED",
+    "COC_ELIGIBILITY_CONFIRMED", "COC_VOTING_SHARE_CALCULATED", "CREDITORS_IN_CLASS_CONFIRMED",
+    "AR_REQUIRED", "COC_CONSTITUTED", "COC_REVIEW_REQUIRED", "COC_RECONSTITUTED",
+    "COC_CONSTITUTION_REPORT_GENERATED", "COC_CONSTITUTION_REPORT_FINALIZED",
 }
 
 
@@ -238,6 +248,24 @@ class WorkflowService:
             "SELECT * FROM case_workflows WHERE case_id=? AND workflow_type='CIRP'", (case_id,)
         ).fetchone()
         if existing:
+            # The same versioned master may be implemented in backend phases.  Add
+            # only missing definition instances; never replace existing state.
+            definitions = connection.execute(
+                """SELECT * FROM workflow_step_definitions WHERE workflow_version=?
+                AND workflow_type='CIRP' AND is_active=1 ORDER BY sequence""",
+                (existing["workflow_version"],),
+            ).fetchall()
+            now = utc_now()
+            for definition in definitions:
+                connection.execute(
+                    """INSERT OR IGNORE INTO case_workflow_steps
+                    (id,case_workflow_id,case_id,step_definition_id,status,approval_status,priority,created_at,updated_at)
+                    VALUES (?,?,?,?, 'NOT_TRIGGERED', ?,?,?,?)""",
+                    (new_id(), existing["id"], case_id, definition["id"],
+                     "NOT_REQUESTED" if definition["approval_role"] else "NOT_REQUIRED",
+                     definition["default_priority"], now, now),
+                )
+            self.deadlines.ensure_for_workflow(connection, case_id, existing["id"], actor_id)
             return existing["id"], False
         definitions = connection.execute(
             """SELECT * FROM workflow_step_definitions
@@ -698,7 +726,7 @@ class WorkflowService:
                     next_deadline = candidate
         active_steps = [step for step in steps if step["status"] not in {"NOT_TRIGGERED", *TERMINAL_STEP_STATUSES}]
         current_phase = active_steps[0]["phase_name"] if active_steps else (steps[0]["phase_name"] if steps else "")
-        return {
+        result = {
             "case_id": case_id,
             "workflow": workflow["workflow_version"],
             "current_phase": current_phase,
@@ -711,6 +739,11 @@ class WorkflowService:
             "next_statutory_deadline": next_deadline,
             "pending_rp_approvals": pending_approvals,
         }
+        # Import lazily to avoid coupling the generic engine to the Claims/CoC
+        # domain during module initialization.
+        from claims_coc_core import ClaimsCocCore
+        result.update(ClaimsCocCore(self.database).workflow_summary(case_id))
+        return result
 
 
 class EventEngine:
@@ -890,11 +923,47 @@ class EventEngine:
             self._set_step_states(connection, case_id, {"CIRP-021": "IN_PROGRESS", "CIRP-022": "IN_PROGRESS", "CIRP-023": "IN_PROGRESS"}, actor_id, event)
         elif event_type == "PUBLIC_ANNOUNCEMENT_CONFIRMED":
             self._complete_public_announcement_steps(connection, case_id, event, actor_id)
+            self._set_step_states(connection, case_id, {"CIRP-024": "COMPLETED"}, actor_id, event)
             actions.append({
                 "action": "PUBLIC_ANNOUNCEMENT_WORKFLOW_UPDATED",
                 "completed_steps": ["CIRP-021", "CIRP-022"],
                 "evidence_pending_steps": ["CIRP-023"],
             })
+
+        domain_states = {
+            "CLAIM_ACKNOWLEDGED": {"CIRP-025": "COMPLETED"},
+            "CLAIM_CLASSIFICATION_CONFIRMED": {"CIRP-026": "COMPLETED", "CIRP-027": "IN_PROGRESS"},
+            "CLAIM_DEFICIENCY_IDENTIFIED": {"CIRP-027": "IN_PROGRESS", "CIRP-028": "READY"},
+            "CLAIM_QUERY_CREATED": {"CIRP-028": "IN_PROGRESS"},
+            "CLAIM_QUERY_CLOSED": {"CIRP-028": "COMPLETED"},
+            "LATE_CLAIM_IDENTIFIED": {"CIRP-036": "READY"},
+            "CLAIM_VERIFICATION_STARTED": {"CIRP-030": "IN_PROGRESS"},
+            "CLAIM_VERIFICATION_COMPLETED": {"CIRP-027": "COMPLETED", "CIRP-030": "COMPLETED", "CIRP-031": "READY", "CIRP-032": "READY"},
+            "RELATED_PARTY_STATUS_CONFIRMED": {"CIRP-031": "COMPLETED"},
+            "CLAIM_ADMITTED": {"CIRP-032": "COMPLETED", "CIRP-033": "READY", "CIRP-034": "READY", "CIRP-039": "READY"},
+            "CLAIM_PARTLY_ADMITTED": {"CIRP-032": "COMPLETED", "CIRP-033": "READY", "CIRP-034": "READY", "CIRP-039": "READY"},
+            "CLAIM_NOT_ADMITTED": {"CIRP-032": "COMPLETED", "CIRP-033": "READY", "CIRP-034": "READY"},
+            "CLAIM_REVISED": {"CIRP-037": "COMPLETED", "CIRP-030": "READY"},
+            "SECURITY_REVIEW_REQUIRED": {"CIRP-038": "READY"},
+            "LIST_OF_CREDITORS_SNAPSHOT_CREATED": {"CIRP-034": "COMPLETED", "CIRP-035": "READY"},
+            "LIST_OF_CREDITORS_PUBLISHED": {"CIRP-035": "COMPLETED"},
+            "COC_ELIGIBILITY_CONFIRMED": {"CIRP-039": "COMPLETED", "CIRP-040": "READY"},
+            "COC_VOTING_SHARE_CALCULATED": {"CIRP-040": "COMPLETED", "CIRP-043": "READY"},
+            "CREDITORS_IN_CLASS_CONFIRMED": {"CIRP-041": "COMPLETED"},
+            "AR_REQUIRED": {"CIRP-042": "READY"},
+            "COC_CONSTITUTED": {"CIRP-043": "COMPLETED", "CIRP-044": "READY"},
+            "COC_CONSTITUTION_REPORT_GENERATED": {"CIRP-044": "IN_PROGRESS"},
+            "COC_CONSTITUTION_REPORT_FINALIZED": {"CIRP-044": "COMPLETED"},
+            "COC_RECONSTITUTED": {"CIRP-045": "COMPLETED"},
+        }
+        if event_type in domain_states:
+            self._set_step_states(connection, case_id, domain_states[event_type], actor_id, event)
+        if event_type == "COC_REVIEW_REQUIRED":
+            connection.execute(
+                """UPDATE coc_constitutions SET review_required=1 WHERE id=(
+                SELECT id FROM coc_constitutions WHERE case_id=? ORDER BY constitution_version DESC LIMIT 1)""",
+                (case_id,),
+            )
 
         workflow = connection.execute(
             "SELECT id FROM case_workflows WHERE case_id=? AND workflow_type='CIRP'", (case_id,)
@@ -928,15 +997,16 @@ class EventEngine:
             step = self._step_by_code(connection, case_id, code)
             if not step or step["status"] in TERMINAL_STEP_STATUSES:
                 continue
-            approval = "PENDING" if status == "PENDING_APPROVAL" else step["approval_status"]
+            approval = "PENDING" if status == "PENDING_APPROVAL" else ("APPROVED" if status == "COMPLETED" else step["approval_status"])
+            completed_at = utc_now() if status == "COMPLETED" else None
             connection.execute(
                 """UPDATE case_workflow_steps SET status=?,approval_status=?,trigger_event_id=COALESCE(trigger_event_id,?),
                 trigger_date=COALESCE(trigger_date,?),started_at=CASE WHEN ?='IN_PROGRESS' THEN COALESCE(started_at,?) ELSE started_at END,
-                updated_at=? WHERE id=?""",
-                (status, approval, event["id"], event["event_date"], status, utc_now(), utc_now(), step["id"]),
+                completed_at=CASE WHEN ?='COMPLETED' THEN ? ELSE completed_at END,updated_at=? WHERE id=?""",
+                (status, approval, event["id"], event["event_date"], status, utc_now(), status, completed_at, utc_now(), step["id"]),
             )
             self.workflow._ensure_task(connection, step["id"], actor_id)
-            self.workflow._sync_task_status(connection, step["id"], status, actor_id)
+            self.workflow._sync_task_status(connection, step["id"], status, actor_id, completed_at)
 
     def _complete_public_announcement_steps(self, connection: sqlite3.Connection, case_id: str,
                                             event: sqlite3.Row, actor_id: str) -> None:

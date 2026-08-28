@@ -16,6 +16,27 @@
       "sequence": 2,
       "description": "Form A preparation, publication and proof controls under Regulation 6.",
       "is_active": true
+    },
+    {
+      "code": "CLAIMS_VERIFICATION",
+      "name": "Claims & Verification",
+      "sequence": 3,
+      "description": "Claim intake, acknowledgement, scrutiny, verification, decision, revision and List of Creditors controls.",
+      "is_active": true
+    },
+    {
+      "code": "COC_ELIGIBILITY",
+      "name": "CoC Eligibility",
+      "sequence": 4,
+      "description": "Financial-creditor eligibility, related-party review, voting calculation and class-creditor controls.",
+      "is_active": true
+    },
+    {
+      "code": "COC_CONSTITUTION",
+      "name": "CoC Constitution",
+      "sequence": 5,
+      "description": "Versioned CoC constitution, report and claim-change reconstitution controls.",
+      "is_active": true
     }
   ],
   "steps": [
@@ -258,11 +279,165 @@
       "default_priority": "high", "effective_from": "2026-06-09",
       "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 3, "rule_text": "Complete no later than T+3", "legal_reference": "Regulation 6"},
       "evidence_requirements": [{"evidence_type": "UPLOAD_SCREENSHOT", "mandatory": true, "description": "Website screenshot or acknowledgement."}]
+    },
+    {
+      "step_code": "CIRP-024", "phase_code": "CLAIMS_VERIFICATION", "sequence": 24,
+      "day_trigger_text": "On confirmation of Public Announcement", "legal_reference": "Regulations 7-12", "area": "Claims",
+      "activity": "Activate the case-scoped Claims Register.", "standard_output": "Claim Register", "automation_type": "AUTO", "approval_role": "Internal",
+      "trigger_event_type": "PUBLIC_ANNOUNCEMENT_CONFIRMED", "task_title": "Confirm Claims Register availability", "effective_from": "2026-06-09",
+      "evidence_requirements": [{"evidence_type": "CLAIM_REGISTER", "mandatory": false, "description": "Timestamped canonical Claim records."}]
+    },
+    {
+      "step_code": "CIRP-025", "phase_code": "CLAIMS_VERIFICATION", "sequence": 25,
+      "day_trigger_text": "On each Claim receipt", "legal_reference": "Claims administration", "area": "Claims",
+      "activity": "Acknowledge the Claim and allot a stable per-case Claim reference.", "standard_output": "Claim Acknowledgement", "automation_type": "AUTO", "approval_role": "Internal",
+      "trigger_event_type": "CLAIM_RECEIVED", "task_title": "Acknowledge received Claim", "effective_from": "2026-06-09",
+      "evidence_requirements": [{"evidence_type": "CLAIM_RECORD", "mandatory": false, "description": "Claim record and acknowledgement metadata."}]
+    },
+    {
+      "step_code": "CIRP-026", "phase_code": "CLAIMS_VERIFICATION", "sequence": 26,
+      "day_trigger_text": "On each Claim receipt", "legal_reference": "Applicable proof-of-claim form", "area": "Claims",
+      "activity": "Confirm creditor category and statutory Claim form.", "standard_output": "Claim Classification", "automation_type": "SEMI", "approval_role": "RP review",
+      "trigger_event_type": "CLAIM_RECEIVED", "task_title": "Confirm Claim classification", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-027", "phase_code": "CLAIMS_VERIFICATION", "sequence": 27,
+      "day_trigger_text": "After Claim receipt/classification", "legal_reference": "Regulations 7-12", "area": "Claims",
+      "activity": "Review prescribed form, authorization, security and supporting records using the configurable checklist.", "standard_output": "Claim Scrutiny Checklist", "automation_type": "SEMI", "approval_role": "RP review",
+      "trigger_event_type": "CLAIM_RECEIVED", "task_title": "Complete Claim scrutiny", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-028", "phase_code": "CLAIMS_VERIFICATION", "sequence": 28,
+      "day_trigger_text": "When a deficiency is identified", "legal_reference": "Claim verification process", "area": "Claims",
+      "activity": "Record and track a clarification or missing-information query.", "standard_output": "Deficiency / Clarification Record", "automation_type": "SEMI", "approval_role": "RP review",
+      "trigger_event_type": "CLAIM_DEFICIENCY_IDENTIFIED", "task_title": "Resolve Claim deficiency", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-029", "phase_code": "CLAIMS_VERIFICATION", "sequence": 29,
+      "day_trigger_text": "Initial Claim deadline", "legal_reference": "Regulation 12(1)", "area": "Claims deadline",
+      "activity": "Track the configured initial Claim submission deadline and flag later receipts without rejecting them.", "standard_output": "Claim Deadline Alert", "automation_type": "AUTO", "approval_role": "RP review",
+      "trigger_event_type": "PUBLIC_ANNOUNCEMENT_CONFIRMED", "task_title": "Monitor initial Claim deadline", "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 14, "rule_text": "Initial submission period configured as T+14; legal configuration remains versioned.", "legal_reference": "Regulation 12(1)"}
+    },
+    {
+      "step_code": "CIRP-030", "phase_code": "CLAIMS_VERIFICATION", "sequence": 30,
+      "day_trigger_text": "After Claim is ready for verification", "legal_reference": "Regulation 13(1)", "area": "Claims",
+      "activity": "Verify amount, interest, security, limitation, set-off, books and supporting evidence.", "standard_output": "Claim Verification Working", "automation_type": "SEMI", "approval_role": "RP",
+      "trigger_event_type": "CLAIM_CLASSIFICATION_CONFIRMED", "task_title": "Complete Claim verification", "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 21, "rule_text": "Configured verification control at T+21 (seven days after the initial T+14 Claim date).", "legal_reference": "Regulation 13(1)"}
+    },
+    {
+      "step_code": "CIRP-031", "phase_code": "CLAIMS_VERIFICATION", "sequence": 31,
+      "day_trigger_text": "During Financial Creditor verification", "legal_reference": "Section 21(2)", "area": "Related party",
+      "activity": "Confirm related-party status and preserve reason/evidence.", "standard_output": "Related Party Review", "automation_type": "SEMI", "approval_role": "RP",
+      "trigger_event_type": "CLAIM_VERIFICATION_COMPLETED", "task_title": "Confirm related-party status", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-032", "phase_code": "CLAIMS_VERIFICATION", "sequence": 32,
+      "day_trigger_text": "After verification", "legal_reference": "Regulation 13", "area": "Claims",
+      "activity": "Record the human-confirmed admitted, partly admitted, not admitted or under-verification decision without overwriting history.", "standard_output": "Claim Decision Sheet", "automation_type": "SEMI", "approval_role": "RP",
+      "trigger_event_type": "CLAIM_VERIFICATION_COMPLETED", "task_title": "Confirm Claim decision", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-033", "phase_code": "CLAIMS_VERIFICATION", "sequence": 33,
+      "day_trigger_text": "After Claim decision", "legal_reference": "Claim administration", "area": "Communications",
+      "activity": "Prepare, approve and record service of the Claim decision communication.", "standard_output": "Claim Decision Communication", "automation_type": "SEMI", "approval_role": "RP",
+      "trigger_event_type": "CLAIM_ADMITTED", "task_title": "Prepare Claim decision communication", "effective_from": "2026-06-09",
+      "evidence_requirements": [{"evidence_type": "SERVICE_PROOF", "mandatory": false, "description": "Required before the communication is marked SENT."}]
+    },
+    {
+      "step_code": "CIRP-034", "phase_code": "CLAIMS_VERIFICATION", "sequence": 34,
+      "day_trigger_text": "After one or more Claim decisions", "legal_reference": "Regulation 13(2)", "area": "Claims",
+      "activity": "Derive and version the List of Creditors from canonical Claims and decision versions.", "standard_output": "List of Creditors", "automation_type": "AUTO", "approval_role": "RP review",
+      "trigger_event_type": "CLAIM_ADMITTED", "task_title": "Generate List of Creditors snapshot", "effective_from": "2026-06-09",
+      "evidence_requirements": [{"evidence_type": "LOC_SNAPSHOT", "mandatory": false, "description": "Immutable formal List of Creditors snapshot."}]
+    },
+    {
+      "step_code": "CIRP-035", "phase_code": "CLAIMS_VERIFICATION", "sequence": 35,
+      "day_trigger_text": "After formal LOC snapshot", "legal_reference": "Applicable display/filing requirement", "area": "Claims filing",
+      "activity": "Record the prescribed display or filing mechanism and evidence without automating filing.", "standard_output": "LOC Filing / Upload Record", "automation_type": "AUTO", "approval_role": "RP",
+      "trigger_event_type": "LIST_OF_CREDITORS_SNAPSHOT_CREATED", "task_title": "Record List of Creditors filing/display", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-036", "phase_code": "CLAIMS_VERIFICATION", "sequence": 36,
+      "day_trigger_text": "Claim received after configured initial deadline", "legal_reference": "Configured current Claim rule", "area": "Claims",
+      "activity": "Review a late Claim without automatic admission or rejection.", "standard_output": "Late Claim Note", "automation_type": "SEMI", "approval_role": "RP",
+      "trigger_event_type": "LATE_CLAIM_IDENTIFIED", "task_title": "Review late Claim", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-037", "phase_code": "CLAIMS_VERIFICATION", "sequence": 37,
+      "day_trigger_text": "On new evidence or revised Claim", "legal_reference": "Claim verification process", "area": "Claims",
+      "activity": "Preserve and review the revised Claim version and downstream effects.", "standard_output": "Revised Claim Sheet", "automation_type": "SEMI", "approval_role": "RP",
+      "trigger_event_type": "CLAIM_REVISED", "task_title": "Review Claim revision", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-038", "phase_code": "CLAIMS_VERIFICATION", "sequence": 38,
+      "day_trigger_text": "When security requires review", "legal_reference": "Claim verification process", "area": "Security",
+      "activity": "Track claimed and verified security status, evidence and unresolved dispute.", "standard_output": "Security Verification Record", "automation_type": "SEMI", "approval_role": "RP",
+      "trigger_event_type": "SECURITY_REVIEW_REQUIRED", "task_title": "Review Claim security", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-039", "phase_code": "COC_ELIGIBILITY", "sequence": 39,
+      "day_trigger_text": "Post initial Claim verification", "legal_reference": "Sections 21(1)-(2)", "area": "CoC eligibility",
+      "activity": "Confirm eligibility of admitted Financial Creditor Claims with full decision traceability.", "standard_output": "CoC Eligibility Sheet", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "CLAIM_ADMITTED", "task_title": "Confirm CoC eligibility", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-040", "phase_code": "COC_ELIGIBILITY", "sequence": 40,
+      "day_trigger_text": "After eligibility confirmation", "legal_reference": "Section 5(28)", "area": "CoC voting",
+      "activity": "Calculate voting shares deterministically from admitted eligible Financial Creditor debt.", "standard_output": "Voting Share Calculator", "automation_type": "AUTO", "approval_role": "IRP/RP review",
+      "trigger_event_type": "COC_ELIGIBILITY_CONFIRMED", "task_title": "Review CoC voting calculation", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-041", "phase_code": "COC_ELIGIBILITY", "sequence": 41,
+      "day_trigger_text": "Where a creditor class exists", "legal_reference": "Section 21(6A)", "area": "Creditors in class",
+      "activity": "Track creditor class membership and whether an authorised representative process requires review.", "standard_output": "Class Creditor Matrix", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "CREDITORS_IN_CLASS_CONFIRMED", "task_title": "Review creditors-in-class matrix", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-042", "phase_code": "COC_ELIGIBILITY", "sequence": 42,
+      "day_trigger_text": "Where AR is required", "legal_reference": "Section 21(6A) and applicable regulations", "area": "Authorised representative",
+      "activity": "Track AR requirement, candidate/selection, documents, filing requirement and evidence.", "standard_output": "AR Package", "automation_type": "SEMI", "approval_role": "IRP/RP/legal",
+      "trigger_event_type": "AR_REQUIRED", "task_title": "Complete authorised representative process", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-043", "phase_code": "COC_CONSTITUTION", "sequence": 43,
+      "day_trigger_text": "After eligibility and voting confirmation", "legal_reference": "Section 21", "area": "CoC Constitution",
+      "activity": "Confirm and preserve an immutable CoC Constitution version derived from Claims.", "standard_output": "CoC Constitution Sheet", "automation_type": "SEMI", "approval_role": "IRP/RP",
+      "trigger_event_type": "COC_VOTING_SHARE_CALCULATED", "task_title": "Confirm CoC Constitution", "default_priority": "high", "effective_from": "2026-06-09",
+      "evidence_requirements": [{"evidence_type": "COC_CONSTITUTION_SNAPSHOT", "mandatory": false, "description": "Versioned constitution and member snapshot."}]
+    },
+    {
+      "step_code": "CIRP-044", "phase_code": "COC_CONSTITUTION", "sequence": 44,
+      "day_trigger_text": "Configured T+23 control", "legal_reference": "Regulation 17(1)", "area": "NCLT filing",
+      "activity": "Generate and approve the retained-template report certifying CoC Constitution; record filing separately.", "standard_output": "CoC Constitution Report", "automation_type": "LEGAL", "approval_role": "RP/legal",
+      "requires_nclt_filing": true, "trigger_event_type": "COC_CONSTITUTED", "task_title": "Generate CoC Constitution Report", "default_priority": "high", "effective_from": "2026-06-09",
+      "deadline_rule": {"anchor_event_type": "CIRP_COMMENCEMENT_CONFIRMED", "offset_days": 23, "rule_text": "Configured report-certification control at T+23.", "legal_reference": "Regulation 17(1)"},
+      "template_links": [{"template_id": "constitution-coc", "template_role": "CONSTITUTION_REPORT"}],
+      "evidence_requirements": [{"evidence_type": "CONSTITUTION_REPORT_DOCX", "mandatory": false, "description": "Retained generated DOCX artifact and version."}]
+    },
+    {
+      "step_code": "CIRP-045", "phase_code": "COC_CONSTITUTION", "sequence": 45,
+      "day_trigger_text": "When a later Claim change affects CoC", "legal_reference": "Section 21 / continuing claims administration", "area": "CoC reconstitution",
+      "activity": "Review the downstream effect and confirm a new Constitution version without mutating history.", "standard_output": "CoC Reconstitution / Update Sheet", "automation_type": "SEMI", "approval_role": "RP",
+      "trigger_event_type": "COC_REVIEW_REQUIRED", "task_title": "Review and confirm CoC reconstitution", "default_priority": "high", "effective_from": "2026-06-09"
     }
   ],
   "dependencies": [
     {"parent_step_code": "CIRP-001", "child_step_code": "CIRP-021", "dependency_type": "TRIGGERED_BY"},
     {"parent_step_code": "CIRP-021", "child_step_code": "CIRP-022", "dependency_type": "TRIGGERED_BY"},
-    {"parent_step_code": "CIRP-022", "child_step_code": "CIRP-023", "dependency_type": "TRIGGERED_BY"}
+    {"parent_step_code": "CIRP-022", "child_step_code": "CIRP-023", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-021", "child_step_code": "CIRP-024", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-024", "child_step_code": "CIRP-025", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-025", "child_step_code": "CIRP-026", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-026", "child_step_code": "CIRP-027", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-027", "child_step_code": "CIRP-030", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-030", "child_step_code": "CIRP-032", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-032", "child_step_code": "CIRP-034", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-034", "child_step_code": "CIRP-039", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-039", "child_step_code": "CIRP-040", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-040", "child_step_code": "CIRP-043", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-043", "child_step_code": "CIRP-044", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-043", "child_step_code": "CIRP-045", "dependency_type": "TRIGGERED_BY"}
   ]
 }

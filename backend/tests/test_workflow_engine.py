@@ -39,7 +39,7 @@ def test_master_seed_is_versioned_and_case_execution_is_separate(tmp_path):
     store = _store(tmp_path)
     service = WorkflowService(store)
     definitions = service.definitions()
-    assert [item["step_code"] for item in definitions] == [f"CIRP-{number:03d}" for number in range(1, 24)]
+    assert [item["step_code"] for item in definitions] == [f"CIRP-{number:03d}" for number in range(1, 46)]
     assert all(item["workflow_version"] == "CIRP_2026_V1" for item in definitions)
     assert service.definition("CIRP-021")["deadline_rules"][0]["offset_days"] == 3
 
@@ -47,7 +47,7 @@ def test_master_seed_is_versioned_and_case_execution_is_separate(tmp_path):
     _admission_event(store, case["id"])
     execution = service.get_case_workflow(case["id"])
     assert execution["workflow"]["workflow_version"] == "CIRP_2026_V1"
-    assert len(execution["steps"]) == 23
+    assert len(execution["steps"]) == 45
     assert _step(execution, "CIRP-001")["status"] == "READY"
     assert _step(execution, "CIRP-007")["effective_due_date"] == "2026-08-01"
     assert _step(execution, "CIRP-012")["effective_due_date"] == "2026-08-02"
@@ -73,8 +73,8 @@ def test_event_workflow_task_and_deadline_creation_are_idempotent(tmp_path):
 
     with store.connect() as connection:
         assert connection.execute("SELECT COUNT(*) FROM case_workflows WHERE case_id=?", (case["id"],)).fetchone()[0] == 1
-        assert connection.execute("SELECT COUNT(*) FROM case_workflow_steps WHERE case_id=?", (case["id"],)).fetchone()[0] == 23
-        assert connection.execute("SELECT COUNT(*) FROM case_deadlines WHERE case_id=?", (case["id"],)).fetchone()[0] == 23
+        assert connection.execute("SELECT COUNT(*) FROM case_workflow_steps WHERE case_id=?", (case["id"],)).fetchone()[0] == 45
+        assert connection.execute("SELECT COUNT(*) FROM case_deadlines WHERE case_id=?", (case["id"],)).fetchone()[0] == 45
         assert connection.execute("SELECT COUNT(*) FROM tasks WHERE case_id=? AND workflow_step_id IS NOT NULL", (case["id"],)).fetchone()[0] == 21
         # One admission event plus two independently derived confirmed anchors.
         assert connection.execute("SELECT COUNT(*) FROM case_events WHERE case_id=?", (case["id"],)).fetchone()[0] == 3
@@ -241,9 +241,9 @@ def test_workflow_summary_and_event_ledger_api(tmp_path, monkeypatch):
         summary = client.get(f"/api/cases/{case['id']}/workflow/summary", headers=headers)
         assert summary.status_code == 200, summary.text
         payload = summary.json()
-        assert payload["total_steps"] == 23
+        assert payload["total_steps"] == 45
         assert payload["ready"] == 21
-        assert payload["not_triggered"] == 2
+        assert payload["not_triggered"] == 24
         assert payload["overdue_count"] == 21  # Event-gated NOT_TRIGGERED steps are excluded.
         assert payload["next_statutory_deadline"]["step"] == "CIRP-001"
         ledger = client.get(f"/api/cases/{case['id']}/events", headers=headers)

@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -46,6 +46,14 @@ MODULE_FIELDS: Dict[str, tuple[str, ...]] = {
         "authorized_representative_designation", "nature_of_debt", "basis_of_claim", "facility_type",
         "original_facility_amount", "sanction_letter_reference", "sanction_date", "agreement_date", "bank_details",
         "supporting_evidence_json", "reconciliation_json",
+        "acknowledgement_status", "acknowledged_at", "acknowledged_by", "classification_status",
+        "classification_confirmed_at", "classification_confirmed_by", "scrutiny_status", "verification_status",
+        "verification_started_at", "verification_completed_at", "verification_completed_by", "late_flag",
+        "claim_deadline_date", "days_after_deadline", "late_review_status", "late_review_reason",
+        "late_reviewed_by", "late_reviewed_at", "principal_claimed_paise", "interest_claimed_paise",
+        "other_claimed_paise", "total_claimed_paise", "principal_admitted_paise",
+        "interest_admitted_paise", "other_admitted_paise", "total_admitted_paise",
+        "amount_not_admitted_paise",
     ),
     "claim-documents": ("claim_id", "name", "required", "received", "document_id", "notes"),
     "coc-members": ("claim_id", "contact_id", "admitted_debt", "voting_share", "valid_from", "valid_to", "authorized_representative"),
@@ -1300,6 +1308,259 @@ class CasefileDatabase:
             }
             for column, declaration in claim_columns.items():
                 self._ensure_column(connection, "claims", column, declaration)
+            phase_two_claim_columns = {
+                "acknowledgement_status": "TEXT NOT NULL DEFAULT 'PENDING'",
+                "acknowledged_at": "TEXT",
+                "acknowledged_by": "TEXT",
+                "classification_status": "TEXT NOT NULL DEFAULT 'PENDING'",
+                "classification_confirmed_at": "TEXT",
+                "classification_confirmed_by": "TEXT",
+                "scrutiny_status": "TEXT NOT NULL DEFAULT 'NOT_STARTED'",
+                "verification_status": "TEXT NOT NULL DEFAULT 'NOT_STARTED'",
+                "verification_started_at": "TEXT",
+                "verification_completed_at": "TEXT",
+                "verification_completed_by": "TEXT",
+                "late_flag": "INTEGER NOT NULL DEFAULT 0",
+                "claim_deadline_date": "TEXT",
+                "days_after_deadline": "INTEGER NOT NULL DEFAULT 0",
+                "late_review_status": "TEXT NOT NULL DEFAULT 'NOT_APPLICABLE'",
+                "late_review_reason": "TEXT NOT NULL DEFAULT ''",
+                "late_reviewed_by": "TEXT",
+                "late_reviewed_at": "TEXT",
+                "principal_claimed_paise": "INTEGER",
+                "interest_claimed_paise": "INTEGER",
+                "other_claimed_paise": "INTEGER",
+                "total_claimed_paise": "INTEGER NOT NULL DEFAULT 0",
+                "principal_admitted_paise": "INTEGER NOT NULL DEFAULT 0",
+                "interest_admitted_paise": "INTEGER NOT NULL DEFAULT 0",
+                "other_admitted_paise": "INTEGER NOT NULL DEFAULT 0",
+                "total_admitted_paise": "INTEGER NOT NULL DEFAULT 0",
+                "amount_not_admitted_paise": "INTEGER NOT NULL DEFAULT 0",
+            }
+            for column, declaration in phase_two_claim_columns.items():
+                self._ensure_column(connection, "claims", column, declaration)
+            for column in (
+                "principal_admitted_paise", "interest_admitted_paise", "other_admitted_paise",
+                "total_admitted_paise", "amount_not_admitted_paise",
+            ):
+                self._ensure_column(connection, "claim_decisions", column, "INTEGER NOT NULL DEFAULT 0")
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS claim_related_party_reviews (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    claim_revision INTEGER NOT NULL,
+                    status TEXT NOT NULL,
+                    reason TEXT NOT NULL DEFAULT '',
+                    evidence_document_id TEXT REFERENCES documents(id),
+                    determined_by TEXT NOT NULL,
+                    determined_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_claim_related_party_reviews
+                    ON claim_related_party_reviews(case_id, claim_id, determined_at DESC);
+
+                CREATE TABLE IF NOT EXISTS claim_security_reviews (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    claim_revision INTEGER NOT NULL,
+                    status_claimed TEXT NOT NULL DEFAULT 'UNKNOWN',
+                    status_verified TEXT NOT NULL DEFAULT 'UNKNOWN',
+                    verification_status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED',
+                    review_notes TEXT NOT NULL DEFAULT '',
+                    evidence_document_id TEXT REFERENCES documents(id),
+                    reviewed_by TEXT NOT NULL,
+                    reviewed_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_claim_security_reviews
+                    ON claim_security_reviews(case_id, claim_id, reviewed_at DESC);
+
+                CREATE TABLE IF NOT EXISTS claim_decision_communications (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    decision_id TEXT NOT NULL REFERENCES claim_decisions(id),
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    communication_id TEXT REFERENCES communications(id),
+                    service_proof_document_id TEXT REFERENCES documents(id),
+                    prepared_by TEXT NOT NULL,
+                    approved_by TEXT,
+                    sent_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(case_id, decision_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS list_of_creditors_snapshots (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    version_number INTEGER NOT NULL,
+                    as_on_date TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'FORMAL',
+                    total_claimed_paise INTEGER NOT NULL,
+                    total_admitted_paise INTEGER NOT NULL,
+                    total_not_admitted_paise INTEGER NOT NULL,
+                    row_count INTEGER NOT NULL,
+                    source_fingerprint TEXT NOT NULL,
+                    document_id TEXT REFERENCES documents(id),
+                    filing_status TEXT NOT NULL DEFAULT 'NOT_RECORDED',
+                    filing_date TEXT,
+                    filing_mechanism TEXT NOT NULL DEFAULT '',
+                    filing_evidence_document_id TEXT REFERENCES documents(id),
+                    created_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(case_id, version_number),
+                    UNIQUE(case_id, source_fingerprint)
+                );
+                CREATE INDEX IF NOT EXISTS ix_loc_snapshots_case_version
+                    ON list_of_creditors_snapshots(case_id, version_number DESC);
+
+                CREATE TABLE IF NOT EXISTS list_of_creditors_snapshot_rows (
+                    id TEXT PRIMARY KEY,
+                    snapshot_id TEXT NOT NULL REFERENCES list_of_creditors_snapshots(id) ON DELETE CASCADE,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    position INTEGER NOT NULL,
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    claim_number TEXT NOT NULL,
+                    claim_revision INTEGER NOT NULL,
+                    decision_id TEXT,
+                    creditor_name TEXT NOT NULL,
+                    creditor_category TEXT NOT NULL,
+                    form_type TEXT NOT NULL,
+                    received_date TEXT,
+                    claimed_paise INTEGER NOT NULL,
+                    admitted_paise INTEGER NOT NULL,
+                    not_admitted_paise INTEGER NOT NULL,
+                    security_status TEXT NOT NULL,
+                    related_party_status TEXT NOT NULL,
+                    decision_status TEXT NOT NULL,
+                    decision_date TEXT,
+                    UNIQUE(snapshot_id, claim_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS coc_eligibility_reviews (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    claim_revision INTEGER NOT NULL,
+                    decision_id TEXT NOT NULL REFERENCES claim_decisions(id),
+                    related_party_status TEXT NOT NULL,
+                    eligibility_status TEXT NOT NULL,
+                    eligible_debt_paise INTEGER NOT NULL DEFAULT 0,
+                    reason TEXT NOT NULL DEFAULT '',
+                    evidence_document_id TEXT REFERENCES documents(id),
+                    decided_by TEXT NOT NULL,
+                    decided_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_coc_eligibility_case
+                    ON coc_eligibility_reviews(case_id, eligibility_status, decided_at DESC);
+
+                CREATE TABLE IF NOT EXISTS coc_voting_calculations (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    calculation_version INTEGER NOT NULL,
+                    constitution_id TEXT,
+                    total_eligible_debt_paise INTEGER NOT NULL,
+                    display_precision INTEGER NOT NULL DEFAULT 4,
+                    source_fingerprint TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'CALCULATED',
+                    calculated_by TEXT NOT NULL,
+                    calculated_at TEXT NOT NULL,
+                    UNIQUE(case_id, calculation_version),
+                    UNIQUE(case_id, source_fingerprint)
+                );
+                CREATE TABLE IF NOT EXISTS coc_voting_calculation_rows (
+                    id TEXT PRIMARY KEY,
+                    calculation_id TEXT NOT NULL REFERENCES coc_voting_calculations(id) ON DELETE CASCADE,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    decision_id TEXT NOT NULL REFERENCES claim_decisions(id),
+                    eligibility_review_id TEXT NOT NULL REFERENCES coc_eligibility_reviews(id),
+                    creditor_name TEXT NOT NULL,
+                    admitted_debt_paise INTEGER NOT NULL,
+                    raw_percentage TEXT NOT NULL,
+                    display_percentage TEXT NOT NULL,
+                    UNIQUE(calculation_id, claim_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS coc_constitutions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    constitution_version INTEGER NOT NULL,
+                    constitution_date TEXT NOT NULL,
+                    constitution_type TEXT NOT NULL DEFAULT 'INITIAL',
+                    status TEXT NOT NULL DEFAULT 'CONFIRMED',
+                    parent_constitution_id TEXT REFERENCES coc_constitutions(id),
+                    loc_snapshot_id TEXT NOT NULL REFERENCES list_of_creditors_snapshots(id),
+                    voting_calculation_id TEXT NOT NULL REFERENCES coc_voting_calculations(id),
+                    confirmed_by TEXT NOT NULL,
+                    confirmed_at TEXT NOT NULL,
+                    review_required INTEGER NOT NULL DEFAULT 0,
+                    report_status TEXT NOT NULL DEFAULT 'NOT_GENERATED',
+                    report_document_id TEXT REFERENCES documents(id),
+                    created_at TEXT NOT NULL,
+                    UNIQUE(case_id, constitution_version)
+                );
+                CREATE INDEX IF NOT EXISTS ix_coc_constitutions_case_version
+                    ON coc_constitutions(case_id, constitution_version DESC);
+
+                CREATE TABLE IF NOT EXISTS coc_constitution_members (
+                    id TEXT PRIMARY KEY,
+                    constitution_id TEXT NOT NULL REFERENCES coc_constitutions(id) ON DELETE CASCADE,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    decision_id TEXT NOT NULL REFERENCES claim_decisions(id),
+                    eligibility_review_id TEXT NOT NULL REFERENCES coc_eligibility_reviews(id),
+                    creditor_name TEXT NOT NULL,
+                    admitted_debt_paise INTEGER NOT NULL,
+                    related_party_status TEXT NOT NULL,
+                    eligibility_status TEXT NOT NULL,
+                    raw_voting_percentage TEXT NOT NULL,
+                    display_voting_percentage TEXT NOT NULL,
+                    UNIQUE(constitution_id, claim_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS creditor_classes (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    class_name TEXT NOT NULL,
+                    class_type TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED',
+                    ar_required INTEGER NOT NULL DEFAULT 0,
+                    notes TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(case_id, class_name)
+                );
+                CREATE TABLE IF NOT EXISTS creditor_class_claims (
+                    class_id TEXT NOT NULL REFERENCES creditor_classes(id) ON DELETE CASCADE,
+                    claim_id TEXT NOT NULL REFERENCES claims(id),
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    PRIMARY KEY(class_id, claim_id)
+                );
+                CREATE TABLE IF NOT EXISTS authorised_representative_processes (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    class_id TEXT NOT NULL REFERENCES creditor_classes(id),
+                    requirement_status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED',
+                    candidate_name TEXT NOT NULL DEFAULT '',
+                    selected_ar TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'NOT_STARTED',
+                    filing_requirement TEXT NOT NULL DEFAULT '',
+                    evidence_document_id TEXT REFERENCES documents(id),
+                    created_by TEXT NOT NULL,
+                    updated_by TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(case_id, class_id)
+                );
+                """
+            )
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_number ON claims(case_id, claim_number) WHERE claim_number <> ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_idempotency ON claims(case_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''")
             self._seed_compliance_rules(connection)
@@ -2180,6 +2441,41 @@ class CasefileDatabase:
                  version, parent_id, storage_path, meeting_id, _json(metadata), actor_id, actor_id, now, now),
             )
             self.audit(connection, actor_id, "generated", "document", document_id, case_id, after={"meeting_id": meeting_id, "document_type": document_type, "version": version}, title=f"{document_type} version {version} generated")
+        return self.get_module_record(case_id, "documents", document_id) or {}
+
+    def store_coc_constitution_document(
+        self, case_id: str, constitution_id: str, name: str, storage_path: str,
+        status: str, metadata: Dict[str, Any], actor_id: str,
+    ) -> Dict[str, Any]:
+        """Store an immutable Constitution Report version linked to one CoC version."""
+        now, document_id = utc_now(), new_id()
+        with self.transaction() as connection:
+            self.ensure_case(connection, case_id)
+            constitution = connection.execute(
+                "SELECT 1 FROM coc_constitutions WHERE id=? AND case_id=?", (constitution_id, case_id)
+            ).fetchone()
+            if not constitution:
+                raise KeyError("CoC Constitution not found")
+            previous = connection.execute(
+                """SELECT id,version FROM documents WHERE case_id=? AND linked_type='coc_constitution'
+                AND linked_id=? AND category='CoC Constitution Report' AND archived_at IS NULL
+                ORDER BY version DESC LIMIT 1""", (case_id, constitution_id)
+            ).fetchone()
+            version = int(previous["version"]) + 1 if previous else 1
+            parent_id = previous["id"] if previous else None
+            connection.execute(
+                """INSERT INTO documents
+                (id,case_id,template_id,name,category,status,version,parent_document_id,storage_path,
+                 mime_type,source_type,linked_type,linked_id,metadata_json,created_by,updated_by,created_at,updated_at)
+                VALUES (?,?, 'constitution-coc',?, 'CoC Constitution Report',?,?,?,?,
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        'retained-template','coc_constitution',?,?,?,?,?,?)""",
+                (document_id, case_id, name, status, version, parent_id, storage_path, constitution_id,
+                 _json(metadata), actor_id, actor_id, now, now),
+            )
+            self.audit(connection, actor_id, "generated", "document", document_id, case_id,
+                       after={"constitution_id": constitution_id, "version": version, "status": status},
+                       title=f"CoC Constitution Report version {version} generated")
         return self.get_module_record(case_id, "documents", document_id) or {}
 
     def _create_automated_task(

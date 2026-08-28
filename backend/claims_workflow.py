@@ -17,23 +17,26 @@ import re
 from docx import Document
 
 from database import CasefileDatabase, MODULE_FIELDS, new_id, utc_now
+from claims_coc_core import to_paise
+from workflow import EventEngine
 
 
 CLAIM_STATUSES = {
     "RECEIVED", "UNDER_VERIFICATION", "INFORMATION_REQUIRED", "RESPONSE_RECEIVED",
-    "ADMITTED", "PARTLY_ADMITTED", "REJECTED", "WITHDRAWN",
+    "ADMITTED", "PARTLY_ADMITTED", "NOT_ADMITTED", "REJECTED", "WITHDRAWN",
 }
-DECISION_STATUSES = {"ADMITTED", "PARTLY_ADMITTED", "REJECTED"}
+DECISION_STATUSES = {"ADMITTED", "PARTLY_ADMITTED", "NOT_ADMITTED", "REJECTED"}
 CREDITOR_CATEGORIES = {
     "FINANCIAL_CREDITOR", "OPERATIONAL_CREDITOR", "WORKMAN_EMPLOYEE",
-    "GOVERNMENT_AUTHORITY", "OTHER_CREDITOR",
+    "GOVERNMENT_AUTHORITY", "OTHER_CREDITOR", "CREDITOR_IN_CLASS",
 }
 FORM_TYPES = {"Form B", "Form C", "Form CA", "Form D", "Form E", "Form F", "Other"}
 RECEIVED_VIA = {"Email", "Physical", "Portal", "Other"}
 RELATED_PARTY = {"YES", "NO", "UNKNOWN"}
 SECURED_STATUSES = {"SECURED", "UNSECURED", "PARTLY_SECURED", "NOT_APPLICABLE", "UNKNOWN"}
 QUERY_STATUSES = {"DRAFT", "SENT", "PARTLY_RESPONDED", "RESPONDED", "CLOSED"}
-CHECKLIST_STATUSES = {"RECEIVED", "MISSING", "NOT_APPLICABLE"}
+CHECKLIST_STATUSES = {"RECEIVED", "MISSING", "NOT_APPLICABLE", "REVIEW_REQUIRED"}
+SCRUTINY_STATUSES = {"NOT_STARTED", "IN_REVIEW", "COMPLETE", "DEFICIENCY_FOUND"}
 
 QUERY_TEMPLATES = [
     {"key": "interest-calculation", "subject": "Interest calculation required", "text": "Please provide the detailed interest calculation, including rate, period and basis."},
@@ -87,6 +90,32 @@ class ClaimsWorkflow:
         self.store = store
         self.data_dir = Path(data_dir)
 
+    def _emit(self, case_id: str, event_type: str, actor_id: str, source_id: str,
+              event_date: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        return EventEngine(self.store).record_event(
+            case_id, event_type, event_date or date.today().isoformat(), actor_id,
+            source_type="claim", source_id=source_id, metadata=metadata or {},
+            idempotency_key=f"claim:{event_type}:{source_id}:{(metadata or {}).get('revision', '')}",
+        )
+
+    @staticmethod
+    def _deadline_state(connection, case_id: str, received_date: str) -> Dict[str, Any]:
+        row = connection.execute(
+            """SELECT COALESCE(cd.override_due_date,cd.calculated_due_date) AS due_date
+            FROM case_deadlines cd JOIN case_workflow_steps cws ON cws.id=cd.case_workflow_step_id
+            JOIN workflow_step_definitions wsd ON wsd.id=cws.step_definition_id
+            WHERE cd.case_id=? AND wsd.step_code='CIRP-029' ORDER BY cd.created_at DESC LIMIT 1""",
+            (case_id,),
+        ).fetchone()
+        if not row or not row["due_date"]:
+            return {"late_flag": 0, "claim_deadline_date": None, "days_after_deadline": 0,
+                    "late_review_status": "REVIEW_REQUIRED"}
+        received, deadline = date.fromisoformat(received_date), date.fromisoformat(row["due_date"])
+        days = max(0, (received - deadline).days)
+        return {"late_flag": int(days > 0), "claim_deadline_date": deadline.isoformat(),
+                "days_after_deadline": days,
+                "late_review_status": "REVIEW_REQUIRED" if days else "NOT_APPLICABLE"}
+
     @staticmethod
     def intake_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         clean = dict(payload)
@@ -135,8 +164,10 @@ class ClaimsWorkflow:
         return clean
 
     def _next_number(self, connection, case_id: str) -> str:
-        count = connection.execute("SELECT COUNT(*) FROM claims WHERE case_id=?", (case_id,)).fetchone()[0]
-        return f"CLM-{count + 1:04d}"
+        numbers = connection.execute("SELECT claim_number FROM claims WHERE case_id=?", (case_id,)).fetchall()
+        highest = max((int(str(row["claim_number"]).split("-")[-1]) for row in numbers
+                       if re.fullmatch(r"CLM-\d+", str(row["claim_number"] or ""))), default=0)
+        return f"CLM-{highest + 1:04d}"
 
     def _contact_id(self, connection, case_id: str, payload: Dict[str, Any], actor_id: str) -> str:
         email, name = payload.get("email", ""), payload["creditor_name"].strip()
@@ -176,6 +207,18 @@ class ClaimsWorkflow:
             claim_id, now = new_id(), utc_now()
             clean["claimant_contact_id"] = contact_id
             clean["claim_number"] = self._next_number(connection, case_id)
+            clean["claim_reference"] = clean.get("claim_reference") or clean["claim_number"]
+            clean.update(self._deadline_state(connection, case_id, clean["received_date"]))
+            clean.update({
+                "acknowledgement_status": "CONFIRMED", "acknowledged_at": now, "acknowledged_by": actor_id,
+                "classification_status": "PENDING", "scrutiny_status": "NOT_STARTED",
+                "verification_status": "NOT_STARTED",
+                "principal_claimed_paise": to_paise(clean.get("principal_claimed")) if clean.get("principal_claimed") is not None else None,
+                "interest_claimed_paise": to_paise(clean.get("interest_claimed")) if clean.get("interest_claimed") is not None else None,
+                "other_claimed_paise": to_paise(clean.get("other_amount_claimed")) if clean.get("other_amount_claimed") is not None else None,
+                "total_claimed_paise": to_paise(clean["claimed_amount"]), "total_admitted_paise": 0,
+                "amount_not_admitted_paise": to_paise(clean["claimed_amount"]),
+            })
             allowed = self.store._module_values("claims", clean)
             base = {"id": claim_id, "case_id": case_id, **allowed, "created_by": actor_id, "updated_by": actor_id, "created_at": now, "updated_at": now}
             connection.execute(
@@ -194,6 +237,16 @@ class ClaimsWorkflow:
                 )
             self.store._create_automated_task(connection, case_id, f"Verify claim {clean['claim_number']} - {clean['creditor_name']}", "Claims", clean["received_date"], "claims", claim_id, actor_id)
             self.store.audit(connection, actor_id, "CLAIM_CREATED", "claim", claim_id, case_id, after=snapshot, title=f"Claim {clean['claim_number']} received")
+            self.store.audit(connection, actor_id, "CLAIM_ACKNOWLEDGED", "claim", claim_id, case_id,
+                             after={"claim_number": clean["claim_number"], "acknowledged_at": now},
+                             title=f"Claim {clean['claim_number']} acknowledged")
+        self._emit(case_id, "CLAIM_RECEIVED", actor_id, claim_id, clean["received_date"],
+                   {"claim_number": clean["claim_number"], "late_flag": bool(clean["late_flag"])})
+        self._emit(case_id, "CLAIM_ACKNOWLEDGED", actor_id, claim_id, clean["received_date"],
+                   {"claim_number": clean["claim_number"]})
+        if clean["late_flag"]:
+            self._emit(case_id, "LATE_CLAIM_IDENTIFIED", actor_id, claim_id, clean["received_date"],
+                       {"deadline_date": clean["claim_deadline_date"], "days_after_deadline": clean["days_after_deadline"]})
         result = self.get(case_id, claim_id)
         result["duplicate_candidates"] = self.find_duplicates(case_id, result)
         return result
@@ -247,6 +300,9 @@ class ClaimsWorkflow:
                 query["responses"] = [self.store.row(r) for r in connection.execute("SELECT * FROM claim_query_responses WHERE case_id=? AND claim_id=? AND query_id=? ORDER BY created_at", (case_id, claim_id, query["id"])).fetchall()]
             result["decisions"] = [self.store.row(r) for r in connection.execute("SELECT * FROM claim_decisions WHERE case_id=? AND claim_id=? ORDER BY created_at DESC", (case_id, claim_id)).fetchall()]
             result["revisions"] = [self.store.row(r) for r in connection.execute("SELECT * FROM claim_revisions WHERE case_id=? AND claim_id=? ORDER BY revision DESC", (case_id, claim_id)).fetchall()]
+            result["related_party_reviews"] = [self.store.row(r) for r in connection.execute("SELECT * FROM claim_related_party_reviews WHERE case_id=? AND claim_id=? ORDER BY determined_at DESC", (case_id, claim_id)).fetchall()]
+            result["security_reviews"] = [self.store.row(r) for r in connection.execute("SELECT * FROM claim_security_reviews WHERE case_id=? AND claim_id=? ORDER BY reviewed_at DESC", (case_id, claim_id)).fetchall()]
+            result["decision_communications"] = [self.store.row(r) for r in connection.execute("SELECT * FROM claim_decision_communications WHERE case_id=? AND claim_id=? ORDER BY created_at DESC", (case_id, claim_id)).fetchall()]
             result["history"] = [self.store.row(r) for r in connection.execute("SELECT * FROM activity_events WHERE case_id=? AND entity_type='claim' AND entity_id=? ORDER BY occurred_at DESC", (case_id, claim_id)).fetchall()]
             return result
 
@@ -257,10 +313,12 @@ class ClaimsWorkflow:
         for claim in claims:
             categories[claim["creditor_category"]] = categories.get(claim["creditor_category"], 0) + 1
             statuses[claim["status"]] = statuses.get(claim["status"], 0) + 1
+        total_claimed_paise = sum(int(c.get("total_claimed_paise") or to_paise(c.get("claimed_amount"))) for c in claims)
+        total_admitted_paise = sum(int(c.get("total_admitted_paise") or to_paise(c.get("admitted_amount"))) for c in claims)
         return {
             "total_claims": len(claims),
-            "total_claimed": round(sum(float(c.get("claimed_amount") or 0) for c in claims), 2),
-            "total_admitted": round(sum(float(c.get("admitted_amount") or 0) for c in claims), 2),
+            "total_claimed": float(Decimal(total_claimed_paise) / 100),
+            "total_admitted": float(Decimal(total_admitted_paise) / 100),
             "categories": categories, "statuses": statuses,
         }
 
@@ -287,7 +345,17 @@ class ClaimsWorkflow:
         components = [clean.get(k, before.get(k)) for k in ("principal_claimed", "interest_claimed", "other_amount_claimed")]
         if any(v is not None for v in components):
             clean["calculated_component_total"] = round(sum(v or 0 for v in components), 2)
-        clean["amount_not_admitted"] = round(float(clean.get("claimed_amount", before["claimed_amount"])) - float(before.get("admitted_amount") or 0), 2)
+        claimed_paise = to_paise(clean.get("claimed_amount", before["claimed_amount"]))
+        admitted_paise = int(before.get("total_admitted_paise") or to_paise(before.get("admitted_amount")))
+        not_admitted_paise = max(0, claimed_paise - admitted_paise)
+        clean["amount_not_admitted"] = float(Decimal(not_admitted_paise) / 100)
+        clean["total_claimed_paise"] = claimed_paise
+        clean["amount_not_admitted_paise"] = not_admitted_paise
+        for public_key, exact_key in (("principal_claimed", "principal_claimed_paise"),
+                                      ("interest_claimed", "interest_claimed_paise"),
+                                      ("other_amount_claimed", "other_claimed_paise")):
+            value = clean.get(public_key, before.get(public_key))
+            clean[exact_key] = to_paise(value) if value is not None else None
         values = self.store._module_values("claims", clean)
         if not values:
             return before
@@ -302,8 +370,13 @@ class ClaimsWorkflow:
         if claim["status"] in DECISION_STATUSES or claim["status"] == "WITHDRAWN":
             raise ValueError("A decided or withdrawn claim cannot start verification without a revision")
         with self.store.transaction() as connection:
-            connection.execute("UPDATE claims SET status='UNDER_VERIFICATION',updated_by=?,updated_at=? WHERE id=? AND case_id=?", (actor_id, utc_now(), claim_id, case_id))
+            now = utc_now()
+            connection.execute("""UPDATE claims SET status='UNDER_VERIFICATION',verification_status='IN_REVIEW',
+                               verification_started_at=COALESCE(verification_started_at,?),updated_by=?,updated_at=?
+                               WHERE id=? AND case_id=?""", (now, actor_id, now, claim_id, case_id))
             self.store.audit(connection, actor_id, "CLAIM_VERIFICATION_STARTED", "claim", claim_id, case_id, before={"status": claim["status"]}, after={"status": "UNDER_VERIFICATION"}, title=f"Verification started for {claim['claim_number']}")
+        self._emit(case_id, "CLAIM_VERIFICATION_STARTED", actor_id, claim_id,
+                   metadata={"revision": claim["revision"]})
         return self.get(case_id, claim_id)
 
     def decide(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
@@ -315,37 +388,54 @@ class ClaimsWorkflow:
         interest = _money(payload.get("interest_admitted"))
         other = _money(payload.get("other_amount_admitted"))
         stated = _money(payload.get("admitted_amount", principal + interest + other))
-        if abs(stated - (principal + interest + other)) >= 0.01:
+        principal_paise, interest_paise, other_paise = to_paise(principal), to_paise(interest), to_paise(other)
+        stated_paise = to_paise(stated)
+        if stated_paise != principal_paise + interest_paise + other_paise:
             raise ValueError("Admitted total does not match admitted components")
-        claimed = float(claim["claimed_amount"])
+        claimed_paise = int(claim.get("total_claimed_paise") or to_paise(claim["claimed_amount"]))
+        claimed = float(Decimal(claimed_paise) / 100)
         reason, override = str(payload.get("reason") or "").strip(), str(payload.get("override_reason") or "").strip()
-        normal = ((status == "ADMITTED" and stated == claimed) or (status == "PARTLY_ADMITTED" and 0 < stated < claimed) or (status == "REJECTED" and stated == 0))
+        normal = ((status == "ADMITTED" and stated_paise == claimed_paise)
+                  or (status == "PARTLY_ADMITTED" and 0 < stated_paise < claimed_paise)
+                  or (status in {"NOT_ADMITTED", "REJECTED"} and stated_paise == 0))
         if not normal and not override:
             raise ValueError("This decision conflicts with normal amount rules; provide an explicit override reason")
-        if status in {"PARTLY_ADMITTED", "REJECTED"} and not reason:
+        if status in {"PARTLY_ADMITTED", "NOT_ADMITTED", "REJECTED"} and not reason:
             raise ValueError("A reason is required for partly admitted or rejected claims")
         decision_date = _date(payload.get("decision_date") or date.today().isoformat(), "Decision date", required=True)
-        not_admitted = round(claimed - stated, 2)
-        action = {"ADMITTED": "CLAIM_ADMITTED", "PARTLY_ADMITTED": "CLAIM_PARTLY_ADMITTED", "REJECTED": "CLAIM_REJECTED"}[status]
+        not_admitted_paise = max(0, claimed_paise - stated_paise)
+        not_admitted = float(Decimal(not_admitted_paise) / 100)
+        action = {"ADMITTED": "CLAIM_ADMITTED", "PARTLY_ADMITTED": "CLAIM_PARTLY_ADMITTED", "NOT_ADMITTED": "CLAIM_NOT_ADMITTED", "REJECTED": "CLAIM_REJECTED"}[status]
         if claim["decisions"]:
             action = "CLAIM_DECISION_REVISED"
         now = utc_now()
         with self.store.transaction() as connection:
             connection.execute(
                 """INSERT INTO claim_decisions(id,case_id,claim_id,claim_revision,decision_date,decision_by,decision_status,
-                principal_admitted,interest_admitted,other_amount_admitted,admitted_amount,amount_not_admitted,reason,override_reason,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (new_id(), case_id, claim_id, claim["revision"], decision_date, actor_id, status, principal, interest, other, stated, not_admitted, reason, override, now),
+                principal_admitted,interest_admitted,other_amount_admitted,admitted_amount,amount_not_admitted,reason,override_reason,created_at,
+                principal_admitted_paise,interest_admitted_paise,other_admitted_paise,total_admitted_paise,amount_not_admitted_paise)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (new_id(), case_id, claim_id, claim["revision"], decision_date, actor_id, status, principal, interest, other, stated, not_admitted, reason, override, now,
+                 principal_paise, interest_paise, other_paise, stated_paise, not_admitted_paise),
             )
             connection.execute(
                 """UPDATE claims SET status=?,principal_admitted=?,interest_admitted=?,other_amount_admitted=?,admitted_amount=?,
                 amount_not_admitted=?,verification_notes=?,issues_identified=?,documents_checked=?,related_party_status=?,secured_status=?,
-                decision_date=?,decision_by=?,decision_reason=?,override_reason=?,updated_by=?,updated_at=? WHERE id=? AND case_id=?""",
+                decision_date=?,decision_by=?,decision_reason=?,override_reason=?,verification_status='COMPLETE',verification_completed_at=?,
+                verification_completed_by=?,principal_admitted_paise=?,interest_admitted_paise=?,other_admitted_paise=?,total_admitted_paise=?,
+                amount_not_admitted_paise=?,updated_by=?,updated_at=? WHERE id=? AND case_id=?""",
                 (status, principal, interest, other, stated, not_admitted, payload.get("verification_notes", ""), payload.get("issues_identified", ""),
                  payload.get("documents_checked", ""), payload.get("related_party_status", claim["related_party_status"]), payload.get("secured_status", claim["secured_status"]),
-                 decision_date, actor_id, reason, override, actor_id, now, claim_id, case_id),
+                 decision_date, actor_id, reason, override, now, actor_id, principal_paise, interest_paise, other_paise,
+                 stated_paise, not_admitted_paise, actor_id, now, claim_id, case_id),
             )
             self.store.audit(connection, actor_id, action, "claim", claim_id, case_id, before={"status": claim["status"], "admitted_amount": claim["admitted_amount"]}, after={"status": status, "admitted_amount": stated, "reason": reason, "override_reason": override}, title=f"Claim {claim['claim_number']} {status.replace('_', ' ').lower()}")
+        self._emit(case_id, "CLAIM_VERIFICATION_COMPLETED", actor_id, claim_id, decision_date,
+                   {"revision": claim["revision"]})
+        domain_event = {"ADMITTED": "CLAIM_ADMITTED", "PARTLY_ADMITTED": "CLAIM_PARTLY_ADMITTED", "NOT_ADMITTED": "CLAIM_NOT_ADMITTED", "REJECTED": "CLAIM_NOT_ADMITTED"}[status]
+        self._emit(case_id, domain_event, actor_id, claim_id, decision_date,
+                   {"revision": claim["revision"], "admitted_paise": stated_paise})
+        self._flag_coc_change(case_id, claim_id, actor_id, decision_date, "CLAIM_DECISION_CHANGED")
         return self.get(case_id, claim_id)
 
     def revise(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
@@ -363,20 +453,233 @@ class ClaimsWorkflow:
         calculated = round(sum(v or 0 for v in components), 2) if any(v is not None for v in components) else None
         revision, now = int(claim["revision"]) + 1, utc_now()
         document_ids = list(payload.get("document_ids") or [])
+        revised_claimed_paise = to_paise(merged.get("claimed_amount"))
+        current_admitted_paise = int(claim.get("total_admitted_paise") or to_paise(claim.get("admitted_amount")))
+        revised_not_admitted_paise = max(0, revised_claimed_paise - current_admitted_paise)
         with self.store.transaction() as connection:
             for document_id in document_ids:
                 if not connection.execute("SELECT 1 FROM documents WHERE id=? AND case_id=? AND linked_type='claim' AND linked_id=? AND archived_at IS NULL", (document_id, case_id, claim_id)).fetchone():
                     raise ValueError("A revision document is not linked to this claim")
             connection.execute(
                 """UPDATE claims SET principal_claimed=?,interest_claimed=?,other_amount_claimed=?,claimed_amount=?,calculated_component_total=?,
-                amount_not_admitted=?,source_notes=?,revision=?,status='RESPONSE_RECEIVED',updated_by=?,updated_at=? WHERE id=? AND case_id=?""",
+                amount_not_admitted=?,source_notes=?,revision=?,status='RESPONSE_RECEIVED',principal_claimed_paise=?,interest_claimed_paise=?,
+                other_claimed_paise=?,total_claimed_paise=?,amount_not_admitted_paise=?,updated_by=?,updated_at=? WHERE id=? AND case_id=?""",
                 (merged.get("principal_claimed"), merged.get("interest_claimed"), merged.get("other_amount_claimed"), merged.get("claimed_amount"), calculated,
-                 round(float(merged.get("claimed_amount") or 0) - float(claim.get("admitted_amount") or 0), 2), merged.get("source_notes", ""), revision, actor_id, now, claim_id, case_id),
+                 float(Decimal(revised_not_admitted_paise) / 100), merged.get("source_notes", ""), revision,
+                 to_paise(merged.get("principal_claimed")) if merged.get("principal_claimed") is not None else None,
+                 to_paise(merged.get("interest_claimed")) if merged.get("interest_claimed") is not None else None,
+                 to_paise(merged.get("other_amount_claimed")) if merged.get("other_amount_claimed") is not None else None,
+                 revised_claimed_paise, revised_not_admitted_paise,
+                 actor_id, now, claim_id, case_id),
             )
             snapshot = {k: merged.get(k) for k in MODULE_FIELDS["claims"]}
             connection.execute("INSERT INTO claim_revisions(id,case_id,claim_id,revision,snapshot_json,reason,document_ids_json,created_by,created_at) VALUES (?,?,?,?,?,?,?,?,?)", (new_id(), case_id, claim_id, revision, _json(snapshot), reason, _json(document_ids), actor_id, now))
-            self.store.audit(connection, actor_id, "CLAIM_UPDATED", "claim", claim_id, case_id, before={"revision": claim["revision"], "claimed_amount": claim["claimed_amount"]}, after={"revision": revision, "claimed_amount": merged.get("claimed_amount"), "reason": reason}, title=f"Claim {claim['claim_number']} revised to version {revision}")
+            self.store.audit(connection, actor_id, "CLAIM_REVISED", "claim", claim_id, case_id, before={"revision": claim["revision"], "claimed_amount": claim["claimed_amount"]}, after={"revision": revision, "claimed_amount": merged.get("claimed_amount"), "reason": reason}, title=f"Claim {claim['claim_number']} revised to version {revision}")
+            # Retain the Phase-1 audit action for backward-compatible reports.
+            self.store.audit(connection, actor_id, "CLAIM_UPDATED", "claim", claim_id, case_id, before={"revision": claim["revision"]}, after={"revision": revision}, title=f"Claim {claim['claim_number']} revision stored")
+        self._emit(case_id, "CLAIM_REVISED", actor_id, claim_id,
+                   metadata={"revision": revision, "reason": reason})
+        self._flag_coc_change(case_id, claim_id, actor_id, None, "CLAIM_REVISED")
         return self.get(case_id, claim_id)
+
+    def _flag_coc_change(self, case_id: str, claim_id: str, actor_id: str,
+                         event_date: Optional[str], reason: str) -> None:
+        with self.store.connect() as connection:
+            constitution = connection.execute(
+                "SELECT id FROM coc_constitutions WHERE case_id=? ORDER BY constitution_version DESC LIMIT 1",
+                (case_id,),
+            ).fetchone()
+        if constitution:
+            self._emit(case_id, "COC_REVIEW_REQUIRED", actor_id, f"{constitution['id']}:{claim_id}:{reason}",
+                       event_date, {"constitution_id": constitution["id"], "claim_id": claim_id, "reason": reason})
+
+    def confirm_classification(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        claim = self.get(case_id, claim_id)
+        category = str(payload.get("creditor_category") or claim["creditor_category"]).upper()
+        if category not in CREDITOR_CATEGORIES:
+            raise ValueError("Unsupported creditor category")
+        form_type = payload.get("form_type", claim["form_type"])
+        if form_type not in FORM_TYPES:
+            raise ValueError("Unsupported claim form/type")
+        now = utc_now()
+        with self.store.transaction() as connection:
+            connection.execute(
+                """UPDATE claims SET creditor_category=?,form_type=?,classification_status='CONFIRMED',
+                classification_confirmed_at=?,classification_confirmed_by=?,updated_by=?,updated_at=?
+                WHERE id=? AND case_id=?""",
+                (category, form_type, now, actor_id, actor_id, now, claim_id, case_id),
+            )
+            self.store.audit(connection, actor_id, "CLAIM_CLASSIFICATION_CONFIRMED", "claim", claim_id, case_id,
+                             before={"creditor_category": claim["creditor_category"], "form_type": claim["form_type"]},
+                             after={"creditor_category": category, "form_type": form_type},
+                             title=f"Classification confirmed for {claim['claim_number']}")
+        self._emit(case_id, "CLAIM_CLASSIFICATION_CONFIRMED", actor_id, claim_id,
+                   metadata={"revision": claim["revision"], "category": category})
+        return self.get(case_id, claim_id)
+
+    def update_scrutiny(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        claim = self.get(case_id, claim_id)
+        status = str(payload.get("scrutiny_status") or "").upper()
+        if status not in SCRUTINY_STATUSES:
+            raise ValueError("Unsupported scrutiny status")
+        with self.store.transaction() as connection:
+            connection.execute("UPDATE claims SET scrutiny_status=?,updated_by=?,updated_at=? WHERE id=? AND case_id=?",
+                               (status, actor_id, utc_now(), claim_id, case_id))
+            self.store.audit(connection, actor_id, "CLAIM_SCRUTINY_UPDATED", "claim", claim_id, case_id,
+                             before={"scrutiny_status": claim.get("scrutiny_status")}, after={"scrutiny_status": status},
+                             title=f"Scrutiny updated for {claim['claim_number']}")
+        if status == "DEFICIENCY_FOUND":
+            self._emit(case_id, "CLAIM_DEFICIENCY_IDENTIFIED", actor_id, claim_id,
+                       metadata={"revision": claim["revision"]})
+        return self.get(case_id, claim_id)
+
+    def complete_verification(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        claim = self.get(case_id, claim_id)
+        if claim["classification_status"] != "CONFIRMED":
+            raise ValueError("Claim classification must be confirmed before verification is completed")
+        if claim["scrutiny_status"] not in {"COMPLETE", "DEFICIENCY_FOUND"}:
+            raise ValueError("Claim scrutiny must be completed or its deficiency recorded")
+        now = utc_now()
+        with self.store.transaction() as connection:
+            connection.execute(
+                """UPDATE claims SET verification_status='COMPLETE',verification_completed_at=?,verification_completed_by=?,
+                verification_notes=?,issues_identified=?,documents_checked=?,updated_by=?,updated_at=? WHERE id=? AND case_id=?""",
+                (now, actor_id, payload.get("verification_notes", claim.get("verification_notes", "")),
+                 payload.get("issues_identified", claim.get("issues_identified", "")),
+                 payload.get("documents_checked", claim.get("documents_checked", "")), actor_id, now, claim_id, case_id),
+            )
+            self.store.audit(connection, actor_id, "CLAIM_VERIFICATION_COMPLETED", "claim", claim_id, case_id,
+                             after={"verification_status": "COMPLETE", "revision": claim["revision"]},
+                             title=f"Verification completed for {claim['claim_number']}")
+        self._emit(case_id, "CLAIM_VERIFICATION_COMPLETED", actor_id, claim_id,
+                   metadata={"revision": claim["revision"]})
+        return self.get(case_id, claim_id)
+
+    def confirm_related_party(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        claim = self.get(case_id, claim_id)
+        status = str(payload.get("related_party_status") or "").upper()
+        if status not in RELATED_PARTY:
+            raise ValueError("Related-party status must be YES, NO or UNKNOWN")
+        reason = str(payload.get("reason") or "").strip()
+        if status != "UNKNOWN" and not reason:
+            raise ValueError("Related-party determination reason is required")
+        evidence = payload.get("evidence_document_id")
+        now, review_id = utc_now(), new_id()
+        with self.store.transaction() as connection:
+            if evidence and not connection.execute(
+                "SELECT 1 FROM documents WHERE id=? AND case_id=? AND archived_at IS NULL", (evidence, case_id)
+            ).fetchone():
+                raise ValueError("Related-party evidence document does not belong to this case")
+            connection.execute(
+                """INSERT INTO claim_related_party_reviews
+                (id,case_id,claim_id,claim_revision,status,reason,evidence_document_id,determined_by,determined_at,created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (review_id, case_id, claim_id, claim["revision"], status, reason, evidence, actor_id, now, now),
+            )
+            connection.execute("UPDATE claims SET related_party_status=?,updated_by=?,updated_at=? WHERE id=? AND case_id=?",
+                               (status, actor_id, now, claim_id, case_id))
+            self.store.audit(connection, actor_id, "RELATED_PARTY_STATUS_CONFIRMED", "claim", claim_id, case_id,
+                             before={"status": claim["related_party_status"]}, after={"status": status, "reason": reason},
+                             title=f"Related-party status confirmed for {claim['claim_number']}")
+        self._emit(case_id, "RELATED_PARTY_STATUS_CONFIRMED", actor_id, review_id,
+                   metadata={"claim_id": claim_id, "revision": claim["revision"], "status": status})
+        if claim["related_party_status"] != status:
+            self._emit(case_id, "RELATED_PARTY_STATUS_CHANGED", actor_id, review_id,
+                       metadata={"claim_id": claim_id, "from": claim["related_party_status"], "to": status})
+            self._flag_coc_change(case_id, claim_id, actor_id, None, "RELATED_PARTY_STATUS_CHANGED")
+        return self.get(case_id, claim_id)
+
+    def record_security_review(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        claim = self.get(case_id, claim_id)
+        claimed = str(payload.get("security_status_claimed") or claim["secured_status"] or "UNKNOWN").upper()
+        verified = str(payload.get("security_status_verified") or "UNKNOWN").upper()
+        if claimed not in SECURED_STATUSES or verified not in SECURED_STATUSES:
+            raise ValueError("Unsupported security status")
+        verification = str(payload.get("verification_status") or "REVIEW_REQUIRED").upper()
+        if verification not in {"REVIEW_REQUIRED", "IN_REVIEW", "VERIFIED", "DISPUTED"}:
+            raise ValueError("Unsupported security verification status")
+        evidence = payload.get("evidence_document_id")
+        now, review_id = utc_now(), new_id()
+        with self.store.transaction() as connection:
+            if evidence and not connection.execute(
+                "SELECT 1 FROM documents WHERE id=? AND case_id=? AND archived_at IS NULL", (evidence, case_id)
+            ).fetchone():
+                raise ValueError("Security evidence document does not belong to this case")
+            connection.execute(
+                """INSERT INTO claim_security_reviews
+                (id,case_id,claim_id,claim_revision,status_claimed,status_verified,verification_status,
+                 review_notes,evidence_document_id,reviewed_by,reviewed_at,created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (review_id, case_id, claim_id, claim["revision"], claimed, verified, verification,
+                 payload.get("review_notes", ""), evidence, actor_id, now, now),
+            )
+            if verification == "VERIFIED":
+                connection.execute("UPDATE claims SET secured_status=?,updated_by=?,updated_at=? WHERE id=? AND case_id=?",
+                                   (verified, actor_id, now, claim_id, case_id))
+            self.store.audit(connection, actor_id, "CLAIM_SECURITY_REVIEWED", "claim", claim_id, case_id,
+                             after={"review_id": review_id, "verification_status": verification,
+                                    "status_claimed": claimed, "status_verified": verified},
+                             title=f"Security review recorded for {claim['claim_number']}")
+        if verification in {"REVIEW_REQUIRED", "DISPUTED"}:
+            self._emit(case_id, "SECURITY_REVIEW_REQUIRED", actor_id, review_id,
+                       metadata={"claim_id": claim_id, "status": verification})
+        return self.get(case_id, claim_id)
+
+    def record_late_review(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        claim = self.get(case_id, claim_id)
+        status = str(payload.get("review_status") or "").upper()
+        if status not in {"REVIEW_REQUIRED", "IN_REVIEW", "REVIEWED"}:
+            raise ValueError("Unsupported late-claim review status")
+        reason = str(payload.get("reason") or "").strip()
+        if not reason:
+            raise ValueError("Late-claim review reason/remarks are required")
+        now = utc_now()
+        with self.store.transaction() as connection:
+            connection.execute("""UPDATE claims SET late_review_status=?,late_review_reason=?,late_reviewed_by=?,late_reviewed_at=?,
+                               updated_by=?,updated_at=? WHERE id=? AND case_id=?""",
+                               (status, reason, actor_id, now, actor_id, now, claim_id, case_id))
+            self.store.audit(connection, actor_id, "LATE_CLAIM_REVIEWED", "claim", claim_id, case_id,
+                             after={"review_status": status, "reason": reason},
+                             title=f"Late-claim review updated for {claim['claim_number']}")
+        return self.get(case_id, claim_id)
+
+    def prepare_decision_communication(self, case_id: str, claim_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        claim = self.get(case_id, claim_id)
+        if not claim["decisions"]:
+            raise ValueError("A confirmed Claim decision is required")
+        decision = claim["decisions"][0]
+        status = str(payload.get("status") or "DRAFT").upper()
+        if status not in COMMUNICATION_STATUSES:
+            raise ValueError("Unsupported Claim decision communication status")
+        proof = payload.get("service_proof_document_id")
+        now = utc_now()
+        with self.store.transaction() as connection:
+            existing = connection.execute("SELECT * FROM claim_decision_communications WHERE case_id=? AND decision_id=?",
+                                          (case_id, decision["id"])).fetchone()
+            if proof and not connection.execute("SELECT 1 FROM documents WHERE id=? AND case_id=? AND archived_at IS NULL", (proof, case_id)).fetchone():
+                raise ValueError("Service proof document does not belong to this case")
+            if status == "SENT" and not proof:
+                raise ValueError("Service proof is required before marking the communication sent")
+            communication_id = payload.get("communication_id")
+            if communication_id and not connection.execute("SELECT 1 FROM communications WHERE id=? AND case_id=?", (communication_id, case_id)).fetchone():
+                raise ValueError("Communication record does not belong to this case")
+            if existing:
+                connection.execute("""UPDATE claim_decision_communications SET status=?,communication_id=?,service_proof_document_id=?,
+                                   approved_by=CASE WHEN ? IN ('APPROVED','SENT') THEN ? ELSE approved_by END,
+                                   sent_at=CASE WHEN ?='SENT' THEN ? ELSE sent_at END,updated_at=? WHERE id=?""",
+                                   (status, communication_id, proof, status, actor_id, status, now, now, existing["id"]))
+                record_id = existing["id"]
+            else:
+                record_id = new_id()
+                connection.execute("""INSERT INTO claim_decision_communications
+                                   (id,case_id,claim_id,decision_id,status,communication_id,service_proof_document_id,
+                                    prepared_by,approved_by,sent_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                   (record_id, case_id, claim_id, decision["id"], status, communication_id, proof, actor_id,
+                                    actor_id if status in {"APPROVED", "SENT"} else None, now if status == "SENT" else None, now, now))
+            self.store.audit(connection, actor_id, "CLAIM_DECISION_COMMUNICATION_UPDATED", "claim", claim_id, case_id,
+                             after={"record_id": record_id, "status": status, "service_proof_document_id": proof},
+                             title=f"Decision communication {status.lower()} for {claim['claim_number']}")
+            return dict(connection.execute("SELECT * FROM claim_decision_communications WHERE id=?", (record_id,)).fetchone())
 
     def set_checklist(self, case_id: str, claim_id: str, item_id: Optional[str], payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
         self.get(case_id, claim_id)
@@ -410,6 +713,11 @@ class ClaimsWorkflow:
             if status != "DRAFT":
                 connection.execute("UPDATE claims SET status='INFORMATION_REQUIRED',updated_by=?,updated_at=? WHERE id=? AND case_id=?", (actor_id, now, claim_id, case_id))
             self.store.audit(connection, actor_id, "CLAIM_QUERY_CREATED", "claim", claim_id, case_id, after={"query_id": query_id, "subject": subject, "status": status}, title=f"Query raised for {claim['claim_number']}: {subject}")
+        self._emit(case_id, "CLAIM_QUERY_CREATED", actor_id, query_id, query_date,
+                   {"claim_id": claim_id, "status": status})
+        if status == "SENT":
+            self._emit(case_id, "CLAIM_QUERY_SENT", actor_id, query_id, query_date,
+                       {"claim_id": claim_id})
         return next(q for q in self.get(case_id, claim_id)["queries"] if q["id"] == query_id)
 
     def record_response(self, case_id: str, claim_id: str, query_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
@@ -429,6 +737,11 @@ class ClaimsWorkflow:
             connection.execute("UPDATE claim_queries SET status=?,updated_by=?,updated_at=? WHERE id=?", (new_status, actor_id, now, query_id))
             connection.execute("UPDATE claims SET status='RESPONSE_RECEIVED',updated_by=?,updated_at=? WHERE id=? AND case_id=?", (actor_id, now, claim_id, case_id))
             self.store.audit(connection, actor_id, "CLAIM_QUERY_RESPONSE_RECORDED", "claim", claim_id, case_id, after={"query_id": query_id, "response_id": response_id, "document_ids": document_ids}, title=f"Query response received for {claim['claim_number']}")
+        self._emit(case_id, "CLAIM_QUERY_RESPONSE_RECEIVED", actor_id, response_id, response_date,
+                   {"claim_id": claim_id, "query_id": query_id, "status": new_status})
+        if new_status == "CLOSED":
+            self._emit(case_id, "CLAIM_QUERY_CLOSED", actor_id, response_id, response_date,
+                       {"claim_id": claim_id, "query_id": query_id})
         return next(r for q in self.get(case_id, claim_id)["queries"] if q["id"] == query_id for r in q["responses"] if r["id"] == response_id)
 
     def link_document(self, case_id: str, claim_id: str, document: Dict[str, Any], document_type: str, actor_id: str) -> Dict[str, Any]:

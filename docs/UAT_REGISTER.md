@@ -34,3 +34,25 @@ Automated testing verifies software behaviour but does not replace office-user a
 | Case Event Ledger | Verify chronological source, document, actor and confirmation traceability | PENDING | |
 | Admission → Workflow Integration | Confirm an admission import initializes and activates the CIRP workflow | PENDING | |
 | Public Announcement → Workflow Integration | Confirm Form A states advance CIRP-021–023 without duplicating Form A data | PENDING | |
+| Claim Register Workflow | Confirm Public Announcement activates the canonical case Claims Register | PENDING | |
+| Claim Acknowledgement | Confirm stable per-case Claim ID and acknowledgement status/communication record | PENDING | |
+| Claim Classification | Confirm creditor category and Form B/C/CA/D/E/F/Other review | PENDING | |
+| Claim Scrutiny | Confirm configurable checklist and NOT_STARTED/IN_REVIEW/COMPLETE/DEFICIENCY_FOUND states | PENDING | |
+| Claim Deficiency/Query | Confirm deficiency activation, linked query, response and closure without automatic email | PENDING | |
+| Claim Deadline/Late Claim | Confirm configured deadline, late flag/days and no automatic rejection | PENDING | |
+| Claim Verification | Confirm claimed/admitted separation, exact totals and mandatory human conclusions | PENDING | |
+| Related Party Review | Confirm UNKNOWN blocks eligibility and reason/evidence history is retained | PENDING | |
+| Claim Decision | Confirm admitted, partly admitted and not admitted decisions preserve history | PENDING | |
+| Claim Decision Communication | Confirm draft/prepared/approved/sent states and service-proof requirement | PENDING | |
+| List of Creditors | Confirm current dynamic view derives all rows and totals from Claims | PENDING | |
+| List of Creditors Versioning | Confirm formal versions remain unchanged after later Claim changes | PENDING | |
+| List of Creditors Filing Record | Confirm mechanism/date/evidence records without external filing | PENDING | |
+| Claim Revision | Confirm original submission remains and downstream CoC review is raised | PENDING | |
+| Security Review | Confirm claimed/verified security remains human-reviewed with evidence | PENDING | |
+| CoC Eligibility | Confirm only admitted Financial Creditor Claims become candidates | PENDING | |
+| CoC Voting Share | Confirm exact debt calculations, deterministic rounding and 100% display total | PENDING | |
+| Creditors in Class | Confirm class membership matrix remains linked to Claims | PENDING | |
+| AR Workflow Shell | Confirm requirement, candidate/selection, filing need and evidence fields | PENDING | |
+| CoC Constitution | Confirm validation and immutable Version 1 member snapshot | PENDING | |
+| CoC Constitution Report | Confirm retained-template DRAFT/FINAL DOCX versions and professional approval | PENDING | |
+| CoC Reconstitution | Confirm Claim changes preserve Version 1 and produce Version 2 only after RP confirmation | PENDING | |

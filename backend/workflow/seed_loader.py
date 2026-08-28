@@ -80,6 +80,16 @@ def seed_cirp_workflow(connection: sqlite3.Connection, source: Path) -> None:
         )
 
         deadline = step.get("deadline_rule")
+        if not deadline and int(step["sequence"]) >= 24:
+            # An explicit unresolved rule is safer than omitting the control:
+            # the case deadline remains REVIEW_REQUIRED until legal timing is
+            # configured, and no service is tempted to guess a statutory date.
+            deadline = {
+                "anchor_event_type": step["trigger_event_type"],
+                "offset_days": None,
+                "rule_text": "Exact legal timing is not encoded; professional review is required.",
+                "legal_reference": step.get("legal_reference", ""),
+            }
         if deadline:
             rule_id = _id(definition_id, "deadline", f"r{deadline.get('rule_version', 1)}")
             connection.execute(

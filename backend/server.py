@@ -28,6 +28,7 @@ from nclt_fetcher import NcltOrderFetcherService
 from ai import AdmissionAIService, AIServiceError
 from ai.claim_bundle_service import ClaimBundleError, ClaimBundleService
 from claims_workflow import ClaimsWorkflow, QUERY_TEMPLATES
+from claims_coc_core import ClaimsCocCore
 from workflow import EventEngine, WorkflowError, WorkflowService
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
@@ -755,6 +756,15 @@ class WorkflowEvidenceInput(BaseModel):
 class WorkflowDeadlineOverrideInput(BaseModel):
     due_date: str
     reason: str
+
+
+class ConstitutionReportInput(BaseModel):
+    status: str = Field(default="DRAFT", pattern="^(DRAFT|FINAL)$")
+
+
+def require_professional_action(current: Dict[str, str], label: str) -> None:
+    if current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+        raise HTTPException(status_code=403, detail={"code": "UNAUTHORIZED", "message": f"Only an authorised professional or manager may {label}."})
 
 
 def _workflow_error(exc: WorkflowError) -> HTTPException:
@@ -1942,12 +1952,71 @@ async def start_claim_verification(case_id: str, claim_id: str, current=Depends(
 
 @api_router.post("/cases/{case_id}/claims/{claim_id}/decision")
 async def decide_claim(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "confirm a Claim decision")
     try:
         return _claims(case_id, current).decide(case_id, claim_id, payload, current["id"])
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc).strip("'")) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/classification/confirm")
+async def confirm_claim_classification(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).confirm_classification(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'")) from exc
+
+
+@api_router.put("/cases/{case_id}/claims/{claim_id}/scrutiny")
+async def update_claim_scrutiny(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).update_scrutiny(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/verification/complete")
+async def complete_claim_verification(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).complete_verification(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/related-party/confirm")
+async def confirm_claim_related_party(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "confirm related-party status")
+    try:
+        return _claims(case_id, current).confirm_related_party(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/security-reviews")
+async def record_claim_security_review(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).record_security_review(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/late-review")
+async def record_late_claim_review(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "confirm a late-Claim review")
+    try:
+        return _claims(case_id, current).record_late_review(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'")) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/{claim_id}/decision-communication")
+async def record_claim_decision_communication(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims(case_id, current).prepare_decision_communication(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'")) from exc
 
 
 @api_router.post("/cases/{case_id}/claims/{claim_id}/revisions")
@@ -2035,6 +2104,184 @@ async def upload_claim_document(
         if 'document' not in locals():
             destination.unlink(missing_ok=True)
         raise
+
+
+# ---------------- Claims -> List of Creditors -> CoC core ----------------
+
+def _claims_coc(case_id: str, current: Dict[str, str]) -> ClaimsCocCore:
+    require_case_access(case_id, current)
+    return ClaimsCocCore(casefile_store)
+
+
+def _claims_coc_http(exc: Exception) -> HTTPException:
+    return HTTPException(status_code=404 if isinstance(exc, KeyError) else 422, detail=str(exc).strip("'"))
+
+
+@api_router.get("/cases/{case_id}/claims/list-of-creditors/current")
+async def get_current_list_of_creditors(case_id: str, current=Depends(get_current_user)):
+    return _claims_coc(case_id, current).current_loc(case_id)
+
+
+@api_router.post("/cases/{case_id}/claims/list-of-creditors/snapshots")
+async def create_list_of_creditors_snapshot(case_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims_coc(case_id, current).create_loc_snapshot(case_id, current["id"], payload.get("as_on_date"))
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/claims/list-of-creditors/snapshots")
+async def list_list_of_creditors_snapshots(case_id: str, current=Depends(get_current_user)):
+    return _claims_coc(case_id, current).list_loc_snapshots(case_id)
+
+
+@api_router.get("/cases/{case_id}/claims/list-of-creditors/snapshots/{snapshot_id}")
+async def get_list_of_creditors_snapshot(case_id: str, snapshot_id: str, current=Depends(get_current_user)):
+    try:
+        return _claims_coc(case_id, current).get_loc_snapshot(case_id, snapshot_id)
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/claims/list-of-creditors/snapshots/{snapshot_id}/publication")
+async def publish_list_of_creditors_snapshot(case_id: str, snapshot_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "confirm a List of Creditors filing/display record")
+    try:
+        return _claims_coc(case_id, current).publish_loc(case_id, snapshot_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/candidates")
+async def get_coc_candidates(case_id: str, current=Depends(get_current_user)):
+    return _claims_coc(case_id, current).coc_candidates(case_id)
+
+
+@api_router.put("/cases/{case_id}/coc/candidates/{claim_id}/eligibility")
+async def confirm_coc_eligibility(case_id: str, claim_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "confirm CoC eligibility")
+    try:
+        return _claims_coc(case_id, current).confirm_eligibility(case_id, claim_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/voting-calculations")
+async def calculate_coc_voting(case_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims_coc(case_id, current).calculate_voting(case_id, current["id"], int(payload.get("display_precision", 4)))
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/voting-calculations/{calculation_id}")
+async def get_coc_voting_calculation(case_id: str, calculation_id: str, current=Depends(get_current_user)):
+    try:
+        return _claims_coc(case_id, current).get_voting_calculation(case_id, calculation_id)
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/constitution-preview")
+async def preview_coc_constitution(case_id: str, calculation_id: Optional[str] = None, current=Depends(get_current_user)):
+    return _claims_coc(case_id, current).constitution_preview(case_id, calculation_id)
+
+
+@api_router.post("/cases/{case_id}/coc/constitutions")
+async def confirm_coc_constitution(case_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "confirm CoC Constitution")
+    try:
+        return _claims_coc(case_id, current).confirm_constitution(case_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/constitutions")
+async def list_coc_constitutions(case_id: str, current=Depends(get_current_user)):
+    return _claims_coc(case_id, current).list_constitutions(case_id)
+
+
+@api_router.get("/cases/{case_id}/coc/constitutions/{constitution_id}")
+async def get_coc_constitution(case_id: str, constitution_id: str, current=Depends(get_current_user)):
+    try:
+        return _claims_coc(case_id, current).get_constitution(case_id, constitution_id)
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/reconstitutions")
+async def confirm_coc_reconstitution(case_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "confirm CoC reconstitution")
+    try:
+        return _claims_coc(case_id, current).confirm_constitution(case_id, payload, current["id"], reconstitution=True)
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/coc/constitutions/{constitution_id}/report")
+async def generate_coc_constitution_report(case_id: str, constitution_id: str, payload: ConstitutionReportInput,
+                                            current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    if payload.status == "FINAL":
+        require_professional_action(current, "finalize a CoC Constitution Report")
+    core = ClaimsCocCore(casefile_store)
+    try:
+        constitution = core.get_constitution(case_id, constitution_id)
+        case = casefile_store.get_case(case_id)
+        snapshot = core.get_loc_snapshot(case_id, constitution["loc_snapshot_id"])
+        profile = casefile_store.get_profile(current["id"])
+        template = resolve_template("constitution-coc")
+        if not template:
+            raise ValueError("Existing Constitution of CoC office template is unavailable")
+        creditor_rows = [[str(index), member["creditor_name"], member["display_voting_percentage"]]
+                         for index, member in enumerate(constitution["members"], 1)]
+        values = {
+            "loc_date": snapshot["as_on_date"], "cd_name": case["name"], "cin": case.get("cin", ""),
+            "nclt_bench": case.get("nclt_bench", ""), "cp_ib_number": case.get("petition_number", ""),
+            "claim_cutoff_date": snapshot["as_on_date"], "ip_name": profile.get("ip_name") or profile.get("name", ""),
+            "ibbi_reg_no": profile.get("ibbi_reg_no", ""), "afa_validity": profile.get("afa_validity", ""),
+            "process_email": profile.get("process_email", ""), "ip_email": profile.get("ip_email", ""),
+            "ip_reg_address": profile.get("ip_reg_address", ""),
+        }
+        document_id = str(uuid.uuid4())
+        output = CASE_FILES_DIR / case_id / "coc" / f"constitution-report-v{constitution['constitution_version']}-{document_id}.docx"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(build_docx(template, values, {"df_creditors": creditor_rows}, ""))
+        document = casefile_store.store_coc_constitution_document(
+            case_id, constitution_id, f"CoC Constitution Report Version {constitution['constitution_version']}.docx",
+            str(output.relative_to(DATA_DIR)), payload.status.lower(),
+            {"constitution_version": constitution["constitution_version"],
+             "loc_snapshot_id": constitution["loc_snapshot_id"],
+             "voting_calculation_id": constitution["voting_calculation_id"],
+             "template_verification_required": True}, current["id"],
+        )
+        result = core.link_constitution_report(case_id, constitution_id, document["id"], payload.status, current["id"])
+        result["report_document"] = document
+        return result
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/coc/creditor-classes")
+async def list_creditor_classes(case_id: str, current=Depends(get_current_user)):
+    return _claims_coc(case_id, current).list_creditor_classes(case_id)
+
+
+@api_router.post("/cases/{case_id}/coc/creditor-classes")
+async def upsert_creditor_class(case_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    try:
+        return _claims_coc(case_id, current).upsert_creditor_class(case_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
+
+
+@api_router.put("/cases/{case_id}/coc/creditor-classes/{class_id}/authorised-representative")
+async def upsert_authorised_representative_process(case_id: str, class_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_professional_action(current, "update an authorised representative process")
+    try:
+        return _claims_coc(case_id, current).upsert_ar_process(case_id, class_id, payload, current["id"])
+    except (KeyError, ValueError) as exc:
+        raise _claims_coc_http(exc) from exc
 
 
 @api_router.get("/cases/{case_id}/coc-meetings/{meeting_id}/workflow")
