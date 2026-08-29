@@ -195,12 +195,12 @@ def test_case_isolation_rejects_cross_case_snapshot_and_claim_ids(tmp_path):
         core.confirm_eligibility(case_b["id"], claim_a["id"], {"eligibility_status": "ELIGIBLE"}, ACTOR)
 
 
-def test_workflow_master_and_summary_remains_available_after_phase_three_extension(tmp_path):
+def test_workflow_master_and_summary_remains_available_after_phase_four_extension(tmp_path):
     store, case = setup_case(tmp_path, "Summary Phase Two")
     definitions = WorkflowService(store).definitions()
-    assert [item["step_code"] for item in definitions] == [f"CIRP-{number:03d}" for number in range(1, 57)]
+    assert [item["step_code"] for item in definitions] == [f"CIRP-{number:03d}" for number in range(1, 77)]
     summary = WorkflowService(store).summary(case["id"])
-    assert summary["total_steps"] == 56
+    assert summary["total_steps"] == 76
     assert summary["claims_received"] == 0
     assert summary["coc_status"] == "NOT_CONSTITUTED"
 

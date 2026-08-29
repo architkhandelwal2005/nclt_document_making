@@ -181,12 +181,12 @@ def test_closed_vote_requires_controlled_correction_and_case_isolation(tmp_path)
         core.get_meeting(other["id"], meeting["id"])
 
 
-def test_workflow_master_extends_through_056_and_summary_has_meeting_keys(tmp_path):
+def test_workflow_master_extends_through_076_and_summary_has_meeting_keys(tmp_path):
     store, case, _, _, _, _, _, _, _ = build_standard_coc(tmp_path)
     definitions = WorkflowService(store).definitions()
-    assert [row["step_code"] for row in definitions] == [f"CIRP-{number:03d}" for number in range(1, 57)]
+    assert [row["step_code"] for row in definitions] == [f"CIRP-{number:03d}" for number in range(1, 77)]
     summary = WorkflowService(store).summary(case["id"])
-    assert summary["total_steps"] == 56
+    assert summary["total_steps"] == 76
     assert "coc_meeting_count" in summary and summary["coc_meeting_count"] == 0
 
 

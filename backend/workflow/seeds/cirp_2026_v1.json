@@ -44,6 +44,13 @@
       "sequence": 6,
       "description": "First and subsequent CoC meeting lifecycle, notice, agenda, attendance, minutes, voting and action tracking.",
       "is_active": true
+    },
+    {
+      "code": "OPERATIONS_VALUATION_IM",
+      "name": "Operations, Valuation, IM & VDR",
+      "sequence": 7,
+      "description": "Controlled operational registers, valuation, information memorandum and restricted virtual data room access.",
+      "is_active": true
     }
   ],
   "steps": [
@@ -496,6 +503,66 @@
       "day_trigger_text": "After voting / resolutions", "legal_reference": "CoC voting and action tracking", "area": "Voting Result / ATR",
       "activity": "Calculate and finalize deterministic voting results and link meeting decisions to action items and existing tasks.", "standard_output": "Structured Voting Result and ATR", "automation_type": "AUTO", "approval_role": "IRP/RP",
       "trigger_event_type": "COC_VOTING_CLOSED", "task_title": "Finalize voting result and ATR", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-057", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 57, "day_trigger_text": "Post admission", "legal_reference": "Section 20", "area": "Going Concern", "activity": "Record a professional-reviewed going-concern assessment, assumptions and cash requirement.", "standard_output": "Going Concern Assessment", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "GOING_CONCERN_ASSESSMENT_CREATED", "task_title": "Assess going concern", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-058", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 58, "day_trigger_text": "Periodic", "legal_reference": "CIRP cost controls", "area": "Cash Flow", "activity": "Maintain forecast versus actual cash flow, payment register and bank reconciliation evidence.", "standard_output": "Cash Flow Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "CASH_FLOW_PERIOD_CREATED", "task_title": "Maintain cash flow", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-059", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 59, "day_trigger_text": "Post admission", "legal_reference": "Section 20", "area": "Receivables", "activity": "Maintain debtor-wise receivable, follow-up, collection and recovery evidence.", "standard_output": "Receivables Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "RECEIVABLE_CREATED", "task_title": "Track receivables", "default_priority": "normal", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-060", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 60, "day_trigger_text": "As required", "legal_reference": "Section 20", "area": "Assets", "activity": "Record controlled asset movement and supporting evidence.", "standard_output": "Asset Movement Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "ASSET_MOVEMENT_RECORDED", "task_title": "Record asset movement", "default_priority": "normal", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-061", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 61, "day_trigger_text": "Periodic", "legal_reference": "Statutory requirements", "area": "Compliance", "activity": "Track statutory obligation, filing evidence and professional review status without legal-date guessing.", "standard_output": "Compliance Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "STATUTORY_COMPLIANCE_DUE", "task_title": "Track statutory compliance", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-062", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 62, "day_trigger_text": "As required", "legal_reference": "Section 14", "area": "Moratorium", "activity": "Log alleged action and professional moratorium assessment; never auto-conclude an exception.", "standard_output": "Moratorium Review", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "MORATORIUM_REVIEW_REQUIRED", "task_title": "Review moratorium issue", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-063", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 63, "day_trigger_text": "Post admission", "legal_reference": "Section 19", "area": "Management Cooperation", "activity": "Maintain requisitions, responses, reminders, deficiencies and evidence chronology.", "standard_output": "Management Cooperation Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "MANAGEMENT_REQUISITION_SENT", "task_title": "Track management cooperation", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-064", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 64, "day_trigger_text": "On professional decision", "legal_reference": "Section 19(2)", "area": "Section 19", "activity": "Create a fact-linked escalation chronology and filing record only after professional confirmation.", "standard_output": "Section 19 Application Pack", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "NON_COOPERATION_REVIEW_REQUIRED", "task_title": "Review Section 19 escalation", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-065", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 65, "day_trigger_text": "As required", "legal_reference": "Section 20", "area": "Asset Protection", "activity": "Record asset-protection incident, evidence, action and closure review.", "standard_output": "Asset Protection Incident", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "ASSET_PROTECTION_INCIDENT_RECORDED", "task_title": "Protect assets", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-066", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 66, "day_trigger_text": "When needed", "legal_reference": "Section 20", "area": "Interim Finance", "activity": "Record proposal, terms, drawdown and supporting approval evidence.", "standard_output": "Interim Finance Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "INTERIM_FINANCE_PROPOSED", "task_title": "Review interim finance", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-067", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 67, "day_trigger_text": "Before action", "legal_reference": "Section 28", "area": "Section 28", "activity": "Record system suggestion and separate professional approval determination.", "standard_output": "Section 28 Review", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "SECTION_28_REVIEW_CREATED", "task_title": "Review Section 28 approval", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-068", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 68, "day_trigger_text": "As required", "legal_reference": "Regulation 27", "area": "Valuer Appointment", "activity": "Maintain asset-class requirement, quotations, comparison, appointment, acceptance and assignment controls.", "standard_output": "Valuer Appointment Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "VALUATION_REQUIREMENT_RECORDED", "task_title": "Appoint valuers", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-069", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 69, "day_trigger_text": "Before assignment", "legal_reference": "Valuer disclosures", "area": "Valuer Declaration", "activity": "Verify declaration and relationship disclosure before enabling an assignment.", "standard_output": "Valuer Declaration Review", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "VALUER_DECLARATION_RECEIVED", "task_title": "Verify valuer declaration", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-070", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 70, "day_trigger_text": "After appointment", "legal_reference": "Valuation process", "area": "Valuation Data", "activity": "Record data pack, inspection, information request and access evidence.", "standard_output": "Valuation Data Pack", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "VALUATION_DATA_PACK_READY", "task_title": "Coordinate valuation data", "default_priority": "normal", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-071", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 71, "day_trigger_text": "On receipt", "legal_reference": "Valuation process", "area": "Valuation Reports", "activity": "Record restricted valuation-report receipt, review and storage reference.", "standard_output": "Valuation Report Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "VALUATION_REPORT_RECEIVED", "task_title": "Receive valuation report", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-072", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 72, "day_trigger_text": "As required", "legal_reference": "Valuation process", "area": "Valuation Queries", "activity": "Maintain query, clarification, response and closure evidence.", "standard_output": "Valuation Query Register", "automation_type": "SEMI", "approval_role": "IRP/RP", "trigger_event_type": "VALUATION_QUERY_RECORDED", "task_title": "Track valuation queries", "default_priority": "normal", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-073", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 73, "day_trigger_text": "Post valuation", "legal_reference": "Section 29", "area": "Information Memorandum", "activity": "Create a source-linked IM section checklist with completeness and review status.", "standard_output": "IM Checklist", "automation_type": "SEMI", "approval_role": "RP", "trigger_event_type": "IM_DATA_COLLECTION_STARTED", "task_title": "Collect IM data", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-074", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 74, "day_trigger_text": "When ready", "legal_reference": "Section 29", "area": "Information Memorandum", "activity": "Version IM content and record professional finalisation; legacy office format requires verified conversion before generation.", "standard_output": "Versioned IM", "automation_type": "DOCUMENT_ASSEMBLY", "approval_role": "RP", "trigger_event_type": "IM_FINALIZED", "task_title": "Finalize IM", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-075", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 75, "day_trigger_text": "Before disclosure", "legal_reference": "Section 29", "area": "Confidentiality", "activity": "Track recipient, undertaking issue/signature/verification and source document.", "standard_output": "Confidentiality Undertaking Register", "automation_type": "SEMI", "approval_role": "RP", "trigger_event_type": "CONFIDENTIALITY_UNDERTAKING_ISSUED", "task_title": "Verify confidentiality undertaking", "default_priority": "high", "effective_from": "2026-06-09"
+    },
+    {
+      "step_code": "CIRP-076", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 76, "day_trigger_text": "After undertaking", "legal_reference": "Section 29", "area": "Virtual Data Room", "activity": "Maintain VDR index, recipient access grant/revocation and access log without duplicating files.", "standard_output": "Controlled VDR Index", "automation_type": "SEMI", "approval_role": "RP", "trigger_event_type": "VDR_ACCESS_GRANTED", "task_title": "Control VDR access", "default_priority": "high", "effective_from": "2026-06-09"
     }
   ],
   "dependencies": [
@@ -521,6 +588,26 @@
     {"parent_step_code": "CIRP-049", "child_step_code": "CIRP-050", "dependency_type": "TRIGGERED_BY"},
     {"parent_step_code": "CIRP-050", "child_step_code": "CIRP-054", "dependency_type": "TRIGGERED_BY"},
     {"parent_step_code": "CIRP-054", "child_step_code": "CIRP-055", "dependency_type": "TRIGGERED_BY"},
-    {"parent_step_code": "CIRP-055", "child_step_code": "CIRP-056", "dependency_type": "TRIGGERED_BY"}
+    {"parent_step_code": "CIRP-055", "child_step_code": "CIRP-056", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-056", "child_step_code": "CIRP-057", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-057", "child_step_code": "CIRP-058", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-058", "child_step_code": "CIRP-059", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-059", "child_step_code": "CIRP-060", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-060", "child_step_code": "CIRP-061", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-061", "child_step_code": "CIRP-062", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-062", "child_step_code": "CIRP-063", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-063", "child_step_code": "CIRP-064", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-064", "child_step_code": "CIRP-065", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-065", "child_step_code": "CIRP-066", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-066", "child_step_code": "CIRP-067", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-067", "child_step_code": "CIRP-068", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-068", "child_step_code": "CIRP-069", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-069", "child_step_code": "CIRP-070", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-070", "child_step_code": "CIRP-071", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-071", "child_step_code": "CIRP-072", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-072", "child_step_code": "CIRP-073", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-073", "child_step_code": "CIRP-074", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-074", "child_step_code": "CIRP-075", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code": "CIRP-075", "child_step_code": "CIRP-076", "dependency_type": "TRIGGERED_BY"}
   ]
 }

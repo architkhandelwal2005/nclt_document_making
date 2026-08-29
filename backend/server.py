@@ -30,6 +30,7 @@ from ai.claim_bundle_service import ClaimBundleError, ClaimBundleService
 from claims_workflow import ClaimsWorkflow, QUERY_TEMPLATES
 from claims_coc_core import ClaimsCocCore
 from coc_meeting_core import CocMeetingCore
+from phase4_core import Phase4Core
 from workflow import EventEngine, WorkflowError, WorkflowService
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
@@ -95,6 +96,7 @@ coc_documents = CocDocumentService(SOURCE_ROOT / "templates" / "coc")
 nclt_fetcher = NcltOrderFetcherService(casefile_store, DATA_DIR)
 admission_ai = AdmissionAIService(casefile_store, DATA_DIR)
 claim_bundle_ai = ClaimBundleService(casefile_store, DATA_DIR)
+phase4 = Phase4Core(casefile_store)
 
 # In-memory state (resets on restart)
 LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
@@ -776,6 +778,14 @@ def _workflow_error(exc: WorkflowError) -> HTTPException:
 
 def _workflow_services() -> tuple[WorkflowService, EventEngine]:
     return WorkflowService(casefile_store), EventEngine(casefile_store)
+
+
+def _phase4_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, KeyError):
+        return HTTPException(status_code=404, detail=str(exc).strip("'"))
+    if isinstance(exc, PermissionError):
+        return HTTPException(status_code=403, detail={"code": "VDR_ACCESS_DENIED", "message": str(exc)})
+    return HTTPException(status_code=422, detail={"code": "PHASE4_VALIDATION", "message": str(exc)})
 
 # ---------------- Matter and profile routes ----------------
 @api_router.get("/cases")
@@ -2800,11 +2810,107 @@ async def download_case_file(case_id: str, document_id: str, current=Depends(get
     record = casefile_store.get_module_record(case_id, "documents", document_id)
     if not record or not record.get("storage_path"):
         raise HTTPException(status_code=404, detail="Document file not found")
+    if str(record.get("confidentiality_classification") or "NORMAL").upper() in {"RESTRICTED_VALUATION", "RESTRICTED_RESOLUTION_PLAN"} and current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+        raise HTTPException(status_code=403, detail={"code": "RESTRICTED_DOCUMENT", "message": "Use the controlled VDR access route for this document."})
     candidate = (DATA_DIR / record["storage_path"]).resolve()
     files_root = CASE_FILES_DIR.resolve()
     if files_root not in candidate.parents or not candidate.is_file():
         raise HTTPException(status_code=404, detail="Document file not found")
     return FileResponse(candidate, media_type=record.get("mime_type") or None, filename=record["name"])
+
+
+# ---------------- Phase 4: operations, valuation, IM and VDR ----------------
+@api_router.get("/cases/{case_id}/phase4/{domain}")
+async def list_phase4_records(case_id: str, domain: str, record_type: Optional[str] = None, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    try:
+        return phase4.list(case_id, domain, record_type.upper() if record_type else None)
+    except Exception as exc:
+        raise _phase4_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/phase4/records/{record_id}")
+async def get_phase4_record(case_id: str, record_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    try:
+        return phase4.get(case_id, record_id)
+    except Exception as exc:
+        raise _phase4_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/phase4/{domain}/{record_type}")
+async def create_phase4_record(case_id: str, domain: str, record_type: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_case_access(case_id, current); require_professional_action(current, "create a Phase 4 control record")
+    if domain not in {"operations", "cooperation", "section19", "finance", "valuation", "im", "confidentiality", "vdr"}:
+        raise HTTPException(status_code=404, detail="Unknown Phase 4 domain")
+    try:
+        return phase4.create(case_id, domain, record_type.upper(), payload, current["id"])
+    except Exception as exc:
+        raise _phase4_error(exc) from exc
+
+
+@api_router.patch("/cases/{case_id}/phase4/records/{record_id}")
+async def update_phase4_record(case_id: str, record_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_case_access(case_id, current); require_professional_action(current, "update a Phase 4 control record")
+    try:
+        return phase4.update(case_id, record_id, payload, current["id"])
+    except Exception as exc:
+        raise _phase4_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/phase4/records/{record_id}/items")
+async def add_phase4_item(case_id: str, record_id: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_case_access(case_id, current); require_professional_action(current, "record Phase 4 evidence")
+    try:
+        return phase4.add_item(case_id, record_id, payload, current["id"])
+    except Exception as exc:
+        raise _phase4_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/phase4/actions/{action}")
+async def phase4_action(case_id: str, action: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    """Named controls keep irreversible professional decisions separate from data entry."""
+    require_case_access(case_id, current); require_professional_action(current, action.replace("_", " "))
+    action = action.lower()
+    try:
+        actions = {
+            "going_concern": lambda: phase4.create_going_concern(case_id, payload, current["id"]),
+            "cash_flow": lambda: phase4.create_cash_flow(case_id, payload, current["id"]),
+            "receivable": lambda: phase4.create_receivable(case_id, payload, current["id"]),
+            "asset_movement": lambda: phase4.asset_movement(case_id, payload, current["id"]),
+            "asset_protection": lambda: phase4.asset_protection_incident(case_id, payload, current["id"]),
+            "compliance": lambda: phase4.create_compliance(case_id, payload, current["id"]),
+            "moratorium": lambda: phase4.create_moratorium_review(case_id, payload, current["id"]),
+            "requisition": lambda: phase4.create_requisition(case_id, payload, current["id"]),
+            "section19_draft": lambda: phase4.create_section19(case_id, payload, current["id"]),
+            "interim_finance": lambda: phase4.interim_finance(case_id, payload, current["id"]),
+            "section28": lambda: phase4.section28_review(case_id, payload, current["id"]),
+            "valuation": lambda: phase4.valuation_record(case_id, str(payload["record_type"]).upper(), payload, current["id"], payload.get("event_type")),
+            "im_initialize": lambda: phase4.initialize_im(case_id, current["id"]),
+            "undertaking": lambda: phase4.undertaking(case_id, payload, current["id"]),
+            "cost_allocation_snapshot": lambda: phase4.cost_allocation_snapshot(case_id, payload["cost_statement_id"], current["id"], payload.get("allocation_date")),
+        }
+        if action in actions: return actions[action]()
+        if action == "going_concern_approve": return phase4.approve_going_concern(case_id, payload["record_id"], current["id"])
+        if action == "cash_flow_transaction": return phase4.cash_flow_transaction(case_id, payload["record_id"], payload, current["id"])
+        if action == "cash_flow_finalize": return phase4.finalize_cash_flow(case_id, payload["record_id"], current["id"])
+        if action == "receivable_activity": return phase4.receivable_activity(case_id, payload["record_id"], payload, current["id"])
+        if action == "requisition_item": return phase4.requisition_item(case_id, payload["record_id"], payload, current["id"])
+        if action == "requisition_action": return phase4.requisition_action(case_id, payload["record_id"], payload["action"], payload, current["id"])
+        if action == "section19_finalize": return phase4.finalize_section19(case_id, payload["record_id"], payload, current["id"])
+        if action == "section19_file": return phase4.file_section19(case_id, payload["record_id"], payload, current["id"])
+        if action == "section28_decide": return phase4.decide_section28(case_id, payload["record_id"], payload, current["id"])
+        if action == "valuer_declaration_verify": return phase4.verify_valuer_declaration(case_id, payload["record_id"], current["id"], payload.get("status", "VERIFIED"))
+        if action == "valuation_assignment_activate": return phase4.activate_assignment(case_id, payload["record_id"], current["id"])
+        if action == "im_version": return phase4.im_version(case_id, payload["workspace_id"], payload, current["id"])
+        if action == "undertaking_verify": return phase4.verify_undertaking(case_id, payload["record_id"], current["id"], payload.get("status", "VERIFIED"))
+        if action == "vdr_grant": return phase4.grant_vdr_access(case_id, payload["workspace_id"], payload["recipient_id"], payload, current["id"])
+        if action == "vdr_revoke": return phase4.revoke_vdr_access(case_id, payload["workspace_id"], payload["recipient_id"], current["id"], payload["reason"])
+        if action == "vdr_publish_document": return phase4.publish_vdr_document(case_id, payload["workspace_id"], payload["document_id"], payload, current["id"])
+        raise HTTPException(status_code=404, detail="Unknown Phase 4 action")
+    except HTTPException: raise
+    except Exception as exc:
+        raise _phase4_error(exc) from exc
 
 # ---------------- Root ----------------
 @api_router.get("/")

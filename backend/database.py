@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -61,7 +61,7 @@ MODULE_FIELDS: Dict[str, tuple[str, ...]] = {
     "coc-agenda-items": ("meeting_id", "position", "section", "title", "notes", "discussion", "minutes_text", "minutes_disposition", "decision", "proposed_resolution", "resolution_text", "voting_required", "status"),
     "coc-attendance": ("meeting_id", "member_id", "meeting_member_snapshot_id", "participant_name", "organization", "capacity", "participant_role", "email", "present", "attendance_mode", "authorization_status", "authorization_document_id", "voting_entitled", "joined_at", "left_at", "voting_share_snapshot", "voting_share_units", "notes"),
     "coc-votes": ("meeting_id", "member_id", "meeting_member_snapshot_id", "resolution_id", "agenda_key", "vote", "voting_share", "voting_share_units", "method", "source", "remarks", "cast_at"),
-    "documents": ("template_id", "name", "category", "status", "version", "parent_document_id", "storage_path", "mime_type", "source_type", "linked_type", "linked_id", "metadata_json"),
+    "documents": ("template_id", "name", "category", "status", "version", "parent_document_id", "storage_path", "mime_type", "source_type", "linked_type", "linked_id", "confidentiality_classification", "metadata_json"),
     "communications": ("channel", "direction", "occurred_at", "sender", "recipients", "subject", "summary", "delivery_status", "proof_document_id", "linked_type", "linked_id", "follow_up_task_id"),
     "assets": ("category", "description", "ownership", "location", "book_value", "security_interest", "possession", "insurance", "encumbrance", "status"),
     "financial-records": ("record_type", "name", "amount", "as_of_date", "details_json"),
@@ -1300,6 +1300,21 @@ class CasefileDatabase:
             self._ensure_column(connection, "tasks", "workflow_step_id", "TEXT REFERENCES case_workflow_steps(id)")
             self._ensure_column(connection, "documents", "workflow_step_id", "TEXT REFERENCES case_workflow_steps(id)")
             self._ensure_column(connection, "documents", "event_id", "TEXT REFERENCES case_events(id)")
+            self._ensure_column(connection, "documents", "confidentiality_classification", "TEXT NOT NULL DEFAULT 'NORMAL'")
+            # These Phase-4 extensions target Phase-3 tables which are created
+            # later in this initialization script on a pristine database.
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='coc_cost_statements'").fetchone():
+                self._ensure_column(connection, "coc_cost_statements", "expense_period_label", "TEXT NOT NULL DEFAULT ''")
+                self._ensure_column(connection, "coc_cost_statements", "cost_kind", "TEXT NOT NULL DEFAULT 'ESTIMATED'")
+                self._ensure_column(connection, "coc_cost_statements", "approval_status", "TEXT NOT NULL DEFAULT 'DRAFT'")
+                self._ensure_column(connection, "coc_cost_statements", "approved_meeting_id", "TEXT REFERENCES coc_meetings(id)")
+                self._ensure_column(connection, "coc_cost_statements", "approved_resolution_id", "TEXT REFERENCES coc_resolutions(id)")
+                self._ensure_column(connection, "coc_cost_statement_rows", "expense_period_label", "TEXT NOT NULL DEFAULT ''")
+                self._ensure_column(connection, "coc_cost_statement_rows", "expense_type", "TEXT NOT NULL DEFAULT 'ACTUAL'")
+                self._ensure_column(connection, "coc_cost_statement_rows", "vendor_contact_id", "TEXT REFERENCES contacts(id)")
+                self._ensure_column(connection, "coc_cost_statement_rows", "approval_status", "TEXT NOT NULL DEFAULT 'DRAFT'")
+                self._ensure_column(connection, "coc_cost_statement_rows", "payment_date", "TEXT")
+                self._ensure_column(connection, "coc_cost_statement_rows", "payment_reference", "TEXT NOT NULL DEFAULT ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_tasks_workflow_step ON tasks(workflow_step_id) WHERE workflow_step_id IS NOT NULL")
             connection.execute("CREATE INDEX IF NOT EXISTS ix_documents_workflow_event ON documents(workflow_step_id, event_id)")
             claim_columns = {
@@ -1926,8 +1941,142 @@ class CasefileDatabase:
                 );
                 CREATE INDEX IF NOT EXISTS ix_coc_action_items_case
                     ON coc_action_items(case_id, meeting_id, status);
+
+                /* CIRP-057--076: typed operational control registers.
+                   Domain-specific validation lives in phase4_core; this shared
+                   ledger keeps source, evidence, version and audit semantics
+                   uniform without turning the application into an ERP. */
+                CREATE TABLE IF NOT EXISTS phase4_records (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    domain TEXT NOT NULL,
+                    record_type TEXT NOT NULL,
+                    record_key TEXT NOT NULL DEFAULT '',
+                    parent_record_id TEXT REFERENCES phase4_records(id),
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    period_from TEXT,
+                    period_to TEXT,
+                    effective_date TEXT,
+                    amount_paise INTEGER NOT NULL DEFAULT 0,
+                    tax_paise INTEGER NOT NULL DEFAULT 0,
+                    document_id TEXT REFERENCES documents(id),
+                    confidentiality_level TEXT NOT NULL DEFAULT 'NORMAL',
+                    source_json TEXT NOT NULL DEFAULT '{}',
+                    data_json TEXT NOT NULL DEFAULT '{}',
+                    snapshot_json TEXT NOT NULL DEFAULT '{}',
+                    version_number INTEGER NOT NULL DEFAULT 1,
+                    idempotency_key TEXT NOT NULL DEFAULT '',
+                    archived_at TEXT,
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    updated_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_phase4_records_case_domain
+                    ON phase4_records(case_id, domain, record_type, archived_at, created_at DESC);
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_phase4_records_idempotency
+                    ON phase4_records(case_id, idempotency_key)
+                    WHERE idempotency_key <> '';
+
+                CREATE TABLE IF NOT EXISTS phase4_record_items (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    record_id TEXT NOT NULL REFERENCES phase4_records(id) ON DELETE CASCADE,
+                    item_key TEXT NOT NULL,
+                    sequence INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    amount_paise INTEGER NOT NULL DEFAULT 0,
+                    document_id TEXT REFERENCES documents(id),
+                    data_json TEXT NOT NULL DEFAULT '{}',
+                    source_json TEXT NOT NULL DEFAULT '{}',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    updated_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(record_id, item_key)
+                );
+                CREATE INDEX IF NOT EXISTS ix_phase4_items_case_record
+                    ON phase4_record_items(case_id, record_id, sequence);
+
+                CREATE TABLE IF NOT EXISTS phase4_record_links (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    record_id TEXT NOT NULL REFERENCES phase4_records(id) ON DELETE CASCADE,
+                    linked_record_id TEXT REFERENCES phase4_records(id),
+                    document_id TEXT REFERENCES documents(id),
+                    link_type TEXT NOT NULL,
+                    remarks TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    UNIQUE(record_id, linked_record_id, document_id, link_type)
+                );
+
+                CREATE TABLE IF NOT EXISTS coc_cost_allocation_snapshots (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    cost_statement_id TEXT NOT NULL REFERENCES coc_cost_statements(id) ON DELETE CASCADE,
+                    coc_constitution_id TEXT REFERENCES coc_constitutions(id),
+                    meeting_id TEXT REFERENCES coc_meetings(id),
+                    allocation_date TEXT NOT NULL,
+                    total_paise INTEGER NOT NULL DEFAULT 0,
+                    snapshot_json TEXT NOT NULL DEFAULT '{}',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    UNIQUE(cost_statement_id)
+                );
+                CREATE TABLE IF NOT EXISTS coc_cost_allocation_rows (
+                    id TEXT PRIMARY KEY,
+                    allocation_snapshot_id TEXT NOT NULL REFERENCES coc_cost_allocation_snapshots(id) ON DELETE CASCADE,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    creditor_name TEXT NOT NULL,
+                    claim_id TEXT REFERENCES claims(id),
+                    voting_share_units INTEGER NOT NULL,
+                    allocated_paise INTEGER NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS vdr_access_grants (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    workspace_record_id TEXT NOT NULL REFERENCES phase4_records(id) ON DELETE CASCADE,
+                    recipient_record_id TEXT NOT NULL REFERENCES phase4_records(id) ON DELETE CASCADE,
+                    undertaking_record_id TEXT REFERENCES phase4_records(id),
+                    folder_scope_json TEXT NOT NULL DEFAULT '[]',
+                    status TEXT NOT NULL DEFAULT 'GRANTED',
+                    override_reason TEXT NOT NULL DEFAULT '',
+                    valid_from TEXT,
+                    valid_to TEXT,
+                    granted_by TEXT NOT NULL REFERENCES users(id),
+                    granted_at TEXT NOT NULL,
+                    revoked_by TEXT REFERENCES users(id),
+                    revoked_at TEXT,
+                    UNIQUE(workspace_record_id, recipient_record_id)
+                );
+                CREATE TABLE IF NOT EXISTS vdr_access_logs (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    workspace_record_id TEXT NOT NULL REFERENCES phase4_records(id) ON DELETE CASCADE,
+                    recipient_record_id TEXT REFERENCES phase4_records(id),
+                    document_id TEXT REFERENCES documents(id),
+                    action TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    actor_id TEXT REFERENCES users(id),
+                    occurred_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_vdr_access_log_case ON vdr_access_logs(case_id, occurred_at DESC);
                 """
             )
+            self._ensure_column(connection, "coc_cost_statements", "expense_period_label", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "coc_cost_statements", "cost_kind", "TEXT NOT NULL DEFAULT 'ESTIMATED'")
+            self._ensure_column(connection, "coc_cost_statements", "approval_status", "TEXT NOT NULL DEFAULT 'DRAFT'")
+            self._ensure_column(connection, "coc_cost_statements", "approved_meeting_id", "TEXT REFERENCES coc_meetings(id)")
+            self._ensure_column(connection, "coc_cost_statements", "approved_resolution_id", "TEXT REFERENCES coc_resolutions(id)")
+            self._ensure_column(connection, "coc_cost_statement_rows", "expense_period_label", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "coc_cost_statement_rows", "expense_type", "TEXT NOT NULL DEFAULT 'ACTUAL'")
+            self._ensure_column(connection, "coc_cost_statement_rows", "vendor_contact_id", "TEXT REFERENCES contacts(id)")
+            self._ensure_column(connection, "coc_cost_statement_rows", "approval_status", "TEXT NOT NULL DEFAULT 'DRAFT'")
+            self._ensure_column(connection, "coc_cost_statement_rows", "payment_date", "TEXT")
+            self._ensure_column(connection, "coc_cost_statement_rows", "payment_reference", "TEXT NOT NULL DEFAULT ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_number ON claims(case_id, claim_number) WHERE claim_number <> ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_idempotency ON claims(case_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_coc_meetings_case_number ON coc_meetings(case_id, meeting_number) WHERE archived_at IS NULL")

@@ -1149,14 +1149,17 @@ class CocMeetingCore:
             self._meeting(connection, case_id, meeting_id)
             statement_id, now = new_id(), utc_now()
             total = 0
-            connection.execute("INSERT INTO coc_cost_statements(id,case_id,meeting_id,status,total_paise,created_by,created_at,updated_at) VALUES (?,?,?,'DRAFT',0,?,?,?)", (statement_id, case_id, meeting_id, actor_id, now, now))
+            connection.execute("""INSERT INTO coc_cost_statements(id,case_id,meeting_id,status,total_paise,expense_period_label,cost_kind,approval_status,approved_meeting_id,approved_resolution_id,created_by,created_at,updated_at)
+                VALUES (?,?,?,'DRAFT',0,?,?,?,?,?,?,?,?)""", (statement_id, case_id, meeting_id,
+                str(payload.get("expense_period_label") or ""), str(payload.get("cost_kind") or "ESTIMATED").upper(),
+                str(payload.get("approval_status") or "DRAFT").upper(), payload.get("approved_meeting_id"), payload.get("approved_resolution_id"), actor_id, now, now))
             for item in rows:
                 amount, gst = to_paise(item.get("amount")), to_paise(item.get("gst"))
                 total += amount + gst
                 connection.execute("""INSERT INTO coc_cost_statement_rows(id,cost_statement_id,case_id,category,vendor_name,description,period_date,
-                amount_paise,gst_paise,paid_status,approval_required,supporting_document_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                amount_paise,gst_paise,paid_status,approval_required,supporting_document_id,expense_period_label,expense_type,vendor_contact_id,approval_status,payment_date,payment_reference,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (new_id(), statement_id, case_id, str(item.get("category") or "Other"), str(item.get("vendor_name") or ""), str(item.get("description") or ""),
-                 item.get("period_date"), amount, gst, str(item.get("paid_status") or "UNPAID"), int(bool(item.get("approval_required"))), item.get("supporting_document_id"), now))
+                 item.get("period_date"), amount, gst, str(item.get("paid_status") or "UNPAID"), int(bool(item.get("approval_required"))), item.get("supporting_document_id"), str(item.get("expense_period_label") or payload.get("expense_period_label") or ""), str(item.get("expense_type") or "ACTUAL").upper(), item.get("vendor_contact_id"), str(item.get("approval_status") or payload.get("approval_status") or "DRAFT").upper(), item.get("payment_date"), str(item.get("payment_reference") or ""), now))
             connection.execute("UPDATE coc_cost_statements SET total_paise=? WHERE id=?", (total, statement_id))
             self.store.audit(connection, actor_id, "COC_COST_STATEMENT_RECORDED", "coc_cost_statement", statement_id, case_id, after={"total_paise": total}, title="CIRP Cost Statement recorded")
         self._emit(case_id, "COC_COST_STATEMENT_RECORDED", actor_id, statement_id)
