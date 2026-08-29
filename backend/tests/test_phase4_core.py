@@ -1,5 +1,7 @@
 """CIRP-057--076 operational control regression tests."""
 
+import json
+
 import pytest
 
 from phase4_core import Phase4Core
@@ -70,3 +72,55 @@ def test_workflow_seed_contains_through_cirp_076(tmp_path):
     definitions = WorkflowService(store).definitions()
     assert {"CIRP-057", "CIRP-068", "CIRP-076"}.issubset({item["step_code"] for item in definitions})
     assert WorkflowService(store).summary(case["id"])["vdr_authorized_recipients"] == 0
+
+
+def _quotation_payload(requirement_id, **overrides):
+    payload = {
+        "valuation_requirement_id": requirement_id,
+        "corporate_debtor_name": "ABC Limited", "nclt_bench": "Mumbai Bench",
+        "cirp_commencement_date": "2026-08-01", "admission_order_date": "2026-08-01",
+        "order_received_date": "2026-08-03", "professional_name": "Test RP",
+        "ibbi_registration_number": "IBBI/TEST/001", "professional_role": "RP",
+        "recipient_name": "Valuer A", "recipient_email": "valuer.a@example.test",
+        "process_email": "cirp.abc@example.test", "quotation_due_date": "2026-08-10",
+    }
+    return payload | overrides
+
+
+def test_valuer_quotation_template_is_parameterised_not_reference_case_text(tmp_path):
+    _, case, core = _core(tmp_path)
+    requirement = core.valuation_record(case["id"], "REQUIREMENT", {"status": "CONFIRMED", "asset_classes": ["LAND_BUILDING"]}, ACTOR)
+    preview = core.quotation_preview(case["id"], _quotation_payload(requirement["id"]), ACTOR)
+    body = preview["data"]["body"]
+    for value in ("ABC Limited", "Mumbai Bench", "1 August 2026", "3 August 2026", "Test RP", "Land & Building"):
+        assert value in body
+    for reference_only in ("KESHAV PROTEINS", "13th April 2026", "21st April 2026", "Securities & Financial Assets and Plant & Machinery"):
+        assert reference_only not in body
+
+
+def test_valuer_quotation_renders_multiple_confirmed_asset_classes(tmp_path):
+    _, case, core = _core(tmp_path)
+    requirement = core.valuation_record(case["id"], "REQUIREMENT", {"status": "CONFIRMED", "asset_classes": ["PLANT_MACHINERY", "SECURITIES_FINANCIAL_ASSETS"]}, ACTOR)
+    preview = core.quotation_preview(case["id"], _quotation_payload(requirement["id"]), ACTOR)
+    assert "Plant & Machinery and Securities & Financial Assets" in preview["data"]["body"]
+
+
+def test_valuer_quotation_issue_is_idempotent_and_records_event(tmp_path):
+    store, case, core = _core(tmp_path)
+    requirement = core.valuation_record(case["id"], "REQUIREMENT", {"status": "CONFIRMED", "asset_classes": ["LAND_BUILDING"]}, ACTOR)
+    preview = core.quotation_preview(case["id"], _quotation_payload(requirement["id"], idempotency_key="quote-a"), ACTOR)
+    issued = core.issue_quotation_invitation(case["id"], preview["id"], ACTOR)
+    replay = core.issue_quotation_invitation(case["id"], preview["id"], ACTOR)
+    assert issued["status"] == "ISSUED" and replay["idempotent_replay"] is True
+    with store.connect() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM communications WHERE case_id=? AND linked_id=?", (case["id"], preview["id"])).fetchone()[0] == 1
+        event = connection.execute("SELECT metadata_json FROM case_events WHERE case_id=? AND event_type='VALUER_QUOTATION_INVITED'", (case["id"],)).fetchone()
+        assert event and json.loads(event["metadata_json"])["workflow_step_code"] == "CIRP-068"
+
+
+def test_valuer_quotation_rejects_a_requirement_from_another_case(tmp_path):
+    store, case, core = _core(tmp_path)
+    other = store.create_case({"name": "Other Limited", "process_type": "CIRP", "commencement_date": "2026-08-01"}, ACTOR)
+    requirement = core.valuation_record(other["id"], "REQUIREMENT", {"status": "CONFIRMED", "asset_classes": ["LAND_BUILDING"]}, ACTOR)
+    with pytest.raises(KeyError):
+        core.quotation_preview(case["id"], _quotation_payload(requirement["id"]), ACTOR)

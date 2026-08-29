@@ -14,6 +14,7 @@ import sqlite3
 
 from database import CasefileDatabase, _from_json, _json, new_id, utc_now
 from workflow import EventEngine
+from valuer_quotation import render_quotation_invitation
 
 
 CONFIDENTIAL_LEVELS = {"NORMAL", "CONFIDENTIAL_CIRP", "RESTRICTED_VALUATION", "RESTRICTED_RESOLUTION_PLAN"}
@@ -297,6 +298,55 @@ class Phase4Core:
     # Valuation ---------------------------------------------------------------
     def valuation_record(self, case_id: str, record_type: str, payload: Dict[str, Any], actor_id: str, event: Optional[str] = None) -> Dict[str, Any]:
         return self.create(case_id, "valuation", record_type, {"record_key": str(payload.get("asset_class") or payload.get("contact_id") or ""), "parent_record_id": payload.get("parent_record_id"), "status": payload.get("status", "DRAFT"), "effective_date": payload.get("date") or payload.get("appointment_date") or payload.get("received_date"), "document_id": payload.get("document_id"), "confidentiality_level": payload.get("confidentiality_level", "CONFIDENTIAL_CIRP"), "amount": payload.get("amount") or payload.get("professional_fee"), "tax_amount": payload.get("tax_amount") or payload.get("gst"), "data": payload, "idempotency_key": payload.get("idempotency_key")}, actor_id, event)
+
+    def quotation_preview(self, case_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        """Create or return an editable draft using a confirmed requirement's asset classes."""
+        requirement_id = str(payload.get("valuation_requirement_id") or "")
+        requirement = self.get(case_id, requirement_id)
+        if requirement["record_type"] != "REQUIREMENT" or requirement["status"] not in {"CONFIRMED", "APPROVED", "ACTIVE"}:
+            raise ValueError("A confirmed valuation requirement is required before preparing a quotation invitation")
+        case = self.store.get_case(case_id) or {}
+        values = dict(payload) | {
+            "corporate_debtor_name": payload.get("corporate_debtor_name") or case.get("name"),
+            "nclt_bench": payload.get("nclt_bench") or case.get("nclt_bench"),
+            "admission_order_date": payload.get("admission_order_date") or case.get("order_date"),
+            "cirp_commencement_date": payload.get("cirp_commencement_date") or case.get("commencement_date"),
+            "asset_classes": payload.get("asset_classes") or requirement["data"].get("asset_classes") or [requirement["data"].get("asset_class")],
+        }
+        rendered = render_quotation_invitation(values)
+        record = self.create(case_id, "valuation", "QUOTATION_REQUEST", {
+            "parent_record_id": requirement_id, "record_key": str(payload.get("recipient_contact_id") or payload.get("recipient_email") or payload.get("recipient_name") or ""),
+            "status": "DRAFT", "idempotency_key": payload.get("idempotency_key"),
+            "data": values | rendered | {"template_source": "OFFICE_EMAIL_VALUER_QUOTATION"},
+        }, actor_id)
+        return record
+
+    def issue_quotation_invitation(self, case_id: str, request_id: str, actor_id: str) -> Dict[str, Any]:
+        request = self.get(case_id, request_id)
+        if request["record_type"] != "QUOTATION_REQUEST":
+            raise ValueError("Quotation request not found")
+        if request["status"] == "ISSUED":
+            return request | {"idempotent_replay": True}
+        if request["status"] != "DRAFT":
+            raise ValueError("Only a draft quotation invitation may be issued")
+        data = request["data"]
+        communication = self.store.create_module_record(case_id, "communications", {
+            "channel": "Email", "direction": "OUTBOUND", "occurred_at": utc_now(), "sender": data.get("process_email", ""),
+            "recipients": data.get("recipient_email", ""), "subject": data["subject"], "summary": data["body"],
+            "delivery_status": "ISSUED", "linked_type": "phase4_record", "linked_id": request_id,
+        }, actor_id)
+        result = self.update(case_id, request_id, {"status": "ISSUED", "data": {"communication_id": communication["id"], "issued_at": utc_now()}}, actor_id)
+        self._emit(case_id, "VALUER_QUOTATION_INVITED", actor_id, request_id, {"workflow_step_code": "CIRP-068", "communication_id": communication["id"]})
+        return result
+
+    def record_quotation_dispatch(self, case_id: str, request_id: str, payload: Dict[str, Any], actor_id: str) -> Dict[str, Any]:
+        request = self.get(case_id, request_id)
+        if request["status"] != "ISSUED":
+            raise ValueError("Issue the quotation invitation before recording dispatch")
+        communication_id = request["data"].get("communication_id")
+        if not communication_id: raise ValueError("Issued communication is missing")
+        communication = self.store.update_module_record(case_id, "communications", communication_id, {"delivery_status": "DISPATCH_RECORDED", "proof_document_id": payload.get("proof_document_id")}, actor_id)
+        return self.add_item(case_id, request_id, {"item_key": str(payload.get("idempotency_key") or "DISPATCH"), "status": "DISPATCH_RECORDED", "document_id": payload.get("proof_document_id"), "data": {"communication_id": communication_id, **payload}}, actor_id)
 
     def verify_valuer_declaration(self, case_id: str, declaration_id: str, actor_id: str, status: str = "VERIFIED") -> Dict[str, Any]:
         if status not in {"VERIFIED", "REJECTED"}: raise ValueError("Declaration must be verified or rejected")

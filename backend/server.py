@@ -2886,6 +2886,7 @@ async def phase4_action(case_id: str, action: str, payload: Dict[str, Any], curr
             "interim_finance": lambda: phase4.interim_finance(case_id, payload, current["id"]),
             "section28": lambda: phase4.section28_review(case_id, payload, current["id"]),
             "valuation": lambda: phase4.valuation_record(case_id, str(payload["record_type"]).upper(), payload, current["id"], payload.get("event_type")),
+            "valuer_quotation_preview": lambda: phase4.quotation_preview(case_id, payload, current["id"]),
             "im_initialize": lambda: phase4.initialize_im(case_id, current["id"]),
             "undertaking": lambda: phase4.undertaking(case_id, payload, current["id"]),
             "cost_allocation_snapshot": lambda: phase4.cost_allocation_snapshot(case_id, payload["cost_statement_id"], current["id"], payload.get("allocation_date")),
@@ -2901,6 +2902,8 @@ async def phase4_action(case_id: str, action: str, payload: Dict[str, Any], curr
         if action == "section19_file": return phase4.file_section19(case_id, payload["record_id"], payload, current["id"])
         if action == "section28_decide": return phase4.decide_section28(case_id, payload["record_id"], payload, current["id"])
         if action == "valuer_declaration_verify": return phase4.verify_valuer_declaration(case_id, payload["record_id"], current["id"], payload.get("status", "VERIFIED"))
+        if action == "valuer_quotation_issue": return phase4.issue_quotation_invitation(case_id, payload["record_id"], current["id"])
+        if action == "valuer_quotation_dispatch": return phase4.record_quotation_dispatch(case_id, payload["record_id"], payload, current["id"])
         if action == "valuation_assignment_activate": return phase4.activate_assignment(case_id, payload["record_id"], current["id"])
         if action == "im_version": return phase4.im_version(case_id, payload["workspace_id"], payload, current["id"])
         if action == "undertaking_verify": return phase4.verify_undertaking(case_id, payload["record_id"], current["id"], payload.get("status", "VERIFIED"))
