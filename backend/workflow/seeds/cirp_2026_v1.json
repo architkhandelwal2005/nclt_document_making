@@ -51,6 +51,10 @@
       "sequence": 7,
       "description": "Controlled operational registers, valuation, information memorandum and restricted virtual data room access.",
       "is_active": true
+    },
+    {
+      "code": "TRANSACTION_AUDIT_AVOIDANCE", "name": "Transaction Audit & Avoidance", "sequence": 8,
+      "description": "Manual transaction-audit evidence, layered professional review, avoidance decisions and continuing application tracking.", "is_active": true
     }
   ],
   "steps": [
@@ -563,7 +567,15 @@
     },
     {
       "step_code": "CIRP-076", "phase_code": "OPERATIONS_VALUATION_IM", "sequence": 76, "day_trigger_text": "After undertaking", "legal_reference": "Section 29", "area": "Virtual Data Room", "activity": "Maintain VDR index, recipient access grant/revocation and access log without duplicating files.", "standard_output": "Controlled VDR Index", "automation_type": "SEMI", "approval_role": "RP", "trigger_event_type": "VDR_ACCESS_GRANTED", "task_title": "Control VDR access", "default_priority": "high", "effective_from": "2026-06-09"
-    }
+    },
+    {"step_code":"CIRP-077","phase_code":"TRANSACTION_AUDIT_AVOIDANCE","sequence":77,"day_trigger_text":"Early CIRP / review commencement","legal_reference":"Sections 43-51, 66","area":"Transaction Review Scope","activity":"Define professional-confirmed review scope and look-back periods without system legal inference.","standard_output":"Transaction Review Plan","automation_type":"SEMI","approval_role":"RP / legal","trigger_event_type":"TRANSACTION_AUDIT_REQUIRED","task_title":"Define transaction review scope","default_priority":"high","effective_from":"2026-06-09"},
+    {"step_code":"CIRP-078","phase_code":"TRANSACTION_AUDIT_AVOIDANCE","sequence":78,"day_trigger_text":"Potential finding / review","legal_reference":"Section 43","area":"Preference Review","activity":"Maintain evidence-led preferential transaction review; final classification stays with RP/legal.","standard_output":"Preference Review Matrix","automation_type":"SEMI","approval_role":"RP / legal","trigger_event_type":"TRANSACTION_FINDING_CREATED","task_title":"Review potential preferences","default_priority":"high","effective_from":"2026-06-09"},
+    {"step_code":"CIRP-079","phase_code":"TRANSACTION_AUDIT_AVOIDANCE","sequence":79,"day_trigger_text":"Potential finding / review","legal_reference":"Sections 45-48","area":"Undervalue Review","activity":"Maintain evidence-led undervalue review; final classification stays with RP/legal.","standard_output":"Undervalue Review Matrix","automation_type":"SEMI","approval_role":"RP / legal","trigger_event_type":"TRANSACTION_FINDING_CREATED","task_title":"Review potential undervalue","default_priority":"high","effective_from":"2026-06-09"},
+    {"step_code":"CIRP-080","phase_code":"TRANSACTION_AUDIT_AVOIDANCE","sequence":80,"day_trigger_text":"Potential finding / review","legal_reference":"Sections 50-51","area":"Extortionate Credit Review","activity":"Maintain extortionate-credit review and permit confirmed no-finding completion.","standard_output":"Extortionate Credit Review Matrix","automation_type":"SEMI","approval_role":"RP / legal","trigger_event_type":"TRANSACTION_FINDING_CREATED","task_title":"Review extortionate credit","default_priority":"high","effective_from":"2026-06-09"},
+    {"step_code":"CIRP-081","phase_code":"TRANSACTION_AUDIT_AVOIDANCE","sequence":81,"day_trigger_text":"Potential finding / review","legal_reference":"Section 66","area":"Section 66 Review","activity":"Maintain neutral narrative Section 66 review; no system fraud accusation or liability conclusion.","standard_output":"Section 66 Review Matrix","automation_type":"LEGAL","approval_role":"RP / legal","trigger_event_type":"TRANSACTION_FINDING_CREATED","task_title":"Review Section 66 indicators","default_priority":"high","effective_from":"2026-06-09"},
+    {"step_code":"CIRP-082","phase_code":"TRANSACTION_AUDIT_AVOIDANCE","sequence":82,"day_trigger_text":"Review commencement","legal_reference":"Related parties","area":"Related Party Review","activity":"Confirm/link related parties and review material transactions with source evidence.","standard_output":"Related Party Review","automation_type":"SEMI","approval_role":"RP / legal","trigger_event_type":"RELATED_PARTY_STATUS_CONFIRMED","task_title":"Review related-party transactions","default_priority":"high","effective_from":"2026-06-09"},
+    {"step_code":"CIRP-083","phase_code":"TRANSACTION_AUDIT_AVOIDANCE","sequence":83,"day_trigger_text":"Potential finding identified","legal_reference":"Avoidance provisions","area":"Avoidance Decision","activity":"Record distinct RP review, legal review and confirmed action decision before application preparation.","standard_output":"Avoidance IA / Professional Decision","automation_type":"LEGAL","approval_role":"RP / legal","trigger_event_type":"AVOIDANCE_DECISION_CONFIRMED","task_title":"Decide avoidance action","default_priority":"high","effective_from":"2026-06-09"},
+    {"step_code":"CIRP-084","phase_code":"TRANSACTION_AUDIT_AVOIDANCE","sequence":84,"day_trigger_text":"After application","legal_reference":"Avoidance proceedings","area":"Avoidance Case Tracker","activity":"Track application, pleadings, hearing and orders independently of the main CIRP outcome.","standard_output":"Avoidance Case Tracker","automation_type":"AUTO","approval_role":"RP / legal","trigger_event_type":"AVOIDANCE_APPLICATION_FILED","task_title":"Track avoidance proceeding","default_priority":"high","effective_from":"2026-06-09"}
   ],
   "dependencies": [
     {"parent_step_code": "CIRP-001", "child_step_code": "CIRP-021", "dependency_type": "TRIGGERED_BY"},
@@ -608,6 +620,14 @@
     {"parent_step_code": "CIRP-072", "child_step_code": "CIRP-073", "dependency_type": "TRIGGERED_BY"},
     {"parent_step_code": "CIRP-073", "child_step_code": "CIRP-074", "dependency_type": "TRIGGERED_BY"},
     {"parent_step_code": "CIRP-074", "child_step_code": "CIRP-075", "dependency_type": "TRIGGERED_BY"},
-    {"parent_step_code": "CIRP-075", "child_step_code": "CIRP-076", "dependency_type": "TRIGGERED_BY"}
+    {"parent_step_code": "CIRP-075", "child_step_code": "CIRP-076", "dependency_type": "TRIGGERED_BY"},
+    {"parent_step_code":"CIRP-076","child_step_code":"CIRP-077","dependency_type":"TRIGGERED_BY"},
+    {"parent_step_code":"CIRP-077","child_step_code":"CIRP-078","dependency_type":"TRIGGERED_BY"},
+    {"parent_step_code":"CIRP-078","child_step_code":"CIRP-079","dependency_type":"TRIGGERED_BY"},
+    {"parent_step_code":"CIRP-079","child_step_code":"CIRP-080","dependency_type":"TRIGGERED_BY"},
+    {"parent_step_code":"CIRP-080","child_step_code":"CIRP-081","dependency_type":"TRIGGERED_BY"},
+    {"parent_step_code":"CIRP-081","child_step_code":"CIRP-082","dependency_type":"TRIGGERED_BY"},
+    {"parent_step_code":"CIRP-082","child_step_code":"CIRP-083","dependency_type":"TRIGGERED_BY"},
+    {"parent_step_code":"CIRP-083","child_step_code":"CIRP-084","dependency_type":"TRIGGERED_BY"}
   ]
 }

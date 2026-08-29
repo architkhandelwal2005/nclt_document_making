@@ -31,6 +31,7 @@ from claims_workflow import ClaimsWorkflow, QUERY_TEMPLATES
 from claims_coc_core import ClaimsCocCore
 from coc_meeting_core import CocMeetingCore
 from phase4_core import Phase4Core
+from transaction_audit_core import TransactionAuditCore
 from workflow import EventEngine, WorkflowError, WorkflowService
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
@@ -97,6 +98,7 @@ nclt_fetcher = NcltOrderFetcherService(casefile_store, DATA_DIR)
 admission_ai = AdmissionAIService(casefile_store, DATA_DIR)
 claim_bundle_ai = ClaimBundleService(casefile_store, DATA_DIR)
 phase4 = Phase4Core(casefile_store)
+transaction_audit = TransactionAuditCore(casefile_store)
 
 # In-memory state (resets on restart)
 LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
@@ -780,12 +782,22 @@ def _workflow_services() -> tuple[WorkflowService, EventEngine]:
     return WorkflowService(casefile_store), EventEngine(casefile_store)
 
 
+def _transaction_audit_services() -> TransactionAuditCore:
+    """Bind Phase 5 service calls to the active store (including test stores)."""
+    return TransactionAuditCore(casefile_store)
+
+
 def _phase4_error(exc: Exception) -> HTTPException:
     if isinstance(exc, KeyError):
         return HTTPException(status_code=404, detail=str(exc).strip("'"))
     if isinstance(exc, PermissionError):
         return HTTPException(status_code=403, detail={"code": "VDR_ACCESS_DENIED", "message": str(exc)})
     return HTTPException(status_code=422, detail={"code": "PHASE4_VALIDATION", "message": str(exc)})
+
+
+def _transaction_audit_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, KeyError): return HTTPException(status_code=404, detail=str(exc).strip("'"))
+    return HTTPException(status_code=422, detail={"code": "TRANSACTION_AUDIT_VALIDATION", "message": str(exc)})
 
 # ---------------- Matter and profile routes ----------------
 @api_router.get("/cases")
@@ -2810,7 +2822,7 @@ async def download_case_file(case_id: str, document_id: str, current=Depends(get
     record = casefile_store.get_module_record(case_id, "documents", document_id)
     if not record or not record.get("storage_path"):
         raise HTTPException(status_code=404, detail="Document file not found")
-    if str(record.get("confidentiality_classification") or "NORMAL").upper() in {"RESTRICTED_VALUATION", "RESTRICTED_RESOLUTION_PLAN"} and current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+    if str(record.get("confidentiality_classification") or "NORMAL").upper() in {"RESTRICTED_VALUATION", "RESTRICTED_RESOLUTION_PLAN", "RESTRICTED_TRANSACTION_AUDIT", "RESTRICTED_LEGAL"} and current.get("role") not in {"admin", "administrator", "professional", "manager"}:
         raise HTTPException(status_code=403, detail={"code": "RESTRICTED_DOCUMENT", "message": "Use the controlled VDR access route for this document."})
     candidate = (DATA_DIR / record["storage_path"]).resolve()
     files_root = CASE_FILES_DIR.resolve()
@@ -2914,6 +2926,59 @@ async def phase4_action(case_id: str, action: str, payload: Dict[str, Any], curr
     except HTTPException: raise
     except Exception as exc:
         raise _phase4_error(exc) from exc
+
+# ---------------- Phase 5: transaction audit and avoidance ----------------
+@api_router.post("/cases/{case_id}/transaction-audit/actions/{action}")
+async def transaction_audit_action(case_id: str, action: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    require_case_access(case_id, current); require_professional_action(current, action.replace("_", " "))
+    action = action.lower()
+    service = _transaction_audit_services()
+    try:
+        if action == "engagement": return service.engagement(case_id, payload, current["id"])
+        if action == "scope": return service.scope(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "quotation_preview": return service.quotation_preview(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "quotation_issue": return service.issue_quotation(case_id, payload["request_id"], current["id"])
+        if action == "quotation_dispatch": return service.record_quotation_dispatch(case_id, payload["request_id"], payload, current["id"])
+        if action == "quotation_response": return service.quotation_response(case_id, payload["request_id"], payload, current["id"])
+        if action == "auditor_select": return service.select_auditor(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "auditor_appoint": return service.appoint_auditor(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "document_requirement": return service.document_requirement(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "document_requirement_status": return service.requirement_status(case_id, payload["requirement_id"], payload, current["id"])
+        if action == "bank_coverage": return service.bank_coverage(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "bank_coverage_update": return service.update_bank_coverage(case_id, payload["coverage_id"], payload, current["id"])
+        if action == "related_party": return service.related_party(case_id, payload, current["id"])
+        if action == "related_party_confirm": return service.confirm_related_party(case_id, payload["related_party_id"], payload["status"], current["id"])
+        if action == "workstream": return service.workstream(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "workstream_complete": return service.complete_workstream(case_id, payload["workstream_id"], payload, current["id"])
+        if action == "transaction": return service.transaction(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "finding": return service.finding(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "finding_finalize": return service.finalize_finding(case_id, payload["finding_id"], current["id"])
+        if action == "finding_party": return service.finding_party(case_id, payload["finding_id"], payload, current["id"])
+        if action == "source_index": return service.source_index_entry(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "finding_evidence": return service.finding_evidence(case_id, payload["finding_id"], payload, current["id"])
+        if action == "report_version": return service.report_version(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "finding_rp_review": return service.review_finding(case_id, payload["finding_id"], "RP", payload, current["id"])
+        if action == "finding_legal_review": return service.review_finding(case_id, payload["finding_id"], "LEGAL", payload, current["id"])
+        if action == "avoidance_decision": return service.avoidance_decision(case_id, payload["engagement_id"], payload, current["id"])
+        if action == "avoidance_application": return service.avoidance_application(case_id, payload["decision_id"], payload, current["id"])
+        if action == "avoidance_application_update": return service.update_avoidance_application(case_id, payload["avoidance_application_id"], payload, current["id"])
+        raise HTTPException(status_code=404, detail="Unknown transaction audit action")
+    except HTTPException: raise
+    except Exception as exc: raise _transaction_audit_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/transaction-audit/engagements/{engagement_id}/availability")
+async def transaction_audit_availability(case_id: str, engagement_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    try: return _transaction_audit_services().availability_summary(case_id, engagement_id)
+    except Exception as exc: raise _transaction_audit_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/transaction-audit/{register}")
+async def transaction_audit_register(case_id: str, register: str, engagement_id: Optional[str] = None, current=Depends(get_current_user)):
+    require_case_access(case_id, current)
+    try: return _transaction_audit_services().list(case_id, register, engagement_id)
+    except Exception as exc: raise _transaction_audit_error(exc) from exc
 
 # ---------------- Root ----------------
 @api_router.get("/")

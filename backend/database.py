@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -2064,6 +2064,79 @@ class CasefileDatabase:
                     occurred_at TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS ix_vdr_access_log_case ON vdr_access_logs(case_id, occurred_at DESC);
+
+                CREATE TABLE IF NOT EXISTS transaction_audit_engagements (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), auditor_contact_id TEXT REFERENCES contacts(id),
+                    status TEXT NOT NULL DEFAULT 'DRAFT', quotation_request_id TEXT REFERENCES phase4_records(id), selection_record_id TEXT REFERENCES phase4_records(id),
+                    coc_meeting_id TEXT REFERENCES coc_meetings(id), coc_resolution_id TEXT REFERENCES coc_resolutions(id), appointment_date TEXT,
+                    scope_confirmed_date TEXT, audit_period_from TEXT, audit_period_to TEXT, draft_report_due_date TEXT, final_report_due_date TEXT,
+                    draft_report_document_id TEXT REFERENCES documents(id), final_report_document_id TEXT REFERENCES documents(id), rp_comments_status TEXT NOT NULL DEFAULT 'NOT_STARTED',
+                    remarks TEXT NOT NULL DEFAULT '', data_json TEXT NOT NULL DEFAULT '{}', idempotency_key TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    UNIQUE(case_id, idempotency_key)
+                );
+                CREATE TABLE IF NOT EXISTS transaction_review_scopes (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE,
+                    review_type TEXT NOT NULL, counterparty_scope TEXT NOT NULL DEFAULT 'ALL', period_from TEXT, period_to TEXT, anchor_date TEXT,
+                    basis TEXT NOT NULL DEFAULT '', legal_reference_text TEXT NOT NULL DEFAULT '', rule_id TEXT, rule_version TEXT, system_calculated_date TEXT,
+                    status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED', confirmed_by TEXT REFERENCES users(id), confirmed_at TEXT, superseded_by TEXT REFERENCES transaction_review_scopes(id),
+                    data_json TEXT NOT NULL DEFAULT '{}', idempotency_key TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    UNIQUE(case_id, idempotency_key)
+                );
+                CREATE TABLE IF NOT EXISTS transaction_audit_document_requirements (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE,
+                    category TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', period_from TEXT, period_to TEXT, requested_from TEXT NOT NULL DEFAULT '', requested_date TEXT, required_date TEXT,
+                    status TEXT NOT NULL DEFAULT 'REQUESTED', received_date TEXT, management_requisition_record_id TEXT REFERENCES phase4_records(id), auditor_request_reference TEXT NOT NULL DEFAULT '',
+                    rp_remarks TEXT NOT NULL DEFAULT '', auditor_remarks TEXT NOT NULL DEFAULT '', deficiency TEXT NOT NULL DEFAULT '', followup_count INTEGER NOT NULL DEFAULT 0,
+                    reviewed_by TEXT REFERENCES users(id), reviewed_at TEXT, data_json TEXT NOT NULL DEFAULT '{}', idempotency_key TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    UNIQUE(case_id, idempotency_key)
+                );
+                CREATE TABLE IF NOT EXISTS transaction_audit_requirement_documents (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), requirement_id TEXT NOT NULL REFERENCES transaction_audit_document_requirements(id) ON DELETE CASCADE,
+                    document_id TEXT NOT NULL REFERENCES documents(id), created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, UNIQUE(requirement_id, document_id)
+                );
+                CREATE TABLE IF NOT EXISTS transaction_audit_bank_coverages (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE,
+                    bank_name TEXT NOT NULL, account_identifier_masked TEXT NOT NULL DEFAULT '', account_type TEXT NOT NULL DEFAULT '', required_period_from TEXT, required_period_to TEXT,
+                    available_period_from TEXT, available_period_to TEXT, coverage_status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED', remarks TEXT NOT NULL DEFAULT '', data_json TEXT NOT NULL DEFAULT '{}',
+                    created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS transaction_audit_bank_documents (
+                    id TEXT PRIMARY KEY, bank_coverage_id TEXT NOT NULL REFERENCES transaction_audit_bank_coverages(id) ON DELETE CASCADE, case_id TEXT NOT NULL REFERENCES cases(id), document_id TEXT NOT NULL REFERENCES documents(id), created_at TEXT NOT NULL, UNIQUE(bank_coverage_id, document_id)
+                );
+                CREATE TABLE IF NOT EXISTS case_related_parties (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), contact_id TEXT NOT NULL REFERENCES contacts(id), relationship_type TEXT NOT NULL, relationship_description TEXT NOT NULL DEFAULT '', effective_from TEXT, effective_to TEXT,
+                    source TEXT NOT NULL DEFAULT '', source_document_id TEXT REFERENCES documents(id), confirmed_status TEXT NOT NULL DEFAULT 'UNVERIFIED', confirmed_by TEXT REFERENCES users(id), confirmed_at TEXT, remarks TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(case_id, contact_id, relationship_type, effective_from)
+                );
+                CREATE TABLE IF NOT EXISTS transaction_review_workstreams (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE, scope_id TEXT REFERENCES transaction_review_scopes(id),
+                    review_type TEXT NOT NULL, assigned_to TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'NOT_STARTED', start_date TEXT, completion_date TEXT, review_conclusion TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+                    professional_confirmed_by TEXT REFERENCES users(id), professional_confirmed_at TEXT, created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(case_id, engagement_id, review_type)
+                );
+                CREATE TABLE IF NOT EXISTS transaction_audit_transactions (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE, workstream_id TEXT REFERENCES transaction_review_workstreams(id),
+                    transaction_date TEXT, narration TEXT NOT NULL DEFAULT '', transaction_amount_paise INTEGER NOT NULL DEFAULT 0, counterparty_contact_id TEXT REFERENCES contacts(id), related_party_id TEXT REFERENCES case_related_parties(id),
+                    source_reference TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'UNREVIEWED', data_json TEXT NOT NULL DEFAULT '{}', created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS transaction_findings (
+                    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE, workstream_id TEXT REFERENCES transaction_review_workstreams(id),
+                    finding_number TEXT NOT NULL, auditor_classification TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'DRAFT', title TEXT NOT NULL, narrative TEXT NOT NULL DEFAULT '', finding_amount_paise INTEGER NOT NULL DEFAULT 0,
+                    transaction_amount_paise INTEGER NOT NULL DEFAULT 0, estimated_impact_paise INTEGER NOT NULL DEFAULT 0, amount_recoverable_paise INTEGER NOT NULL DEFAULT 0, auditor_finalized_by TEXT REFERENCES users(id), auditor_finalized_at TEXT,
+                    data_json TEXT NOT NULL DEFAULT '{}', created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(case_id, finding_number)
+                );
+                CREATE TABLE IF NOT EXISTS transaction_finding_parties (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), finding_id TEXT NOT NULL REFERENCES transaction_findings(id) ON DELETE CASCADE, contact_id TEXT NOT NULL REFERENCES contacts(id), party_role TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(finding_id,contact_id,party_role));
+                CREATE TABLE IF NOT EXISTS transaction_audit_source_index (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE, document_id TEXT NOT NULL REFERENCES documents(id), source_category TEXT NOT NULL, source_reference TEXT NOT NULL DEFAULT '', period_from TEXT, period_to TEXT, received_from TEXT NOT NULL DEFAULT '', received_date TEXT, availability_status TEXT NOT NULL DEFAULT 'RECEIVED', relied_upon INTEGER NOT NULL DEFAULT 0, remarks TEXT NOT NULL DEFAULT '', data_json TEXT NOT NULL DEFAULT '{}', created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, UNIQUE(engagement_id,document_id,source_reference));
+                CREATE TABLE IF NOT EXISTS transaction_finding_evidence (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), finding_id TEXT NOT NULL REFERENCES transaction_findings(id) ON DELETE CASCADE, document_id TEXT NOT NULL REFERENCES documents(id), source_index_id TEXT REFERENCES transaction_audit_source_index(id), page_reference TEXT NOT NULL DEFAULT '', exhibit_reference TEXT NOT NULL DEFAULT '', document_version INTEGER, remarks TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, UNIQUE(finding_id,document_id,page_reference,exhibit_reference));
+                CREATE TABLE IF NOT EXISTS transaction_finding_reviews (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), finding_id TEXT NOT NULL REFERENCES transaction_findings(id) ON DELETE CASCADE, review_layer TEXT NOT NULL, status TEXT NOT NULL, opinion_text TEXT NOT NULL DEFAULT '', document_id TEXT REFERENCES documents(id), reviewed_by TEXT NOT NULL REFERENCES users(id), reviewed_at TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(finding_id,review_layer));
+                CREATE TABLE IF NOT EXISTS avoidance_decisions (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT REFERENCES transaction_audit_engagements(id), status TEXT NOT NULL DEFAULT 'DRAFT', decision TEXT NOT NULL DEFAULT 'NO_CURRENT_AVOIDANCE_DECISION', rationale TEXT NOT NULL DEFAULT '', confirmed_by TEXT REFERENCES users(id), confirmed_at TEXT, superseded_by TEXT REFERENCES avoidance_decisions(id), created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS avoidance_decision_findings (id TEXT PRIMARY KEY, decision_id TEXT NOT NULL REFERENCES avoidance_decisions(id) ON DELETE CASCADE, finding_id TEXT NOT NULL REFERENCES transaction_findings(id), created_at TEXT NOT NULL, UNIQUE(decision_id,finding_id));
+                CREATE TABLE IF NOT EXISTS avoidance_applications (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), decision_id TEXT NOT NULL REFERENCES avoidance_decisions(id), application_id TEXT REFERENCES applications(id), hearing_id TEXT REFERENCES hearings(id), status TEXT NOT NULL DEFAULT 'DRAFT', ia_number TEXT NOT NULL DEFAULT '', filed_date TEXT, next_hearing_date TEXT, order_document_id TEXT REFERENCES documents(id), data_json TEXT NOT NULL DEFAULT '{}', created_by TEXT NOT NULL REFERENCES users(id), updated_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS avoidance_application_findings (id TEXT PRIMARY KEY, avoidance_application_id TEXT NOT NULL REFERENCES avoidance_applications(id) ON DELETE CASCADE, finding_id TEXT NOT NULL REFERENCES transaction_findings(id), created_at TEXT NOT NULL, UNIQUE(avoidance_application_id,finding_id));
+                CREATE TABLE IF NOT EXISTS transaction_audit_report_versions (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT NOT NULL REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE, report_type TEXT NOT NULL, version_number INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'DRAFT', document_id TEXT REFERENCES documents(id), received_date TEXT, auditor_contact_id TEXT REFERENCES contacts(id), remarks TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, finalized_by TEXT REFERENCES users(id), finalized_at TEXT, UNIQUE(engagement_id,report_type,version_number));
+                CREATE INDEX IF NOT EXISTS ix_transaction_findings_case ON transaction_findings(case_id,status);
+                CREATE INDEX IF NOT EXISTS ix_transaction_requirements_case ON transaction_audit_document_requirements(case_id,status);
                 """
             )
             self._ensure_column(connection, "coc_cost_statements", "expense_period_label", "TEXT NOT NULL DEFAULT ''")
@@ -2077,6 +2150,15 @@ class CasefileDatabase:
             self._ensure_column(connection, "coc_cost_statement_rows", "approval_status", "TEXT NOT NULL DEFAULT 'DRAFT'")
             self._ensure_column(connection, "coc_cost_statement_rows", "payment_date", "TEXT")
             self._ensure_column(connection, "coc_cost_statement_rows", "payment_reference", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "transaction_audit_source_index", "received_from", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "transaction_audit_source_index", "received_date", "TEXT")
+            self._ensure_column(connection, "transaction_audit_source_index", "availability_status", "TEXT NOT NULL DEFAULT 'RECEIVED'")
+            self._ensure_column(connection, "transaction_audit_source_index", "relied_upon", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column(connection, "transaction_audit_source_index", "remarks", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(connection, "transaction_finding_evidence", "document_version", "INTEGER")
+            self._ensure_column(connection, "transaction_audit_report_versions", "received_date", "TEXT")
+            self._ensure_column(connection, "transaction_audit_report_versions", "auditor_contact_id", "TEXT REFERENCES contacts(id)")
+            self._ensure_column(connection, "avoidance_applications", "hearing_id", "TEXT REFERENCES hearings(id)")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_number ON claims(case_id, claim_number) WHERE claim_number <> ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_claims_case_idempotency ON claims(case_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''")
             connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_coc_meetings_case_number ON coc_meetings(case_id, meeting_number) WHERE archived_at IS NULL")
