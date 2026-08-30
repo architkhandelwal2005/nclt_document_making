@@ -2,6 +2,19 @@
 
 Scope: CIRP-085 through CIRP-105 only. Automated tests verify software controls; they do not constitute UAT (User Acceptance Testing, meaning confirmation by office users that the workflow matches actual practice).
 
+## Operator interface
+
+1. Start Casefile locally and sign in with an administrator, professional or manager account.
+2. Open the company being tested and select **Resolution Process** in the company-module bar.
+3. Begin at **Control room**. The six readiness gates show which downstream stages are currently available.
+4. Work from left to right through: **EOI process → PRA & EOI → Eligibility & lists → RFRP & bid period → Plans & compliance → Evaluation & CoC → NCLT approval**.
+5. Select an action from the left-hand action list. All record and document choices are restricted to the selected company.
+6. Use **Stage register → Inspect** after each action to verify the retained data, version, status, evidence and immutable snapshot.
+7. Upload genuine office documents in the company **Documents** module before selecting them in publication, RFRP, Plan, security or NCLT actions.
+8. Prepare and verify the Information Memorandum, confidentiality undertaking, VDR workspace, CoC meeting/agenda and CoC voting result in their existing modules before using the corresponding Phase 6 integration actions.
+
+Do not use client-confidential data for the first UAT pass. Use a clearly identified synthetic test company and synthetic documents until the office confirms the workflow sequence.
+
 Reference status:
 
 - Keshav EOI PDF, including Annexure A, Annexure B and Annexure C: inspected and used as an operational specification.

@@ -11,6 +11,7 @@ import CocWorkspace from "../components/CocWorkspace";
 import PublicAnnouncementWorkspace from "../components/PublicAnnouncementWorkspace";
 import NcltOrderFetcher from "../components/NcltOrderFetcher";
 import ClaimsWorkspace from "../components/ClaimsWorkspace";
+import ResolutionProcessWorkspace from "../components/ResolutionProcessWorkspace";
 import { CocVoting, OrdersAndDirections } from "../components/LinkedWorkflows";
 import {
   applicationConfig, assetConfig, cocMeetingConfig, cocMemberConfig,
@@ -21,6 +22,7 @@ import {
 const tabs = [
   ["overview", "Overview"], ["nclt-fetcher", "NCLT Orders"], ["intake", "Admission Intake"], ["public-announcement", "Public Announcement"], ["tasks", "Tasks"], ["compliance", "Compliance"],
   ["hearings", "Hearings & Applications"], ["claims", "Claims"], ["coc", "CoC"],
+  ["resolution-process", "Resolution Process"],
   ["contacts", "Contacts"], ["documents", "Documents"], ["communications", "Communications"],
   ["assets", "Assets & Finance"], ["valuations", "Valuation"], ["expenses", "Expenses"],
   ["activity", "Activity"],
@@ -79,6 +81,7 @@ function ModuleContent({ tab, caseRecord, onUpdated }) {
   if (tab === "hearings") return <div className="space-y-6"><Manager caseId={caseId} config={hearingConfig} /><Manager caseId={caseId} config={applicationConfig} /><OrdersAndDirections caseId={caseId} /></div>;
   if (tab === "claims") return <ClaimsWorkspace caseRecord={caseRecord} />;
   if (tab === "coc") return <div className="space-y-6"><Manager caseId={caseId} config={cocMemberConfig} /><Manager caseId={caseId} config={cocMeetingConfig} /><CocWorkspace caseRecord={caseRecord} /><CocVoting caseId={caseId} /></div>;
+  if (tab === "resolution-process") return <ResolutionProcessWorkspace caseRecord={caseRecord} />;
   if (tab === "contacts") return <ContactsManager caseId={caseId} />;
   if (tab === "documents") return <DocumentsManager caseRecord={caseRecord} />;
   if (tab === "communications") return <Manager caseId={caseId} config={communicationConfig} />;
