@@ -32,6 +32,7 @@ from claims_coc_core import ClaimsCocCore
 from coc_meeting_core import CocMeetingCore
 from phase4_core import Phase4Core
 from transaction_audit_core import TransactionAuditCore
+from phase6_core import Phase6Core
 from workflow import EventEngine, WorkflowError, WorkflowService
 
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
@@ -99,6 +100,7 @@ admission_ai = AdmissionAIService(casefile_store, DATA_DIR)
 claim_bundle_ai = ClaimBundleService(casefile_store, DATA_DIR)
 phase4 = Phase4Core(casefile_store)
 transaction_audit = TransactionAuditCore(casefile_store)
+phase6 = Phase6Core(casefile_store)
 
 # In-memory state (resets on restart)
 LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
@@ -787,6 +789,11 @@ def _transaction_audit_services() -> TransactionAuditCore:
     return TransactionAuditCore(casefile_store)
 
 
+def _phase6_services() -> Phase6Core:
+    """Bind Phase 6 calls to the active store, including isolated test stores."""
+    return Phase6Core(casefile_store)
+
+
 def _phase4_error(exc: Exception) -> HTTPException:
     if isinstance(exc, KeyError):
         return HTTPException(status_code=404, detail=str(exc).strip("'"))
@@ -798,6 +805,14 @@ def _phase4_error(exc: Exception) -> HTTPException:
 def _transaction_audit_error(exc: Exception) -> HTTPException:
     if isinstance(exc, KeyError): return HTTPException(status_code=404, detail=str(exc).strip("'"))
     return HTTPException(status_code=422, detail={"code": "TRANSACTION_AUDIT_VALIDATION", "message": str(exc)})
+
+
+def _phase6_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, KeyError):
+        return HTTPException(status_code=404, detail={"code": "PHASE6_NOT_FOUND", "message": str(exc).strip("'")})
+    if isinstance(exc, PermissionError):
+        return HTTPException(status_code=403, detail={"code": "PHASE6_ACCESS_DENIED", "message": str(exc)})
+    return HTTPException(status_code=422, detail={"code": "PHASE6_VALIDATION", "message": str(exc)})
 
 # ---------------- Matter and profile routes ----------------
 @api_router.get("/cases")
@@ -879,7 +894,10 @@ async def get_compliance_rules(current=Depends(get_current_user)):
 async def get_case_report(case_id: str, current=Depends(get_current_user)):
     require_case_access(case_id, current)
     try:
-        return casefile_store.case_report(case_id)
+        report = casefile_store.case_report(case_id)
+        if Phase6Core.can_read_sensitive(current.get("role", "")):
+            report["resolution_process"] = _phase6_services().summary(case_id)
+        return report
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Case not found") from exc
 
@@ -2822,7 +2840,7 @@ async def download_case_file(case_id: str, document_id: str, current=Depends(get
     record = casefile_store.get_module_record(case_id, "documents", document_id)
     if not record or not record.get("storage_path"):
         raise HTTPException(status_code=404, detail="Document file not found")
-    if str(record.get("confidentiality_classification") or "NORMAL").upper() in {"RESTRICTED_VALUATION", "RESTRICTED_RESOLUTION_PLAN", "RESTRICTED_TRANSACTION_AUDIT", "RESTRICTED_LEGAL"} and current.get("role") not in {"admin", "administrator", "professional", "manager"}:
+    if str(record.get("confidentiality_classification") or "NORMAL").upper() in {"RESTRICTED_VALUATION", "RESTRICTED_PRA", "RESTRICTED_RESOLUTION_PLAN", "RESTRICTED_EVALUATION", "RESTRICTED_TRANSACTION_AUDIT", "RESTRICTED_LEGAL"} and current.get("role") not in {"admin", "administrator", "professional", "manager"}:
         raise HTTPException(status_code=403, detail={"code": "RESTRICTED_DOCUMENT", "message": "Use the controlled VDR access route for this document."})
     candidate = (DATA_DIR / record["storage_path"]).resolve()
     files_root = CASE_FILES_DIR.resolve()
@@ -2979,6 +2997,102 @@ async def transaction_audit_register(case_id: str, register: str, engagement_id:
     require_case_access(case_id, current)
     try: return _transaction_audit_services().list(case_id, register, engagement_id)
     except Exception as exc: raise _transaction_audit_error(exc) from exc
+
+
+# ---------------- Phase 6: EOI, PRA and resolution plans ----------------
+def _require_phase6_read(current: Dict[str, str]) -> None:
+    if not Phase6Core.can_read_sensitive(current.get("role", "")):
+        raise HTTPException(status_code=403, detail={
+            "code": "PHASE6_ACCESS_DENIED",
+            "message": "PRA, Resolution Plan and evaluation records require professional access.",
+        })
+
+
+@api_router.get("/cases/{case_id}/resolution-process/summary")
+async def phase6_summary(case_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current); _require_phase6_read(current)
+    try: return _phase6_services().summary(case_id)
+    except Exception as exc: raise _phase6_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/resolution-process/records/{record_id}")
+async def phase6_record(case_id: str, record_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current); _require_phase6_read(current)
+    try: return _phase6_services().get(case_id, record_id)
+    except Exception as exc: raise _phase6_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/resolution-process/register/{record_type}")
+async def phase6_register(case_id: str, record_type: str, pra_id: Optional[str] = None, current=Depends(get_current_user)):
+    require_case_access(case_id, current); _require_phase6_read(current)
+    try: return _phase6_services().list(case_id, record_type, pra_id)
+    except Exception as exc: raise _phase6_error(exc) from exc
+
+
+@api_router.get("/cases/{case_id}/resolution-process/checklists/{checklist_id}/summary")
+async def phase6_checklist_summary(case_id: str, checklist_id: str, current=Depends(get_current_user)):
+    require_case_access(case_id, current); _require_phase6_read(current)
+    try: return _phase6_services().checklist_summary(case_id, checklist_id)
+    except Exception as exc: raise _phase6_error(exc) from exc
+
+
+@api_router.post("/cases/{case_id}/resolution-process/actions/{action}")
+async def phase6_action(case_id: str, action: str, payload: Dict[str, Any], current=Depends(get_current_user)):
+    """Expose named professional gates without duplicating existing subsystems."""
+    require_case_access(case_id, current); require_professional_action(current, action.replace("_", " "))
+    service, actor, action = _phase6_services(), current["id"], action.lower()
+    try:
+        if action == "eoi_process": return service.eoi_process(case_id, payload, actor)
+        if action == "eligibility_criterion": return service.eligibility_criterion(case_id, payload["process_id"], payload, actor)
+        if action == "eoi_approve": return service.approve_eoi_process(case_id, payload["process_id"], payload, actor)
+        if action == "eoi_publish": return service.publish_eoi_process(case_id, payload["process_id"], payload, actor)
+        if action == "eoi_revise": return service.revise_eoi_process(case_id, payload["process_id"], payload, actor)
+        if action == "pra": return service.pra(case_id, payload, actor)
+        if action == "consortium_member": return service.consortium_member(case_id, payload["consortium_id"], payload, actor)
+        if action == "eoi_submission": return service.eoi_submission(case_id, payload["process_id"], payload["pra_id"], payload, actor)
+        if action == "eoi_checklist": return service.eoi_checklist(case_id, payload["submission_id"], payload, actor)
+        if action == "deposit": return service.process_deposit(case_id, payload["pra_id"], payload, actor, payload.get("process_id"))
+        if action == "eligibility_review": return service.eligibility_review(case_id, payload["pra_id"], payload, actor, payload.get("submission_id"), payload.get("process_id"))
+        if action == "eligibility_item": return service.eligibility_checklist_item(case_id, payload["review_id"], payload, actor)
+        if action == "eligibility_finalize": return service.finalize_eligibility(case_id, payload["review_id"], payload, actor)
+        if action == "connected_person": return service.connected_person(case_id, payload["pra_id"], payload, actor)
+        if action == "provisional_list": return service.provisional_list(case_id, payload["process_id"], payload, actor)
+        if action == "final_list": return service.final_list(case_id, payload["process_id"], payload, actor)
+        if action == "list_approve": return service.approve_list(case_id, payload["list_id"], actor)
+        if action == "list_issue": return service.issue_list(case_id, payload["list_id"], payload, actor)
+        if action == "objection": return service.objection(case_id, payload["provisional_list_id"], payload["pra_id"], payload, actor)
+        if action == "objection_decide": return service.decide_objection(case_id, payload["objection_id"], payload, actor)
+        if action == "rfrp": return service.rfrp(case_id, payload["process_id"], payload, actor)
+        if action == "evaluation_matrix": return service.evaluation_matrix(case_id, payload["process_id"], payload, actor)
+        if action == "matrix_criterion": return service.matrix_criterion(case_id, payload["matrix_id"], payload, actor)
+        if action == "process_document_approve": return service.approve_process_document(case_id, payload["record_id"], payload, actor)
+        if action == "process_document_issue": return service.issue_process_document(case_id, payload["record_id"], payload, actor)
+        if action == "issue_package": return service.issue_package(case_id, payload["process_id"], payload["pra_id"], payload, actor)
+        if action == "pra_query": return service.pra_query(case_id, payload["process_id"], payload["pra_id"], payload, actor)
+        if action == "pra_query_respond": return service.respond_query(case_id, payload["query_id"], payload, actor)
+        if action == "site_visit": return service.site_visit(case_id, payload["process_id"], payload["pra_id"], payload, actor)
+        if action == "addendum": return service.addendum(case_id, payload["process_id"], payload, actor)
+        if action == "deadline_revision": return service.deadline_revision(case_id, payload["process_id"], payload, actor)
+        if action == "resolution_plan": return service.resolution_plan(case_id, payload["process_id"], payload["pra_id"], payload, actor)
+        if action == "section30_review": return service.section30_review(case_id, payload["plan_id"], payload, actor)
+        if action == "section30_finalize": return service.finalize_section30(case_id, payload["review_id"], payload, actor)
+        if action == "final_eligibility_recheck": return service.final_eligibility_recheck(case_id, payload["plan_id"], payload, actor)
+        if action == "plan_query": return service.plan_query(case_id, payload["plan_id"], payload, actor)
+        if action == "plan_query_respond": return service.respond_plan_query(case_id, payload["query_id"], payload, actor)
+        if action == "evaluate_plan": return service.evaluate_plan(case_id, payload["plan_id"], payload["matrix_id"], payload, actor)
+        if action == "negotiation": return service.negotiation_process(case_id, payload["process_id"], payload, actor)
+        if action == "negotiation_round": return service.negotiation_round(case_id, payload["negotiation_id"], payload, actor)
+        if action == "negotiation_submission": return service.negotiation_submission(case_id, payload["round_id"], payload["plan_id"], payload, actor)
+        if action == "negotiation_round_close": return service.close_negotiation_round(case_id, payload["round_id"], payload, actor)
+        if action == "place_before_coc": return service.place_before_coc(case_id, payload["plan_id"], payload, actor)
+        if action == "link_plan_vote": return service.link_plan_vote(case_id, payload["plan_id"], payload, actor)
+        if action == "successful_ra": return service.successful_ra(case_id, payload["plan_id"], payload, actor)
+        if action == "performance_security_verify": return service.verify_performance_security(case_id, payload["sra_id"], payload["deposit_id"], actor)
+        if action == "plan_approval": return service.plan_approval_workspace(case_id, payload["sra_id"], payload, actor)
+        if action == "plan_approval_order": return service.record_plan_approval_order(case_id, payload["workspace_id"], payload, actor)
+        raise HTTPException(status_code=404, detail="Unknown Resolution Process action")
+    except HTTPException: raise
+    except Exception as exc: raise _phase6_error(exc) from exc
 
 # ---------------- Root ----------------
 @api_router.get("/")

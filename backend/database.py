@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -2137,6 +2137,114 @@ class CasefileDatabase:
                 CREATE TABLE IF NOT EXISTS transaction_audit_report_versions (id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES cases(id), engagement_id TEXT NOT NULL REFERENCES transaction_audit_engagements(id) ON DELETE CASCADE, report_type TEXT NOT NULL, version_number INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'DRAFT', document_id TEXT REFERENCES documents(id), received_date TEXT, auditor_contact_id TEXT REFERENCES contacts(id), remarks TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, finalized_by TEXT REFERENCES users(id), finalized_at TEXT, UNIQUE(engagement_id,report_type,version_number));
                 CREATE INDEX IF NOT EXISTS ix_transaction_findings_case ON transaction_findings(case_id,status);
                 CREATE INDEX IF NOT EXISTS ix_transaction_requirements_case ON transaction_audit_document_requirements(case_id,status);
+
+                /* CIRP-085--105: one coherent EOI/PRA/resolution-plan domain.
+                   The typed aggregate ledger keeps every issued version and
+                   professional decision immutable without duplicating the
+                   existing document, VDR, CoC, voting, application or hearing
+                   engines.  Domain validation lives in phase6_core. */
+                CREATE TABLE IF NOT EXISTS resolution_process_records (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    record_type TEXT NOT NULL,
+                    process_id TEXT REFERENCES resolution_process_records(id),
+                    pra_id TEXT REFERENCES resolution_process_records(id),
+                    plan_id TEXT REFERENCES resolution_process_records(id),
+                    parent_record_id TEXT REFERENCES resolution_process_records(id),
+                    version_number INTEGER NOT NULL DEFAULT 1,
+                    status TEXT NOT NULL DEFAULT 'DRAFT',
+                    effective_date TEXT,
+                    document_id TEXT REFERENCES documents(id),
+                    confidentiality_level TEXT NOT NULL DEFAULT 'RESTRICTED_PRA',
+                    data_json TEXT NOT NULL DEFAULT '{}',
+                    snapshot_json TEXT NOT NULL DEFAULT '{}',
+                    immutable_at TEXT,
+                    immutable_by TEXT REFERENCES users(id),
+                    idempotency_key TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    updated_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_resolution_process_case_type
+                    ON resolution_process_records(case_id,record_type,status,created_at DESC);
+                CREATE INDEX IF NOT EXISTS ix_resolution_process_pra
+                    ON resolution_process_records(case_id,pra_id,record_type,created_at DESC);
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_resolution_process_idempotency
+                    ON resolution_process_records(case_id,idempotency_key)
+                    WHERE idempotency_key <> '';
+
+                CREATE TABLE IF NOT EXISTS resolution_process_items (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    record_id TEXT NOT NULL REFERENCES resolution_process_records(id) ON DELETE CASCADE,
+                    item_type TEXT NOT NULL,
+                    item_key TEXT NOT NULL,
+                    sequence INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'REQUIRED',
+                    response TEXT NOT NULL DEFAULT '',
+                    document_id TEXT REFERENCES documents(id),
+                    data_json TEXT NOT NULL DEFAULT '{}',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    updated_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(record_id,item_type,item_key)
+                );
+                CREATE INDEX IF NOT EXISTS ix_resolution_process_items
+                    ON resolution_process_items(case_id,record_id,item_type,sequence);
+
+                CREATE TABLE IF NOT EXISTS resolution_process_links (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    record_id TEXT NOT NULL REFERENCES resolution_process_records(id) ON DELETE CASCADE,
+                    linked_record_id TEXT REFERENCES resolution_process_records(id),
+                    document_id TEXT REFERENCES documents(id),
+                    external_entity_type TEXT NOT NULL DEFAULT '',
+                    external_entity_id TEXT NOT NULL DEFAULT '',
+                    link_type TEXT NOT NULL,
+                    data_json TEXT NOT NULL DEFAULT '{}',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL,
+                    UNIQUE(record_id,linked_record_id,document_id,external_entity_type,external_entity_id,link_type)
+                );
+
+                CREATE TABLE IF NOT EXISTS resolution_process_dispatches (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    record_id TEXT NOT NULL REFERENCES resolution_process_records(id) ON DELETE CASCADE,
+                    pra_id TEXT REFERENCES resolution_process_records(id),
+                    recipient TEXT NOT NULL DEFAULT '',
+                    dispatch_type TEXT NOT NULL,
+                    dispatched_at TEXT NOT NULL,
+                    proof_document_id TEXT REFERENCES documents(id),
+                    version_snapshot_json TEXT NOT NULL DEFAULT '{}',
+                    idempotency_key TEXT NOT NULL DEFAULT '',
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_resolution_dispatch_idempotency
+                    ON resolution_process_dispatches(case_id,idempotency_key)
+                    WHERE idempotency_key <> '';
+
+                CREATE TABLE IF NOT EXISTS process_deadline_revisions (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL REFERENCES cases(id),
+                    process_record_id TEXT NOT NULL REFERENCES resolution_process_records(id),
+                    deadline_key TEXT NOT NULL,
+                    old_date TEXT,
+                    new_date TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    approval_source TEXT NOT NULL,
+                    coc_meeting_id TEXT REFERENCES coc_meetings(id),
+                    coc_resolution_id TEXT REFERENCES coc_resolutions(id),
+                    effective_date TEXT NOT NULL,
+                    addendum_record_id TEXT REFERENCES resolution_process_records(id),
+                    created_by TEXT NOT NULL REFERENCES users(id),
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_process_deadline_revision
+                    ON process_deadline_revisions(case_id,process_record_id,deadline_key,created_at);
                 """
             )
             self._ensure_column(connection, "coc_cost_statements", "expense_period_label", "TEXT NOT NULL DEFAULT ''")
