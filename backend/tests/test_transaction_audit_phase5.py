@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import server
 from database import CasefileDatabase
 from transaction_audit_core import TransactionAuditCore
+from transaction_auditor_quotation import render_transaction_auditor_quotation
 from workflow import WorkflowService
 from test_claims_coc_phase2 import ACTOR, build_standard_coc
 
@@ -75,11 +76,14 @@ def test_quotation_bank_source_exhibit_and_report_versions(tmp_path):
         "review_type": "PREFERENTIAL", "period_from": "2024-08-01", "period_to": "2026-08-01",
         "status": "CONFIRMED", "professional_confirmed": True,
     }, ACTOR)
-    values = {"recipient_contact_id": recipient["id"], "professional_name": "Demo RP", "ibbi_registration_number": "IBBI/IPA-001", "process_email": "cirp@example.test", "idempotency_key": "quote-abc"}
+    values = {"recipient_contact_id": recipient["id"], "professional_name": "Demo RP", "professional_role": "RP", "ibbi_registration_number": "IBBI/IPA-001", "afa_validity": "31-12-2027", "process_email": "cirp@example.test", "ibbi_email": "rp@example.test", "professional_office_address": "2 Professional Road", "quotation_due_date": "2026-08-20", "quotation_due_time": "02:00 PM", "idempotency_key": "quote-abc"}
     quote = core.quotation_preview(case["id"], engagement["id"], values, ACTOR)
     replay = core.quotation_preview(case["id"], engagement["id"], values, ACTOR)
     assert quote["id"] == replay["id"] and replay["idempotent_replay"] is True
-    assert "1 August 2024 to 1 August 2026" in quote["data"]["body"]
+    body = quote["data"]["body"]
+    assert "1st August 2024 to 1st August 2026" in body
+    assert "Further, it may please be noted" in body and "02:00 PM" in body
+    assert "Process Specific Email ID: cirp@example.test" in body
     issued = core.issue_quotation(case["id"], quote["id"], ACTOR)
     assert core.issue_quotation(case["id"], quote["id"], ACTOR)["idempotent_replay"] is True
     proof = _document(store, case["id"], "Dispatch proof")
@@ -102,6 +106,44 @@ def test_quotation_bank_source_exhibit_and_report_versions(tmp_path):
     final = core.report_version(case["id"], engagement["id"], {"status": "FINAL", "document_id": source["id"], "received_date": "2026-08-14"}, ACTOR)
     assert (draft["version_number"], final["version_number"], final["status"]) == (1, 2, "FINAL")
     assert scope["status"] == "CONFIRMED"
+
+
+def test_transaction_auditor_renderer_tracks_office_structure_without_hardcoded_periods():
+    rendered = render_transaction_auditor_quotation({
+        "corporate_debtor_name": "Example Components Limited",
+        "registered_office_address": "10 Industrial Estate, Pune",
+        "nclt_bench": "Mumbai Bench",
+        "cirp_commencement_date": "2027-02-05",
+        "admission_order_date": "2027-02-05",
+        "order_received_date": "2027-02-08",
+        "professional_name": "Ms. Example Professional",
+        "professional_role": "RP",
+        "ibbi_registration_number": "IBBI/IPA-TEST/00001",
+        "afa_validity": "31-12-2027",
+        "professional_office_address": "20 Professional Avenue, Mumbai",
+        "process_email": "cirp.example@example.com",
+        "ibbi_email": "professional@example.com",
+        "recipient_name": "Independent Audit LLP",
+        "quotation_due_date": "2027-02-20",
+        "quotation_due_time": "02:00 PM",
+        "confirmed_scopes": [
+            {"review_type": "PREFERENTIAL", "period_from": "2025-02-05", "period_to": "2027-02-05", "status": "CONFIRMED"},
+            {"review_type": "FRAUDULENT_WRONGFUL", "period_from": "2023-04-01", "period_to": "2027-02-05", "status": "CONFIRMED"},
+            {"review_type": "UNDERVALUE", "period_from": "2026-02-05", "period_to": "2027-02-05", "status": "REVIEW_REQUIRED"},
+        ],
+    })
+    body = rendered["body"]
+    assert body.startswith("Dear Sir,")
+    assert "Copy of order received on 8th February 2027" in body
+    assert "a) Preferential transactions under section 43" in body
+    assert "5th February 2025 to 5th February 2027" in body
+    assert "b) Fraudulent or wrongful transactions under section 66" in body
+    assert "1st April 2023 till 5th February 2027" in body
+    assert "Undervalued transactions" not in body
+    assert "Further, it may please be noted" in body
+    assert "AFA valid till 31-12-2027" in body
+    assert "Keshav Proteins" not in body and "01.04.2021" not in body and "for 2 years" not in body
+    assert rendered["recipient_name"] == "Independent Audit LLP"
 
 
 def test_many_findings_one_application_requires_both_reviews(tmp_path):
