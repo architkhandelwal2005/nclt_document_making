@@ -164,6 +164,9 @@ class CocMeetingCore:
             result["resolutions"] = [dict(row) for row in connection.execute(
                 "SELECT * FROM coc_resolutions WHERE case_id=? AND meeting_id=? ORDER BY resolution_number", (case_id, meeting_id)
             ).fetchall()]
+            result["voting_results"] = [dict(row) for row in connection.execute(
+                "SELECT * FROM coc_voting_results WHERE case_id=? AND meeting_id=? ORDER BY calculated_at", (case_id, meeting_id)
+            ).fetchall()]
             result["minutes_versions"] = [dict(row) for row in connection.execute(
                 "SELECT * FROM coc_minutes_versions WHERE case_id=? AND meeting_id=? ORDER BY version_number", (case_id, meeting_id)
             ).fetchall()]

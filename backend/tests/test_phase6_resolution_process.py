@@ -268,7 +268,10 @@ def test_coc_voting_sra_security_and_plan_approval_reuse_existing_engines(tmp_pa
         coc.record_vote(case["id"], meeting["id"], session["id"], resolution["id"], {"meeting_member_snapshot_id": member["id"], "vote": "FOR"}, ACTOR)
     coc.close_voting(case["id"], meeting["id"], session["id"], ACTOR)
     result = coc.calculate_voting_result(case["id"], meeting["id"], session["id"], resolution["id"], ACTOR)
+    with pytest.raises(ValueError, match="Only a FINAL"):
+        core.link_plan_vote(case["id"], plan["id"], {"voting_result_id": result["id"]}, ACTOR)
     result = coc.finalize_voting_result(case["id"], meeting["id"], result["id"], ACTOR)
+    assert [item["id"] for item in coc.get_meeting(case["id"], meeting["id"])["voting_results"]] == [result["id"]]
     vote = core.link_plan_vote(case["id"], plan["id"], {"voting_result_id": result["id"]}, ACTOR)
     sra = core.successful_ra(case["id"], plan["id"], {"plan_vote_link_id": vote["id"], "professional_confirmed": True, "performance_security_required": True}, ACTOR)
     assert sra["status"] == "PERFORMANCE_SECURITY_PENDING"

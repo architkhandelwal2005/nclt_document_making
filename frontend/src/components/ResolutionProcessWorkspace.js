@@ -53,7 +53,7 @@ const ACTIONS = [
     id: "eoi_approve", stage: "process", title: "Approve EOI process", submit: "Confirm approval",
     note: "At least one entered eligibility criterion is required.",
     confirm: "Approve this EOI process version? Its criteria and entered terms will become the approved basis for publication.",
-    fields: [record("process_id", "EOI process", "EOI_PROCESS", { required: true, statuses: ["DRAFT", "COC_REVIEW", "APPROVED"] }), field("coc_meeting_id", "CoC meeting", "meeting"), field("coc_resolution_id", "CoC resolution ID"), field("approval_note", "Professional / CoC approval note", "textarea", { full: true }), confirmation],
+    fields: [record("process_id", "EOI process", "EOI_PROCESS", { required: true, statuses: ["DRAFT", "COC_REVIEW", "APPROVED"] }), field("coc_meeting_id", "CoC meeting", "meeting"), field("coc_resolution_id", "CoC resolution", "cocResolution"), field("approval_note", "Professional / CoC approval note", "textarea", { full: true }), confirmation],
   },
   {
     id: "eoi_publish", stage: "process", title: "Publish approved EOI", submit: "Publish and freeze",
@@ -192,8 +192,8 @@ const ACTIONS = [
   },
   {
     id: "link_plan_vote", stage: "decision", title: "Link finalized CoC vote", submit: "Link vote to Plan",
-    note: "Use the finalized voting-result identifier produced by the existing CoC voting workflow.",
-    fields: [record("plan_id", "Exact voted Plan version", "RESOLUTION_PLAN", { required: true }), field("voting_result_id", "Finalized CoC voting-result ID", "text", { required: true }), field("outcome", "Outcome", "select", { options: options(["APPROVED", "REJECTED", "PENDING"]), default: "APPROVED" }), field("idempotency_key", "Control reference", "text", { autoKey: "plan-vote" })],
+    note: "Select the finalized result from the existing CoC voting workflow. Only votes for the selected Plan's agenda placement are shown.",
+    fields: [record("plan_id", "Exact voted Plan version", "RESOLUTION_PLAN", { required: true }), field("voting_result_id", "Finalized CoC voting result", "votingResult", { required: true }), field("outcome", "Outcome", "select", { options: options(["APPROVED", "REJECTED", "PENDING"]), default: "APPROVED" }), field("idempotency_key", "Control reference", "text", { autoKey: "plan-vote" })],
   },
   {
     id: "successful_ra", stage: "decision", title: "Record Successful RA", submit: "Confirm selection", confirm: "Confirm the Successful Resolution Applicant for this exact approved Plan version?",
@@ -283,6 +283,24 @@ function phase4Label(item) {
   return [item.record_type?.replaceAll("_", " "), data.version_label || data.recipient_name || item.record_key, item.status].filter(Boolean).join(" · ");
 }
 
+function meetingLabel(number) {
+  const value = Number(number);
+  if (!Number.isFinite(value)) return "CoC meeting";
+  const mod100 = value % 100;
+  const suffix = mod100 >= 11 && mod100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[value % 10] || "th");
+  return `${String(value).padStart(2, "0")}${suffix} CoC Meeting`;
+}
+
+export function finalizedVotingResults(resources, registers, planId = "") {
+  const placements = (registers.COC_PLAN_PLACEMENT || []).filter(item => !planId || item.plan_id === planId);
+  const agendaItemIds = new Set(placements.map(item => item.data?.agenda_item_id).filter(Boolean));
+  return resources.votingResults.filter(item => {
+    if (String(item.status).toUpperCase() !== "FINAL") return false;
+    const resolution = resources.resolutions.find(row => row.id === item.resolution_id);
+    return !planId || Boolean(resolution && agendaItemIds.has(resolution.agenda_item_id));
+  });
+}
+
 function matchingRecords(spec, registers) {
   const rows = (spec.recordTypes || []).flatMap(type => registers[type] || []);
   return rows.filter(item => {
@@ -311,6 +329,18 @@ function FieldControl({ spec, value, onChange, registers, resources, formContext
     return <select {...common}><option value="">Select existing record</option>{rows.map(item => <option key={item.id} value={item.id}>{phase4Label(item)}</option>)}</select>;
   }
   if (spec.type === "meeting") return <select {...common}><option value="">Select CoC meeting</option>{resources.meetings.map(item => <option key={item.id} value={item.id}>Meeting {item.meeting_number} · {item.scheduled_start_at || item.meeting_at || item.status}</option>)}</select>;
+  if (spec.type === "cocResolution") {
+    const rows = resources.resolutions.filter(item => !formContext.coc_meeting_id || item.meeting_id === formContext.coc_meeting_id);
+    return <select {...common}><option value="">Select CoC resolution</option>{rows.map(item => <option key={item.id} value={item.id}>{meetingLabel(item.meeting_number)} · {item.title || item.resolution_number} · {item.status}</option>)}</select>;
+  }
+  if (spec.type === "votingResult") {
+    const rows = finalizedVotingResults(resources, registers, formContext.plan_id);
+    return <select {...common}><option value="">Select finalized voting result</option>{rows.map(item => {
+      const resolution = resources.resolutions.find(row => row.id === item.resolution_id);
+      const finalized = (item.finalized_at || item.calculated_at || "").slice(0, 10) || "date not recorded";
+      return <option key={item.id} value={item.id}>{meetingLabel(item.meeting_number)} · {resolution?.title || "Resolution vote"} · {item.result} · Finalized {finalized}</option>;
+    })}</select>;
+  }
   if (spec.type === "agenda") {
     const rows = resources.agendas.filter(item => !formContext.meeting_id || item.meeting_id === formContext.meeting_id);
     return <select {...common}><option value="">Select agenda version</option>{rows.map(item => <option key={item.id} value={item.id}>Meeting {item.meeting_number} · Agenda V{item.version_number} · {item.status}</option>)}</select>;
@@ -378,7 +408,7 @@ export default function ResolutionProcessWorkspace({ caseRecord }) {
   const [selectedAction, setSelectedAction] = useState("");
   const [summary, setSummary] = useState({});
   const [registers, setRegisters] = useState({});
-  const [resources, setResources] = useState({ documents: [], meetings: [], agendas: [], phase4: { im: [], confidentiality: [], vdr: [] } });
+  const [resources, setResources] = useState({ documents: [], meetings: [], agendas: [], resolutions: [], votingResults: [], phase4: { im: [], confidentiality: [], vdr: [] } });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [denied, setDenied] = useState(false);
@@ -405,6 +435,8 @@ export default function ResolutionProcessWorkspace({ caseRecord }) {
       setResources({
         documents: documentResponse.data || [], meetings: meetingDetails,
         agendas: meetingDetails.flatMap(meeting => (meeting.agendas || []).map(agenda => ({ ...agenda, meeting_number: meeting.meeting_number }))),
+        resolutions: meetingDetails.flatMap(meeting => (meeting.resolutions || []).map(resolution => ({ ...resolution, meeting_number: meeting.meeting_number }))),
+        votingResults: meetingDetails.flatMap(meeting => (meeting.voting_results || []).map(result => ({ ...result, meeting_number: meeting.meeting_number }))),
         phase4: { im: phase4Results[0], confidentiality: phase4Results[1], vdr: phase4Results[2] },
       });
     } catch (error) {

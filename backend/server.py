@@ -4,7 +4,8 @@ import os
 
 SOURCE_ROOT = Path(__file__).parent
 ROOT_DIR = Path(os.environ.get("CASEFILE_APP_DIR", SOURCE_ROOT))
-load_dotenv(ROOT_DIR / ".env")
+ENV_FILE = Path(os.environ.get("CASEFILE_ENV_FILE", ROOT_DIR / ".env"))
+load_dotenv(ENV_FILE)
 
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
@@ -50,7 +51,7 @@ import jwt
 from docx import Document
 from docx.shared import Inches
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase.pdfmetrics import stringWidth
@@ -65,11 +66,15 @@ CUSTOM_TEMPLATE_DIR = TEMPLATE_DIR / "custom"
 CUSTOM_TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR = Path(os.environ.get("CASEFILE_DATA_DIR", ROOT_DIR / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-CASE_FILES_DIR = DATA_DIR / "files"
+CASE_FILES_DIR = Path(os.environ.get("CASEFILE_DOCUMENTS_DIR", DATA_DIR / "files"))
 CASE_FILES_DIR.mkdir(parents=True, exist_ok=True)
 LOCAL_DATA_FILE = DATA_DIR / "casefile.json"
 DATABASE_FILE = Path(os.environ.get("CASEFILE_DATABASE_PATH", DATA_DIR / "casefile.db"))
 LOCAL_DATA_LOCK = threading.RLock()
+APP_ENVIRONMENT = os.environ.get("CASEFILE_ENVIRONMENT", "DEVELOPMENT").strip().upper()
+SERVE_FRONTEND = os.environ.get("CASEFILE_SERVE_FRONTEND", "false").strip().lower() in {"1", "true", "yes", "on"}
+FRONTEND_BUILD_DIR = Path(os.environ.get("CASEFILE_FRONTEND_BUILD_DIR", SOURCE_ROOT.parent / "frontend" / "build"))
+UAT_GUIDE_FILE = SOURCE_ROOT.parent / "docs" / "OFFICE_UAT_SETUP.md"
 
 JWT_ALGORITHM = "HS256"
 JWT_SECRET = os.environ.get("JWT_SECRET", "").strip()
@@ -606,6 +611,22 @@ def _persist_generated_document(record: Dict[str, Any], actor_id: str) -> None:
 
 
 # ---------------- Auth routes ----------------
+@api_router.get("/health")
+async def health_check():
+    """Return a deliberately small operational signal without disclosing data or paths."""
+    database_reachable = False
+    try:
+        with casefile_store.connect() as connection:
+            database_reachable = connection.execute("SELECT 1").fetchone()[0] == 1
+    except (OSError, sqlite3.Error):
+        logging.getLogger(__name__).exception("Database health check failed")
+    return {
+        "status": "ok" if database_reachable else "degraded",
+        "database_reachable": database_reachable,
+        "environment": APP_ENVIRONMENT,
+    }
+
+
 @api_router.post("/auth/login", response_model=TokenOut)
 async def login(payload: LoginInput, request: Request):
     email = payload.email.lower().strip()
@@ -3278,6 +3299,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/uat-guide", include_in_schema=False)
+async def uat_guide():
+    if not UAT_GUIDE_FILE.is_file():
+        raise HTTPException(status_code=404, detail="Office UAT guide is not installed")
+    return PlainTextResponse(UAT_GUIDE_FILE.read_text(encoding="utf-8"), media_type="text/plain; charset=utf-8")
+
+
+if SERVE_FRONTEND:
+    frontend_index = FRONTEND_BUILD_DIR / "index.html"
+    if not frontend_index.is_file():
+        raise RuntimeError("Compiled frontend is missing. Run npm run build before starting UAT mode.")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str):
+        """Serve production assets and fall back to index.html for React SPA refreshes."""
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API route not found")
+        build_root = FRONTEND_BUILD_DIR.resolve()
+        candidate = (build_root / full_path).resolve()
+        try:
+            candidate.relative_to(build_root)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="File not found")
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(frontend_index)
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 logger.info("Casefile API ready. Admin: %s", ADMIN_EMAIL)

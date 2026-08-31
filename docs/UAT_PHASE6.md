@@ -2,6 +2,8 @@
 
 Scope: CIRP-085 through CIRP-105 only. Automated tests verify software controls; they do not constitute UAT (User Acceptance Testing, meaning confirmation by office users that the workflow matches actual practice).
 
+For the shared office server, single LAN URL, accounts, firewall and backups, first follow `docs/OFFICE_UAT_SETUP.md` and `docs/OFFICE_UAT_INSTALL_CHECKLIST.md`.
+
 ## Operator interface
 
 1. Start Casefile locally and sign in with an administrator, professional or manager account.

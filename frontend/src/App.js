@@ -37,6 +37,11 @@ const nav = [
   ["settings", "Settings", Settings],
 ];
 
+function EnvironmentBanner({ environment }) {
+  if (environment !== "UAT") return null;
+  return <div className="uat-environment-banner" role="status" data-testid="uat-environment-banner"><b>UAT ENVIRONMENT — TEST DATA ONLY</b><a href="/uat-guide" target="_blank" rel="noreferrer">Help / UAT Guide</a></div>;
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
@@ -46,6 +51,7 @@ export default function App() {
   const [profile, setProfile] = useState({});
   const [activeCase, setActiveCase] = useState(null);
   const [startCreating, setStartCreating] = useState(false);
+  const [environment, setEnvironment] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -54,6 +60,9 @@ export default function App() {
     } catch (error) { toast.error(errorMessage(error, "Could not load the local workspace.")); }
   }, []);
 
+  useEffect(() => {
+    api.get("/health").then(({ data }) => setEnvironment(data.environment || "")).catch(() => setEnvironment(""));
+  }, []);
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) { setChecking(false); return; }
@@ -71,10 +80,10 @@ export default function App() {
   const logout = () => { localStorage.removeItem(TOKEN_KEY); setUser(null); setActiveCase(null); toast.success("Signed out"); };
   const chooseView = id => { setView(id); setActiveCase(null); setStartCreating(false); };
 
-  if (checking) return <div className="app-loading">Loading secure workspace…</div>;
-  if (!user) return <><Login onSuccess={setUser} /><Toaster position="bottom-right" /></>;
+  if (checking) return <><EnvironmentBanner environment={environment} /><div className="app-loading">Loading secure workspace…</div></>;
+  if (!user) return <><EnvironmentBanner environment={environment} /><Login onSuccess={setUser} /><Toaster position="bottom-right" /></>;
   const initials = user.name.split(" ").map(part => part[0]).slice(0, 2).join("").toUpperCase();
   const titles = { dashboard: "Firm Dashboard", cases: "Companies & Cases", tasks: "All Tasks", calendar: "Firm Calendar", "nclt-fetcher": "NCLT Order Fetcher", masters: "Firm Masters", profile: "Professional Profile", settings: "Settings" };
 
-  return <div className="app-shell"><aside className="rail"><div className="brand"><span className="brand-mark">N</span><div><strong>Casefile</strong><small>PRACTICE OS</small></div></div><div className="rail-rule" /><nav>{nav.map(([id, label, Icon]) => <button key={id} className={!activeCase && view === id ? "nav-item active" : "nav-item"} onClick={() => chooseView(id)} data-testid={`nav-${id}-button`}><Icon size={17} />{label}</button>)}</nav><div className="rail-footer"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{user.role.toUpperCase()}</small></div><button className="logout-btn" onClick={logout} title="Sign out" data-testid="logout-button"><LogOut size={15} /></button></div></aside><main className="main-content"><header className="topbar"><div><p className="eyebrow">{activeCase ? "COMPANY WORKSPACE" : "FIRM OPERATIONS"}</p><h1 data-testid="page-title">{activeCase ? activeCase.name : titles[view]}</h1></div><div className="top-status"><span className="status-dot" />Local database</div></header>{activeCase ? <CaseWorkspace caseRecord={activeCase} onBack={() => { setActiveCase(null); setView("cases"); load(); }} onUpdated={updateCase} /> : view === "dashboard" ? <DashboardView dashboard={dashboard} cases={cases} onOpenCase={openCase} onNewCase={() => { setView("cases"); setStartCreating(true); }} /> : view === "cases" ? <CasesView cases={cases} setCases={setCases} onOpenCase={openCase} startCreating={startCreating} onCreatingChange={setStartCreating} /> : view === "profile" ? <ProfileView profile={profile} setProfile={setProfile} /> : view === "tasks" ? <FirmTasksView /> : view === "calendar" ? <CalendarView /> : view === "nclt-fetcher" ? <div className="workspace"><NcltOrderFetcher /></div> : view === "masters" ? <MastersView /> : <SettingsView user={user} />}</main><Toaster position="bottom-right" /></div>;
+  return <><EnvironmentBanner environment={environment} /><div className="app-shell"><aside className="rail"><div className="brand"><span className="brand-mark">N</span><div><strong>Casefile</strong><small>PRACTICE OS</small></div></div><div className="rail-rule" /><nav>{nav.map(([id, label, Icon]) => <button key={id} className={!activeCase && view === id ? "nav-item active" : "nav-item"} onClick={() => chooseView(id)} data-testid={`nav-${id}-button`}><Icon size={17} />{label}</button>)}</nav><div className="rail-footer"><span className="avatar">{initials}</span><div><b>{user.name}</b><small>{user.role.toUpperCase()}</small></div><button className="logout-btn" onClick={logout} title="Sign out" data-testid="logout-button"><LogOut size={15} /></button></div></aside><main className="main-content"><header className="topbar"><div><p className="eyebrow">{activeCase ? "COMPANY WORKSPACE" : "FIRM OPERATIONS"}</p><h1 data-testid="page-title">{activeCase ? activeCase.name : titles[view]}</h1></div><div className="top-status"><span className="status-dot" />{environment === "UAT" ? "Shared UAT database" : "Local database"}</div></header>{activeCase ? <CaseWorkspace caseRecord={activeCase} onBack={() => { setActiveCase(null); setView("cases"); load(); }} onUpdated={updateCase} /> : view === "dashboard" ? <DashboardView dashboard={dashboard} cases={cases} onOpenCase={openCase} onNewCase={() => { setView("cases"); setStartCreating(true); }} /> : view === "cases" ? <CasesView cases={cases} setCases={setCases} onOpenCase={openCase} startCreating={startCreating} onCreatingChange={setStartCreating} /> : view === "profile" ? <ProfileView profile={profile} setProfile={setProfile} /> : view === "tasks" ? <FirmTasksView /> : view === "calendar" ? <CalendarView /> : view === "nclt-fetcher" ? <div className="workspace"><NcltOrderFetcher /></div> : view === "masters" ? <MastersView /> : <SettingsView user={user} />}</main><Toaster position="bottom-right" /></div></>;
 }

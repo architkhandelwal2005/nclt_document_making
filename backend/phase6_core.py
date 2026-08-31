@@ -952,6 +952,22 @@ class Phase6Core:
             result = connection.execute("SELECT * FROM coc_voting_results WHERE id=? AND case_id=?", (result_id, case_id)).fetchone()
             if not result:
                 raise ValueError("Existing CoC voting result does not belong to this case")
+            if str(result["status"]).upper() != "FINAL":
+                raise ValueError("Only a FINAL CoC voting result may be linked to a Resolution Plan")
+            resolution = connection.execute(
+                "SELECT agenda_item_id FROM coc_resolutions WHERE id=? AND case_id=?",
+                (result["resolution_id"], case_id),
+            ).fetchone()
+            placements = connection.execute(
+                "SELECT data_json FROM resolution_process_records WHERE case_id=? AND record_type='COC_PLAN_PLACEMENT' AND plan_id=?",
+                (case_id, plan_id),
+            ).fetchall()
+            valid_agenda_items = {
+                str(_from_json(row["data_json"], {}).get("agenda_item_id") or "")
+                for row in placements
+            }
+            if not resolution or str(resolution["agenda_item_id"]) not in valid_agenda_items:
+                raise ValueError("The finalized vote is not for this Plan's CoC agenda placement")
         vote = self._create(case_id, "PLAN_VOTE_LINK", dict(payload) | {"status": payload.get("outcome", result["result"]), "voting_result_id": result_id, "plan_version": plan["version_number"], "coc_snapshot": _from_json(result["snapshot_json"], {}), "confidentiality_level": "RESTRICTED_RESOLUTION_PLAN"}, actor,
                             process_id=plan["process_id"], pra_id=plan["pra_id"], plan_id=plan_id, event_type="PLAN_VOTING_COMPLETED")
         return vote
