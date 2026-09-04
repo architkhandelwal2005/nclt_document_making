@@ -2,7 +2,10 @@
 FROM node:20-bookworm-slim AS frontend-build
 WORKDIR /build/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+# The retained CRA dependency tree has legacy peer ranges. The lock file is
+# authoritative; this flag prevents npm 10 from rejecting those peer hints in
+# a clean Linux build while preserving the locked package versions.
+RUN npm ci --legacy-peer-deps
 COPY frontend/ ./
 RUN npm run build
 
