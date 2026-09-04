@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: casefile-cirp-office
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: casefile-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: CASEFILE_ENVIRONMENT
+        value: PRODUCTION
+      - key: CASEFILE_SERVE_FRONTEND
+        value: "true"
+      - key: CASEFILE_DATA_DIR
+        value: /var/data
+      - key: CASEFILE_DATABASE_PATH
+        value: /var/data/casefile.db
+      - key: CASEFILE_DOCUMENTS_DIR
+        value: /var/data/files
+      - key: CASEFILE_TEMPLATE_DIR
+        value: /app/backend/templates
+      - key: CASEFILE_CUSTOM_TEMPLATE_DIR
+        value: /var/data/custom_templates
+      - key: CASEFILE_FRONTEND_BUILD_DIR
+        value: /app/frontend/build
+      - key: STORAGE_MODE
+        value: local
+      - key: CORS_ORIGINS
+        value: ""
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CASEFILE_BACKUP_KEY
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        sync: false
+      - key: AI_ENABLED
+        value: "false"
+      - key: NCLT_FETCHER_HEADLESS
+        value: "true"

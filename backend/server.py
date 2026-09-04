@@ -62,7 +62,7 @@ app = FastAPI(title="Casefile Document API", version="2.0.0")
 api_router = APIRouter(prefix="/api")
 
 TEMPLATE_DIR = Path(os.environ.get("CASEFILE_TEMPLATE_DIR", ROOT_DIR / "templates"))
-CUSTOM_TEMPLATE_DIR = TEMPLATE_DIR / "custom"
+CUSTOM_TEMPLATE_DIR = Path(os.environ.get("CASEFILE_CUSTOM_TEMPLATE_DIR", TEMPLATE_DIR / "custom"))
 CUSTOM_TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR = Path(os.environ.get("CASEFILE_DATA_DIR", ROOT_DIR / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -1020,12 +1020,17 @@ async def restore_backup(file: UploadFile = File(...), current=Depends(require_a
 
 @api_router.get("/admin/security-status")
 async def security_status(current=Depends(require_admin)):
+    backup_protection = (
+        "Windows DPAPI encryption for the current Windows user"
+        if os.name == "nt"
+        else "Fernet encryption using the CASEFILE_BACKUP_KEY deployment secret"
+    )
     return {
         "database": "SQLite with foreign keys and transaction journaling",
         "authentication": "bcrypt password hashing and signed expiring sessions",
         "authorization": "role-based writes plus backend-enforced case assignments",
         "audit": "immutable activity and before/after audit entries",
-        "backup": "consistent SQLite backup encrypted for the current Windows user",
+        "backup": f"consistent SQLite backup encrypted with {backup_protection}",
         "file_limit_mb": MAX_CASE_FILE_BYTES // (1024 * 1024),
     }
 
@@ -3292,13 +3297,28 @@ async def download_document(document_id: str, file_format: str, current=Depends(
 
 
 app.include_router(api_router)
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(","),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+
+def configured_cors_origins(environment: str, raw_origins: Optional[str] = None) -> List[str]:
+    """Return deliberate cross-origin browser origins; same-origin deployments need none."""
+    configured = raw_origins if raw_origins is not None else os.environ.get("CORS_ORIGINS", "")
+    origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
+    if origins:
+        return origins
+    if environment == "DEVELOPMENT":
+        return ["http://localhost:3000", "http://127.0.0.1:3000"]
+    return []
+
+
+cors_origins = configured_cors_origins(APP_ENVIRONMENT)
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_credentials=True,
+        allow_origins=cors_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.get("/uat-guide", include_in_schema=False)
