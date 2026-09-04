@@ -2,12 +2,10 @@ services:
   - type: web
     name: casefile-cirp-office
     runtime: docker
-    plan: starter
+    # Free plan is for a disposable demonstration only. Render may erase all
+    # local files, SQLite records, and uploads when the service restarts.
+    plan: free
     healthCheckPath: /api/health
-    disk:
-      name: casefile-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: CASEFILE_ENVIRONMENT
         value: PRODUCTION

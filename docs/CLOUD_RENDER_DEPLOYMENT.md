@@ -4,18 +4,20 @@
 
 This configuration deploys the existing Casefile application as **one Render web service**. React and FastAPI share one address, so the browser calls `/api` on the same origin and does not need a cross-origin login exception.
 
-It is suitable for controlled office UAT and small-office use while one paid Render instance is used. It is not yet the final long-term records architecture: SQLite remains a single-file database and the next production-hardening stage should migrate case data to PostgreSQL and uploaded files to managed object storage.
+The checked-in configuration currently uses Render's Free plan for a **disposable test deployment**. It must contain synthetic data only. Render may remove local files whenever the service restarts, redeploys, or is recycled.
 
-## What persists
+A paid persistent-disk configuration is suitable for controlled office UAT and small-office use. It is not yet the final long-term records architecture: SQLite remains a single-file database and the next production-hardening stage should migrate case data to PostgreSQL and uploaded files to managed object storage.
 
-The `render.yaml` service mounts Render persistent disk storage at `/var/data`:
+## Production persistent data
+
+In a paid production configuration, the `render.yaml` service would mount Render persistent disk storage at `/var/data`:
 
 - `/var/data/casefile.db` — the SQLite database
 - `/var/data/files/` — case uploads and generated operational files
 - `/var/data/custom_templates/` — custom office DOCX templates
 - `/var/data/backups/` — encrypted database backups downloaded from Settings
 
-Never choose Render's free web service for this deployment. Its filesystem is temporary, so case data and uploads would be lost after a restart or deployment. The persistent disk also means this service must remain a single instance; do not enable scaling.
+The active Free-plan test deployment has no persistent disk. Its filesystem is temporary, so database records, uploads, custom templates, and backup files can be lost after a restart or deployment. Do not enter real office data. The persistent-disk production configuration must remain a single instance; do not enable scaling.
 
 ## Publish procedure
 
@@ -26,16 +28,16 @@ Never choose Render's free web service for this deployment. Its filesystem is te
    - `ADMIN_PASSWORD` — at least 12 unique characters
    - `ADMIN_NAME`
 4. Keep Render-generated `JWT_SECRET` and `CASEFILE_BACKUP_KEY` private. They must not be copied into GitHub or the browser.
-5. Create the service on a paid plan with the declared disk. Wait for the build to complete, then open `https://<render-service>.onrender.com/api/health`. It should return `status: ok` and `environment: PRODUCTION`.
-6. Open `https://<render-service>.onrender.com`, sign in as the configured administrator, create separate office accounts, and run the UAT checklist.
+5. Create the service on the Free plan. Wait for the build to complete, then open `https://<render-service>.onrender.com/api/health`. It should return `status: ok` and `environment: PRODUCTION`.
+6. Open `https://<render-service>.onrender.com`, sign in as the configured administrator, create synthetic test accounts, and run the UAT checklist. Do not enter real case data or upload original client documents.
 
 ## Backup and restore
 
-Use **Settings → Back up database now** before testing sessions and download the encrypted file to an access-controlled office location. That browser action is database-only; it does not include case uploads. Preserve uploaded-file copies separately from the persistent disk.
+Use **Settings → Back up database now** before testing sessions and download the encrypted file to an access-controlled office location. That browser action is database-only; it does not include case uploads. On the Free plan, treat every restart as possible data loss and recreate synthetic data as needed.
 
 Cloud database backups use Fernet encryption, an authenticated symmetric-encryption format, with a key derived from the Render `CASEFILE_BACKUP_KEY` secret. A backup can be restored only by a deployment configured with the same secret. Do not regenerate that secret after data has been entered. Windows-local DPAPI backups and cloud backups are deliberately incompatible.
 
-Before the office enters real records, test a complete restore into a separate non-production Render service. Confirm both a restored case record and a downloaded document open correctly.
+Before the office enters real records, replace Free-plan storage with a persistent disk or managed database/object storage, then test a complete restore into a separate non-production service.
 
 ## Operational restrictions
 
