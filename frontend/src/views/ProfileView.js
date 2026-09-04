@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
-
-const API = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8000"}/api`;
+import { api } from "../lib/api";
 
 export default function ProfileView({ profile, setProfile }) {
   const [busy, setBusy] = useState(false);
@@ -14,7 +12,7 @@ export default function ProfileView({ profile, setProfile }) {
   const save = async () => {
     setBusy(true);
     try {
-      await axios.put(`${API}/profile`, data);
+      await api.put("/profile", data);
       setProfile(data);
       toast.success("Profile saved successfully");
     } catch (e) {

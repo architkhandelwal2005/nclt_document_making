@@ -135,3 +135,15 @@ Record the date/time, user role (never the password), case name, module, action,
 7. Log in as Viewer and confirm the assigned case opens but a change is denied.
 
 This proves both computers use the same server database.
+
+## 13. Updating an existing UAT installation without replacing its data
+
+For a frontend-only correction such as the same-origin login fix, do not replace the complete installed folder and do not run first-time setup again.
+
+1. On the installed server, run `BACKUP_BEFORE_TESTING.bat` and confirm that it creates a backup.
+2. Run `STOP_NCLT_UAT.bat`.
+3. In `C:\NCLT_CIRP_UAT\frontend\`, rename the existing `build` folder to `build_before_same_origin_fix`.
+4. Copy only the new package's `frontend\build` folder into `C:\NCLT_CIRP_UAT\frontend\`.
+5. Do not delete, replace, rename, or copy over `C:\NCLT_CIRP_UAT\data`, `C:\NCLT_CIRP_UAT\.env.uat`, or `C:\NCLT_CIRP_UAT\backend\venv`.
+6. Run `START_NCLT_UAT.bat`, open the displayed URL, and test login.
+7. Keep `build_before_same_origin_fix` until the corrected login has been accepted. It can be restored if necessary without touching UAT data.

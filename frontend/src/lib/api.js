@@ -1,7 +1,14 @@
 import axios from "axios";
 
-const defaultBackend = process.env.NODE_ENV === "development" ? "http://127.0.0.1:8001" : window.location.origin;
-export const API_BASE = `${process.env.REACT_APP_BACKEND_URL || defaultBackend}/api`;
+export function resolveApiBase({ mode = process.env.NODE_ENV, configuredBackend = process.env.REACT_APP_BACKEND_URL } = {}) {
+  if (mode !== "development") return "/api";
+  const backend = (configuredBackend || "http://127.0.0.1:8001").replace(/\/+$/, "");
+  return `${backend}/api`;
+}
+
+export const API_BASE = process.env.NODE_ENV === "development"
+  ? resolveApiBase({ mode: "development", configuredBackend: process.env.REACT_APP_BACKEND_URL })
+  : "/api";
 export const TOKEN_KEY = "casefile.token";
 
 export const api = axios.create({ baseURL: API_BASE });

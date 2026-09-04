@@ -1,9 +1,7 @@
 import React, { useState } from "react";
-import axios from "axios";
 import { Plus, Trash2, ArrowRight, Save, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-
-const API = `${process.env.REACT_APP_BACKEND_URL || "http://localhost:8000"}/api`;
+import { api } from "../lib/api";
 
 const TIMELINE_STEPS = [
   { day: 0, provision: "Section 16(1)", label: "Commencement of CIRP and appointment of IRP" },
@@ -60,7 +58,7 @@ export default function MattersView({ matters, setMatters }) {
     const name = window.prompt("Enter Corporate Debtor Name:");
     if (!name) return;
     try {
-      const { data } = await axios.post(`${API}/matters`, { name, values: { cd_name: name }, tables: {}, timeline: {} });
+      const { data } = await api.post("/matters", { name, values: { cd_name: name }, tables: {}, timeline: {} });
       setMatters([...matters, data]);
       toast.success("Case created");
     } catch (e) {
@@ -71,7 +69,7 @@ export default function MattersView({ matters, setMatters }) {
   const del = async (id) => {
     if (!window.confirm("Delete this case forever?")) return;
     try {
-      await axios.delete(`${API}/matters/${id}`);
+      await api.delete(`/matters/${id}`);
       setMatters(matters.filter(m => m.id !== id));
       toast.success("Case deleted");
     } catch (e) {
@@ -122,7 +120,7 @@ function MatterDetail({ matter, onBack, updateMatter }) {
     setBusy(true);
     try {
       const matterName = values.cd_name?.trim() || matter.name;
-      await axios.put(`${API}/matters/${matter.id}`, { name: matterName, values, tables: matter.tables || {}, timeline });
+      await api.put(`/matters/${matter.id}`, { name: matterName, values, tables: matter.tables || {}, timeline });
       updateMatter({ ...matter, name: matterName, values, timeline });
       toast.success("Case saved");
     } catch (e) {
