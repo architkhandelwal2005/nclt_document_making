@@ -8,7 +8,7 @@ ENV_FILE = Path(os.environ.get("CASEFILE_ENV_FILE", ROOT_DIR / ".env"))
 load_dotenv(ENV_FILE)
 
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 import asyncio
 import io
 import json
@@ -72,6 +72,7 @@ LOCAL_DATA_FILE = DATA_DIR / "casefile.json"
 DATABASE_FILE = Path(os.environ.get("CASEFILE_DATABASE_PATH", DATA_DIR / "casefile.db"))
 LOCAL_DATA_LOCK = threading.RLock()
 APP_ENVIRONMENT = os.environ.get("CASEFILE_ENVIRONMENT", "DEVELOPMENT").strip().upper()
+APP_RELEASE_ID = os.environ.get("CASEFILE_RELEASE_ID", "uat-1-dev").strip() or "uat-1-dev"
 SERVE_FRONTEND = os.environ.get("CASEFILE_SERVE_FRONTEND", "false").strip().lower() in {"1", "true", "yes", "on"}
 FRONTEND_BUILD_DIR = Path(os.environ.get("CASEFILE_FRONTEND_BUILD_DIR", SOURCE_ROOT.parent / "frontend" / "build"))
 UAT_GUIDE_FILE = SOURCE_ROOT.parent / "docs" / "OFFICE_UAT_SETUP.md"
@@ -212,6 +213,24 @@ class TokenOut(BaseModel):
     user: UserOut
 
 
+class UatFeedbackCreateInput(BaseModel):
+    """A minimal reproducibility report; it intentionally has no file upload field."""
+
+    model_config = ConfigDict(extra="forbid")
+    case_id: Optional[str] = Field(default=None, max_length=100)
+    module: str = Field(min_length=2, max_length=100)
+    action_taken: str = Field(min_length=5, max_length=1500)
+    expected_result: str = Field(min_length=5, max_length=1500)
+    actual_result: str = Field(min_length=5, max_length=1500)
+    severity: Literal["LOW", "MEDIUM", "HIGH", "BLOCKER"] = "MEDIUM"
+
+
+class UatFeedbackTriageInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["NEW", "TRIAGED", "IN_PROGRESS", "RESOLVED", "DEFERRED"]
+    triage_notes: str = Field(default="", max_length=1500)
+
+
 class TemplateFieldSpec(BaseModel):
     key: str
     label: str
@@ -305,7 +324,8 @@ async def get_current_user(request: Request) -> Dict[str, str]:
     user = casefile_store.get_user(str(payload.get("sub") or ""))
     if not user or user.get("email", "").lower() != str(payload.get("email") or "").lower():
         raise HTTPException(status_code=401, detail="Unknown user")
-    if user["role"] in {"read-only", "viewer"} and request.method not in {"GET", "HEAD", "OPTIONS"}:
+    feedback_submission = request.method == "POST" and request.url.path.rstrip("/") == "/api/uat-feedback"
+    if user["role"] in {"read-only", "viewer"} and request.method not in {"GET", "HEAD", "OPTIONS"} and not feedback_submission:
         raise HTTPException(status_code=403, detail="Read-only users cannot change records")
     return {key: user[key] for key in ("id", "email", "name", "role")}
 
@@ -657,6 +677,39 @@ async def logout(current=Depends(get_current_user)):
 @api_router.get("/auth/me", response_model=UserOut)
 async def me(current=Depends(get_current_user)):
     return current
+
+
+@api_router.post("/uat-feedback")
+async def create_uat_feedback(payload: UatFeedbackCreateInput, current=Depends(get_current_user)):
+    """Create a support report without permitting document uploads or case-data export."""
+    values = payload.model_dump()
+    if values.get("case_id"):
+        require_case_access(str(values["case_id"]), current)
+    try:
+        return casefile_store.create_uat_feedback(values, current["id"], APP_ENVIRONMENT, APP_RELEASE_ID)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.get("/uat-feedback")
+async def list_uat_feedback(current=Depends(get_current_user)):
+    """Testers see their reports; firm leads can triage the complete UAT queue."""
+    if casefile_store.has_full_case_access(current.get("role", "")):
+        return casefile_store.list_uat_feedback()
+    return casefile_store.list_uat_feedback(reporter_id=current["id"])
+
+
+@api_router.put("/uat-feedback/{report_id}")
+async def triage_uat_feedback(report_id: str, payload: UatFeedbackTriageInput, current=Depends(get_current_user)):
+    if current.get("role") not in {"admin", "administrator", "professional"}:
+        raise HTTPException(status_code=403, detail="Only an administrator or Insolvency Professional can triage UAT feedback")
+    try:
+        updated = casefile_store.update_uat_feedback(report_id, payload.status, payload.triage_notes, current["id"])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not updated:
+        raise HTTPException(status_code=404, detail="UAT feedback report not found")
+    return updated
 
 
 

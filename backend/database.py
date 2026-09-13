@@ -18,7 +18,7 @@ import sqlite3
 import uuid
 
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 FULL_CASE_ACCESS_ROLES = {"admin", "administrator", "professional"}
 
@@ -2245,6 +2245,29 @@ class CasefileDatabase:
                 );
                 CREATE INDEX IF NOT EXISTS ix_process_deadline_revision
                     ON process_deadline_revisions(case_id,process_record_id,deadline_key,created_at);
+
+                CREATE TABLE IF NOT EXISTS uat_feedback_reports (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT REFERENCES cases(id),
+                    reporter_id TEXT NOT NULL REFERENCES users(id),
+                    environment TEXT NOT NULL,
+                    release_id TEXT NOT NULL,
+                    module TEXT NOT NULL,
+                    action_taken TEXT NOT NULL,
+                    expected_result TEXT NOT NULL,
+                    actual_result TEXT NOT NULL,
+                    severity TEXT NOT NULL DEFAULT 'MEDIUM',
+                    status TEXT NOT NULL DEFAULT 'NEW',
+                    triage_notes TEXT NOT NULL DEFAULT '',
+                    triaged_by TEXT REFERENCES users(id),
+                    triaged_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_uat_feedback_reporter
+                    ON uat_feedback_reports(reporter_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS ix_uat_feedback_status
+                    ON uat_feedback_reports(status, created_at DESC);
                 """
             )
             self._ensure_column(connection, "coc_cost_statements", "expense_period_label", "TEXT NOT NULL DEFAULT ''")
@@ -2342,6 +2365,71 @@ class CasefileDatabase:
             VALUES (?, ?, ?, ?, '', ?, ?, ?, ?)""",
             (new_id(), case_id, action, title or f"{entity_type.replace('_', ' ').title()} {action}", entity_type, entity_id, actor_id, now),
         )
+
+    def create_uat_feedback(self, payload: Dict[str, Any], actor_id: str, environment: str, release_id: str) -> Dict[str, Any]:
+        """Store a concise UAT report without attaching or duplicating case documents."""
+        now = utc_now()
+        report_id = new_id()
+        severity = str(payload.get("severity") or "MEDIUM").upper()
+        if severity not in {"LOW", "MEDIUM", "HIGH", "BLOCKER"}:
+            raise ValueError("Invalid feedback severity")
+        values = {
+            "id": report_id,
+            "case_id": payload.get("case_id") or None,
+            "reporter_id": actor_id,
+            "environment": environment,
+            "release_id": release_id,
+            "module": str(payload["module"]).strip(),
+            "action_taken": str(payload["action_taken"]).strip(),
+            "expected_result": str(payload["expected_result"]).strip(),
+            "actual_result": str(payload["actual_result"]).strip(),
+            "severity": severity,
+            "status": "NEW",
+            "created_at": now,
+            "updated_at": now,
+        }
+        with self.transaction() as connection:
+            connection.execute(
+                """INSERT INTO uat_feedback_reports
+                (id,case_id,reporter_id,environment,release_id,module,action_taken,expected_result,actual_result,severity,status,created_at,updated_at)
+                VALUES (:id,:case_id,:reporter_id,:environment,:release_id,:module,:action_taken,:expected_result,:actual_result,:severity,:status,:created_at,:updated_at)""",
+                values,
+            )
+            self.audit(connection, actor_id, "UAT_FEEDBACK_REPORTED", "uat_feedback", report_id, values["case_id"], after={key: values[key] for key in ("module", "severity", "status")}, title="UAT feedback reported")
+            row = connection.execute("SELECT * FROM uat_feedback_reports WHERE id=?", (report_id,)).fetchone()
+            return dict(row)
+
+    def list_uat_feedback(self, reporter_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        with self.connect() as connection:
+            query = """SELECT report.*, users.name AS reporter_name, users.role AS reporter_role,
+                       cases.name AS case_name, triage_user.name AS triaged_by_name
+                       FROM uat_feedback_reports report
+                       JOIN users ON users.id=report.reporter_id
+                       LEFT JOIN cases ON cases.id=report.case_id
+                       LEFT JOIN users triage_user ON triage_user.id=report.triaged_by"""
+            params: tuple[Any, ...] = ()
+            if reporter_id:
+                query += " WHERE report.reporter_id=?"
+                params = (reporter_id,)
+            query += " ORDER BY CASE report.status WHEN 'NEW' THEN 0 WHEN 'TRIAGED' THEN 1 WHEN 'IN_PROGRESS' THEN 2 ELSE 3 END, report.created_at DESC"
+            return [dict(row) for row in connection.execute(query, params).fetchall()]
+
+    def update_uat_feedback(self, report_id: str, status: str, triage_notes: str, actor_id: str) -> Optional[Dict[str, Any]]:
+        clean_status = status.upper()
+        if clean_status not in {"NEW", "TRIAGED", "IN_PROGRESS", "RESOLVED", "DEFERRED"}:
+            raise ValueError("Invalid feedback status")
+        now = utc_now()
+        with self.transaction() as connection:
+            before = connection.execute("SELECT * FROM uat_feedback_reports WHERE id=?", (report_id,)).fetchone()
+            if not before:
+                return None
+            connection.execute(
+                """UPDATE uat_feedback_reports SET status=?, triage_notes=?, triaged_by=?, triaged_at=?, updated_at=? WHERE id=?""",
+                (clean_status, triage_notes.strip(), actor_id, now, now, report_id),
+            )
+            after = connection.execute("SELECT * FROM uat_feedback_reports WHERE id=?", (report_id,)).fetchone()
+            self.audit(connection, actor_id, "UAT_FEEDBACK_TRIAGED", "uat_feedback", report_id, before["case_id"], before={"status": before["status"]}, after={"status": clean_status}, title="UAT feedback triaged")
+            return dict(after)
 
     def get_profile(self, user_id: str) -> Dict[str, Any]:
         with self.connect() as connection:

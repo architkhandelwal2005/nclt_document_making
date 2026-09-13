@@ -2,6 +2,9 @@
 
 Automated testing verifies software behaviour but does not replace office-user acceptance testing (UAT), meaning confirmation by the intended users that the workflow fits their real work.
 
+Use the in-app **Test Feedback** area for reproducible defects. The reporting
+format and access rules are in `docs/UAT_FEEDBACK_GUIDE.md`.
+
 | Area | Scope for user testing | User Tested | Notes |
 |---|---|---|---|
 | Claims Register | Columns, filters, search, status labels, summary figures and opening a claim | PENDING | |

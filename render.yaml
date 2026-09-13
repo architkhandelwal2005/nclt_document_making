@@ -9,6 +9,8 @@ services:
     envVars:
       - key: CASEFILE_ENVIRONMENT
         value: PRODUCTION
+      - key: CASEFILE_RELEASE_ID
+        value: uat-1.1
       - key: CASEFILE_SERVE_FRONTEND
         value: "true"
       - key: CASEFILE_DATA_DIR

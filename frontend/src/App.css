@@ -101,6 +101,34 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
 .settings-list dd{margin:0;font-weight:500}
 .settings-hint{color:var(--muted);font-size:13px;line-height:1.6;margin-top:26px}
 
+/* ---- UAT FEEDBACK ---- */
+.uat-feedback-workspace{display:grid;gap:28px}
+.uat-feedback-workspace .workspace-intro{margin-bottom:16px}
+.uat-feedback-environment{display:flex;align-items:center;gap:8px;border:1px solid #aabbe8;background:#e9efff;color:var(--blue);padding:10px 12px;font:600 10px "IBM Plex Mono";letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.casefile-panel{background:var(--surface);border:1px solid var(--line);padding:28px}
+.panel-heading{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}
+.panel-heading h3{font:500 22px Georgia,serif;margin:0}
+.module-create-form{display:grid;gap:16px}
+.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.module-create-form label{font:600 11px "IBM Plex Mono";letter-spacing:.05em;color:var(--muted);display:flex;flex-direction:column;gap:7px}
+.module-create-form input,.module-create-form select,.module-create-form textarea,.uat-triage select,.uat-triage textarea{font:14px "IBM Plex Sans";background:var(--paper);border:1px solid var(--line);padding:10px;color:var(--ink);outline:0;min-width:0}
+.module-create-form input:focus,.module-create-form select:focus,.module-create-form textarea:focus,.uat-triage select:focus,.uat-triage textarea:focus{border-color:var(--blue);box-shadow:0 0 0 2px #d9e4ff;background:var(--surface)}
+.module-create-form textarea,.uat-triage textarea{resize:vertical;min-height:72px;line-height:1.45}
+.full-width-field{width:100%}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;padding-top:6px}
+.uat-feedback-list-panel{display:grid;gap:6px}
+.uat-report-list{display:grid;gap:14px}
+.uat-report{border:1px solid var(--line);padding:18px;background:#fffefa}
+.uat-report header{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:13px}
+.uat-report header>div{display:flex;gap:7px;flex-wrap:wrap}
+.uat-report header small{font:10px "IBM Plex Mono";color:var(--muted);letter-spacing:.03em}
+.uat-severity,.uat-status{display:inline-flex;padding:4px 7px;font:600 9px "IBM Plex Mono";letter-spacing:.06em;border:1px solid var(--line)}
+.uat-status{color:var(--muted);background:var(--paper)}
+.severity-low{color:#315f41;background:#e8f4ea;border-color:#a8d6b0}.severity-medium{color:#855f00;background:#fff2c9;border-color:#ebce75}.severity-high{color:#9a4f00;background:#ffe1bd;border-color:#e7aa69}.severity-blocker{color:#a31d19;background:#ffded9;border-color:#e99d96}
+.uat-report h4{font:500 18px Georgia,serif;margin:0 0 14px}
+.uat-report dl{margin:0;display:grid;gap:9px}.uat-report dl div{display:grid;grid-template-columns:86px 1fr;gap:12px}.uat-report dt{font:600 10px "IBM Plex Mono";color:var(--muted);letter-spacing:.06em;text-transform:uppercase}.uat-report dd{margin:0;white-space:pre-wrap;font-size:13px;line-height:1.5}
+.uat-triage{display:grid;grid-template-columns:160px 1fr auto;gap:12px;align-items:end;border-top:1px solid var(--line);margin-top:18px;padding-top:16px}.uat-triage label{font:600 10px "IBM Plex Mono";letter-spacing:.05em;color:var(--muted);display:grid;gap:6px}.uat-triage textarea{min-height:42px}.uat-triage-note{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;margin:16px 0 0}
+
 /* ---- GENERATOR ---- */
 .generator{padding-top:34px}
 .stepper{display:flex;gap:50px;border-bottom:1px solid var(--line);padding:0 0 20px;margin-bottom:40px}
@@ -253,6 +281,8 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
   .back-button{margin:0 0 20px}
   .form-footer{align-items:flex-start;gap:14px;flex-direction:column}
   .uploader-grid{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .uat-triage{grid-template-columns:1fr}
   .uploader-meta{grid-template-columns:1fr}
   .field-row,.field-row.wide{grid-template-columns:1fr;gap:6px}
   .export-state{margin:30px 0;padding:48px 22px}
