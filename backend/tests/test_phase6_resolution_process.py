@@ -80,7 +80,9 @@ def test_schema_workflow_sequence_and_template_gaps(tmp_path):
     definitions = WorkflowService(store).definitions()
     assert [row["step_code"] for row in definitions] == [f"CIRP-{number:03d}" for number in range(1, 106)]
     with store.connect() as connection:
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 15
+        # Phase 6 introduced schema version 15. Later additive migrations must
+        # not make the Phase 6 regression suite report a false failure.
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] >= 15
         tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"resolution_process_records", "resolution_process_items", "resolution_process_dispatches", "process_deadline_revisions"} <= tables
     process = core.eoi_process(case["id"], {"deposit_required": False}, ACTOR)
