@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, ChevronDown, Map, Save } from "lucide-react";
+import { ArrowLeft, ChevronDown, Map, Save, Search } from "lucide-react";
 import { api, errorMessage } from "../lib/api";
 import { toast } from "sonner";
 import CaseModuleManager from "../components/CaseModuleManager";
@@ -24,6 +24,9 @@ import {
 
 const destinations = { overview: "Case master", "nclt-fetcher": "NCLT Orders", intake: "Admission Intake", "public-announcement": "Public Announcement", tasks: "General tasks", compliance: "Deadlines & compliance", hearings: "Hearings & applications", claims: "Claims", coc: "CoC", "operations-workspace": "Operations, valuation, IM & VDR", "transaction-audit": "Transaction audit & avoidance", "resolution-process": "Resolution Process", contacts: "Contacts", documents: "Documents", communications: "Communications", assets: "Assets & finance", valuations: "Legacy valuation register", expenses: "Expenses & contributions", activity: "Activity" };
 const recordGroups = [["Case administration", [["overview", "Case master"], ["nclt-fetcher", "NCLT Orders"], ["documents", "Documents"], ["contacts", "Contacts"], ["activity", "Activity"]]], ["Work & communications", [["tasks", "General tasks"], ["compliance", "Deadlines & compliance"], ["hearings", "Hearings & applications"], ["communications", "Communications"]]], ["Financial records", [["assets", "Assets & finance"], ["valuations", "Legacy valuation register"], ["expenses", "Expenses & contributions"]]]];
+const featureSearchIndex = [
+  ["journey", "Case Journey", "timeline progress current stage workflow"], ["intake", "Admission order intake", "upload order extract review import admission"], ["overview", "Case master", "company details CIN NCLT bench"], ["public-announcement", "Public Announcement", "Form A publication"], ["claims", "Claims & verification", "claim Form C creditor verification"], ["coc", "CoC workspace", "eligibility constitution meeting voting minutes"], ["operations-workspace", "Operations, valuation, IM & VDR", "going concern valuation information memorandum data room confidentiality"], ["transaction-audit", "Transaction audit & avoidance", "auditor findings avoidance application"], ["resolution-process", "Resolution Process", "EOI PRA RFRP resolution plan evaluation NCLT approval"], ["documents", "Documents", "upload generated files case documents"], ["contacts", "Contacts", "creditors parties professionals"], ["tasks", "General tasks", "to-do assigned work"], ["compliance", "Deadlines & compliance", "statutory due dates"], ["hearings", "Hearings & applications", "NCLT hearing directions applications"], ["communications", "Communications", "letters emails notices"], ["assets", "Assets & finance", "assets bank accounts finance"], ["expenses", "Expenses & contributions", "CIRP costs expense contribution"], ["activity", "Activity", "audit history case activity"], ["nclt-fetcher", "NCLT Orders", "case history orders portal"],
+];
 
 const fieldGroups = [
   ["Company information", [
@@ -68,6 +71,13 @@ function Manager({ caseId, config }) {
   return <CaseModuleManager caseId={caseId} {...config} />;
 }
 
+function FeatureSearch({ onSelect }) {
+  const [query, setQuery] = useState(""); const [open, setOpen] = useState(false);
+  const matches = query.trim() ? featureSearchIndex.filter(([, label, keywords]) => `${label} ${keywords}`.toLowerCase().includes(query.toLowerCase())).slice(0, 7) : featureSearchIndex.slice(0, 7);
+  const select = id => { onSelect(id); setQuery(""); setOpen(false); };
+  return <div className="case-feature-search"><Search size={15} /><input value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter" && matches[0]) { event.preventDefault(); select(matches[0][0]); } if (event.key === "Escape") setOpen(false); }} placeholder="Find a feature…" aria-label="Find a case feature" data-testid="case-feature-search" />{open && <div className="case-feature-results">{matches.map(([id, label, keywords]) => <button key={id} onMouseDown={event => event.preventDefault()} onClick={() => select(id)}><b>{label}</b><small>{keywords}</small></button>)}{!matches.length && <p>No matching case feature.</p>}</div>}</div>;
+}
+
 function ModuleContent({ tab, caseRecord, onUpdated }) {
   const caseId = caseRecord.id;
   if (tab === "nclt-fetcher") return <NcltOrderFetcher caseRecord={caseRecord} />;
@@ -96,7 +106,7 @@ export default function CaseWorkspace({ caseRecord, onBack, onUpdated, user }) {
   const label = tab === "journey" ? "Case Journey" : destinations[tab] || "Case";
   return <section className="case-workspace" data-testid="case-workspace">
     <header className="case-context-header"><button className="icon-btn" onClick={onBack} aria-label="Return to firm dashboard"><ArrowLeft size={19} /></button><div><p className="kicker">SELECTED COMPANY / {caseRecord.process_type}</p><h2>{caseRecord.name}</h2><p>{caseRecord.petition_number || "Petition number not set"} · {caseRecord.nclt_bench || "Bench not set"}</p></div><span className={`case-risk ${caseRecord.risk_level}`}>{caseRecord.risk_level} risk</span></header>
-    <nav className="case-journey-nav" aria-label="Case navigation"><button className={tab === "journey" ? "active" : ""} onClick={() => setTab("journey")} data-testid="case-tab-journey"><Map size={16} />Journey</button><details><summary><span>Case Records &amp; Tools</span><ChevronDown size={15} /></summary><div className="case-records-menu">{recordGroups.map(([heading, items]) => <section key={heading}><b>{heading}</b>{items.map(([id, name]) => <button key={id} onClick={() => setTab(id)}>{name}</button>)}</section>)}</div></details>{tab !== "journey" && <button className="case-current-tool" onClick={() => setTab("journey")}>Back to Journey</button>}</nav>
+    <nav className="case-journey-nav" aria-label="Case navigation"><button className={tab === "journey" ? "active" : ""} onClick={() => setTab("journey")} data-testid="case-tab-journey"><Map size={16} />Journey</button><FeatureSearch onSelect={setTab} /><details><summary><span>Case Records &amp; Tools</span><ChevronDown size={15} /></summary><div className="case-records-menu">{recordGroups.map(([heading, items]) => <section key={heading}><b>{heading}</b>{items.map(([id, name]) => <button key={id} onClick={() => setTab(id)}>{name}</button>)}</section>)}</div></details>{tab !== "journey" && <button className="case-current-tool" onClick={() => setTab("journey")}>Back to Journey</button>}</nav>
     <div className="case-module"><div className="module-heading"><p className="kicker">{tab === "journey" ? "CASE WORKFLOW" : "CASE RECORDS & TOOLS"}</p><h2>{label}</h2></div>{tab === "journey" ? <CaseJourneyWorkspace caseRecord={caseRecord} user={user} onNavigate={setTab} /> : tab === "overview" ? <CaseOverview caseRecord={caseRecord} onUpdated={onUpdated} /> : <ModuleContent tab={tab} caseRecord={caseRecord} onUpdated={onUpdated} />}</div>
   </section>;
 }
