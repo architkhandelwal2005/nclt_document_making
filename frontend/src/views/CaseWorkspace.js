@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, ChevronDown, Map, Save } from "lucide-react";
 import { api, errorMessage } from "../lib/api";
 import { toast } from "sonner";
 import CaseModuleManager from "../components/CaseModuleManager";
@@ -12,6 +12,9 @@ import PublicAnnouncementWorkspace from "../components/PublicAnnouncementWorkspa
 import NcltOrderFetcher from "../components/NcltOrderFetcher";
 import ClaimsWorkspace from "../components/ClaimsWorkspace";
 import ResolutionProcessWorkspace from "../components/ResolutionProcessWorkspace";
+import CaseJourneyWorkspace from "../components/CaseJourneyWorkspace";
+import OperationsWorkspace from "../components/OperationsWorkspace";
+import TransactionAuditWorkspace from "../components/TransactionAuditWorkspace";
 import { CocVoting, OrdersAndDirections } from "../components/LinkedWorkflows";
 import {
   applicationConfig, assetConfig, cocMeetingConfig, cocMemberConfig,
@@ -19,14 +22,8 @@ import {
   financialConfig, hearingConfig, taskConfig, valuationConfig,
 } from "../constants/moduleConfigs";
 
-const tabs = [
-  ["overview", "Overview"], ["nclt-fetcher", "NCLT Orders"], ["intake", "Admission Intake"], ["public-announcement", "Public Announcement"], ["tasks", "Tasks"], ["compliance", "Compliance"],
-  ["hearings", "Hearings & Applications"], ["claims", "Claims"], ["coc", "CoC"],
-  ["resolution-process", "Resolution Process"],
-  ["contacts", "Contacts"], ["documents", "Documents"], ["communications", "Communications"],
-  ["assets", "Assets & Finance"], ["valuations", "Valuation"], ["expenses", "Expenses"],
-  ["activity", "Activity"],
-];
+const destinations = { overview: "Case master", "nclt-fetcher": "NCLT Orders", intake: "Admission Intake", "public-announcement": "Public Announcement", tasks: "General tasks", compliance: "Deadlines & compliance", hearings: "Hearings & applications", claims: "Claims", coc: "CoC", "operations-workspace": "Operations, valuation, IM & VDR", "transaction-audit": "Transaction audit & avoidance", "resolution-process": "Resolution Process", contacts: "Contacts", documents: "Documents", communications: "Communications", assets: "Assets & finance", valuations: "Legacy valuation register", expenses: "Expenses & contributions", activity: "Activity" };
+const recordGroups = [["Case administration", [["overview", "Case master"], ["nclt-fetcher", "NCLT Orders"], ["documents", "Documents"], ["contacts", "Contacts"], ["activity", "Activity"]]], ["Work & communications", [["tasks", "General tasks"], ["compliance", "Deadlines & compliance"], ["hearings", "Hearings & applications"], ["communications", "Communications"]]], ["Financial records", [["assets", "Assets & finance"], ["valuations", "Legacy valuation register"], ["expenses", "Expenses & contributions"]]]];
 
 const fieldGroups = [
   ["Company information", [
@@ -82,6 +79,8 @@ function ModuleContent({ tab, caseRecord, onUpdated }) {
   if (tab === "claims") return <ClaimsWorkspace caseRecord={caseRecord} />;
   if (tab === "coc") return <div className="space-y-6"><Manager caseId={caseId} config={cocMemberConfig} /><Manager caseId={caseId} config={cocMeetingConfig} /><CocWorkspace caseRecord={caseRecord} /><CocVoting caseId={caseId} /></div>;
   if (tab === "resolution-process") return <ResolutionProcessWorkspace caseRecord={caseRecord} />;
+  if (tab === "operations-workspace") return <OperationsWorkspace caseRecord={caseRecord} />;
+  if (tab === "transaction-audit") return <TransactionAuditWorkspace caseRecord={caseRecord} />;
   if (tab === "contacts") return <ContactsManager caseId={caseId} />;
   if (tab === "documents") return <DocumentsManager caseRecord={caseRecord} />;
   if (tab === "communications") return <Manager caseId={caseId} config={communicationConfig} />;
@@ -92,12 +91,12 @@ function ModuleContent({ tab, caseRecord, onUpdated }) {
   return null;
 }
 
-export default function CaseWorkspace({ caseRecord, onBack, onUpdated }) {
-  const [tab, setTab] = useState("overview");
-  const label = tabs.find(item => item[0] === tab)?.[1] || "Case";
+export default function CaseWorkspace({ caseRecord, onBack, onUpdated, user }) {
+  const [tab, setTab] = useState("journey");
+  const label = tab === "journey" ? "Case Journey" : destinations[tab] || "Case";
   return <section className="case-workspace" data-testid="case-workspace">
     <header className="case-context-header"><button className="icon-btn" onClick={onBack} aria-label="Return to firm dashboard"><ArrowLeft size={19} /></button><div><p className="kicker">SELECTED COMPANY / {caseRecord.process_type}</p><h2>{caseRecord.name}</h2><p>{caseRecord.petition_number || "Petition number not set"} · {caseRecord.nclt_bench || "Bench not set"}</p></div><span className={`case-risk ${caseRecord.risk_level}`}>{caseRecord.risk_level} risk</span></header>
-    <nav className="case-tabs" aria-label="Case modules">{tabs.map(([id, name]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)} data-testid={`case-tab-${id}`}>{name}</button>)}</nav>
-    <div className="case-module"><div className="module-heading"><p className="kicker">CASE MODULE</p><h2>{label}</h2></div>{tab === "overview" ? <CaseOverview caseRecord={caseRecord} onUpdated={onUpdated} /> : <ModuleContent tab={tab} caseRecord={caseRecord} onUpdated={onUpdated} />}</div>
+    <nav className="case-journey-nav" aria-label="Case navigation"><button className={tab === "journey" ? "active" : ""} onClick={() => setTab("journey")} data-testid="case-tab-journey"><Map size={16} />Journey</button><details><summary><span>Case Records &amp; Tools</span><ChevronDown size={15} /></summary><div className="case-records-menu">{recordGroups.map(([heading, items]) => <section key={heading}><b>{heading}</b>{items.map(([id, name]) => <button key={id} onClick={() => setTab(id)}>{name}</button>)}</section>)}</div></details>{tab !== "journey" && <button className="case-current-tool" onClick={() => setTab("journey")}>Back to Journey</button>}</nav>
+    <div className="case-module"><div className="module-heading"><p className="kicker">{tab === "journey" ? "CASE WORKFLOW" : "CASE RECORDS & TOOLS"}</p><h2>{label}</h2></div>{tab === "journey" ? <CaseJourneyWorkspace caseRecord={caseRecord} user={user} onNavigate={setTab} /> : tab === "overview" ? <CaseOverview caseRecord={caseRecord} onUpdated={onUpdated} /> : <ModuleContent tab={tab} caseRecord={caseRecord} onUpdated={onUpdated} />}</div>
   </section>;
 }

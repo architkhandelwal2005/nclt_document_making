@@ -185,6 +185,7 @@ def test_case_isolation_and_role_authorization_via_api(tmp_path, monkeypatch):
     store = _store(tmp_path)
     first = _case(store, "First CIRP Limited")
     second = _case(store, "Second CIRP Limited")
+    uninitialized = _case(store, "Older CIRP Limited", None)
     _admission_event(store, first["id"], "first-admission")
     _admission_event(store, second["id"], "second-admission")
     monkeypatch.setattr(server, "casefile_store", store)
@@ -192,6 +193,7 @@ def test_case_isolation_and_role_authorization_via_api(tmp_path, monkeypatch):
     viewer = store.create_user("workflow-viewer@example.com", "Viewer", "viewer", server.ADMIN_PASSWORD_HASH)
     outsider = store.create_user("workflow-outsider@example.com", "Outsider", "staff", server.ADMIN_PASSWORD_HASH)
     store.set_case_assignments(first["id"], [viewer["id"]], server.ADMIN_ID)
+    store.set_case_assignments(uninitialized["id"], [viewer["id"]], server.ADMIN_ID)
 
     with TestClient(server.app) as client:
         admin_login = client.post("/api/auth/login", json={"email": server.ADMIN_EMAIL, "password": server.admin_pwd})
@@ -204,6 +206,10 @@ def test_case_isolation_and_role_authorization_via_api(tmp_path, monkeypatch):
         outsider_headers = {"Authorization": f"Bearer {outsider_login.json()['access_token']}"}
 
         assert client.get(f"/api/cases/{first['id']}/workflow", headers=viewer_headers).status_code == 200
+        # Merely opening an older case does not create a Journey; initialization is professional-only.
+        assert client.get(f"/api/cases/{uninitialized['id']}/workflow", headers=viewer_headers).status_code == 404
+        assert client.post(f"/api/cases/{uninitialized['id']}/workflow/initialize", headers=viewer_headers).status_code == 403
+        assert client.get(f"/api/cases/{uninitialized['id']}/workflow", headers=admin_headers).status_code == 404
         denied_mutation = client.post(
             f"/api/cases/{first['id']}/events",
             json={"event_type": "DOCUMENT_RECEIVED", "event_date": "2026-08-02"}, headers=viewer_headers,

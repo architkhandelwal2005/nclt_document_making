@@ -1201,6 +1201,7 @@ async def get_workflow_definition(step_code: str, workflow_version: Optional[str
 async def initialize_case_workflow(case_id: str, payload: Optional[Dict[str, Any]] = None,
                                    current=Depends(get_current_user)):
     require_case_access(case_id, current)
+    require_professional_action(current, "initialize the CIRP Journey")
     workflow, _ = _workflow_services()
     try:
         return workflow.initialize_cirp(case_id, current["id"], (payload or {}).get("workflow_version"))
