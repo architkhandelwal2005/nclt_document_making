@@ -275,25 +275,24 @@ DPAPI-encrypted backups can normally be decrypted only by the same Windows user 
 
 The current launcher binds to `127.0.0.1`, so it remains a single-PC test deployment. Authentication, case permissions, server-side files, and the application data model are foundations for multiple users, but this build is not yet the final office-network deployment.
 
-Before office-network use, complete the PostgreSQL migration, a unified internal hostname/reverse proxy, HTTPS or an equivalently protected trusted-network setup, document-directory backups, and a restore rehearsal. Do not expose the SQLite file or its directory as a Windows network share.
+Before office-network use, complete the PostgreSQL migration, a unified internal hostname/reverse proxy, HTTPS or an equivalently protected trusted-network setup, an off-device backup policy, and a restore rehearsal. Do not expose the SQLite file or its directory as a Windows network share.
 
 ## Disaster recovery
 
-### Database backup
+### Complete backup (recommended)
 
-An administrator can download an online SQLite backup from **Settings**. It is encrypted with Windows DPAPI, the Windows Data Protection API, and normally decrypts only for the same Windows user on the same Windows installation.
+An administrator can download **Settings → Back up database + documents**. It creates an online SQLite snapshot and packages it with every uploaded case document into one manifest-verified encrypted bundle. The manifest stores a SHA-256 checksum, a cryptographic fingerprint used to detect an altered or damaged file, for each item. On Windows it is encrypted with Windows DPAPI, the Windows Data Protection API, and normally decrypts only for the same Windows user on the same Windows installation.
 
-### Document backup
+### Database-only backup (legacy compatibility)
 
-Uploaded files are stored under `backend/data/files/<case-id>/`. They are not included in the current database-only download. Until automated document backup is implemented, copy the complete `backend/data/files` directory nightly to a second firm-controlled disk while preserving its directory structure.
+The separate database-only download remains available to restore older `.casefile-backup` files. It does not include or replace uploaded documents. Do not use it as the only backup for a live case.
 
 ### Restore procedure
 
 1. Stop Casefile and copy the complete `backend/data` directory to a safe location.
 2. Start Casefile under the Windows account that created the encrypted backup.
-3. Use **Settings → Restore encrypted backup**. SQLite integrity is validated and a safety database backup is made before replacement.
-4. Restore the matching `files` directory separately if documents were lost.
-5. Restart Casefile and verify users, case assignments, representative cases, tasks, and several downloaded files.
+3. Use **Settings → Restore database + uploaded documents** and select the matching `.casefile-complete-backup` file. Casefile validates archive paths, all checksums, and SQLite integrity before replacing anything, and creates a complete encrypted safety backup first.
+4. Restart Casefile and verify users, case assignments, representative cases, tasks, and several downloaded files.
 
 Rehearse this procedure on a non-production copy before Casefile becomes the office's sole record system.
 
@@ -304,7 +303,7 @@ Rehearse this procedure on a non-production copy before Casefile becomes the off
 - **Viewer cannot edit:** expected; Viewer is read-only.
 - **Frontend change is missing:** run `npm run build`, restart, and hard-refresh the browser.
 - **Scanned publication shows manual review required:** install the free local Tesseract OCR executable under `C:\Program Files\Tesseract-OCR`, restart Casefile, then upload the published copy again. Searchable PDFs do not require Tesseract.
-- **Backup will not restore on another PC/account:** expected for the current DPAPI backup; use the original Windows account/installation or a separate disaster-recovery copy.
+- **Backup will not restore on another PC/account:** expected for a Windows DPAPI backup; use the original Windows account/installation or a separate firm-approved disaster-recovery copy.
 
 ## External-service and cost status
 

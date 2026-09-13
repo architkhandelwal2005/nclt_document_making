@@ -16,11 +16,18 @@ import logging
 import re
 import shutil
 import sqlite3
+import tempfile
 import threading
 import uuid
 
 from database import CasefileDatabase, MODULE_FIELDS
 from security import encrypt_file, unprotect_bytes
+from backup_bundle import (
+    CompleteBackupError,
+    create_complete_backup,
+    stage_verified_documents,
+    verify_complete_backup,
+)
 from admission_intake import AdmissionIntakeService
 from mca_provider import ManualMcaProvider
 from coc_workflow import CocDocumentService
@@ -111,6 +118,7 @@ phase6 = Phase6Core(casefile_store)
 # In-memory state (resets on restart)
 LOGIN_ATTEMPTS: Dict[str, Dict[str, Any]] = {}
 DOC_CACHE: Dict[str, Dict[str, Any]] = {}
+COMPLETE_BACKUP_LOCK = threading.RLock()
 
 
 def _empty_local_data() -> Dict[str, Any]:
@@ -1068,6 +1076,70 @@ async def restore_backup(file: UploadFile = File(...), current=Depends(require_a
         casefile_store.ensure_admin(ADMIN_ID, ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD_HASH)
         return {"ok": True, "safety_backup": encrypted_safety.name}
     except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@api_router.get("/admin/complete-backup")
+async def download_complete_backup(current=Depends(require_admin)):
+    """Download one encrypted, consistent bundle of database and uploaded files."""
+    with COMPLETE_BACKUP_LOCK:
+        result = create_complete_backup(casefile_store, CASE_FILES_DIR, DATA_DIR / "backups")
+    return FileResponse(
+        result.path,
+        media_type="application/octet-stream",
+        filename=result.path.name,
+        headers={
+            "X-Casefile-Document-Count": str(result.document_count),
+            "X-Casefile-Document-Bytes": str(result.document_bytes),
+        },
+    )
+
+
+@api_router.post("/admin/complete-restore")
+async def restore_complete_backup(file: UploadFile = File(...), current=Depends(require_admin)):
+    """Restore a verified complete bundle with a pre-restore safety bundle.
+
+    The document directory is staged and atomically swapped only after the
+    archive and its embedded SQLite database pass validation.  If database
+    replacement fails, the prior document directory is put back before the
+    error reaches the caller.
+    """
+    encrypted = await file.read(512 * 1024 * 1024 + 1)
+    if len(encrypted) > 512 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Complete backup must not exceed 512 MB")
+    try:
+        with COMPLETE_BACKUP_LOCK:
+            verified = verify_complete_backup(encrypted, casefile_store)
+            CASE_FILES_DIR.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix="casefile-restore-", dir=CASE_FILES_DIR.parent) as temporary_name:
+                temporary = Path(temporary_name)
+                staged_documents = temporary / "documents"
+                stage_verified_documents(verified, staged_documents)
+                safety = create_complete_backup(casefile_store, CASE_FILES_DIR, DATA_DIR / "backups", label="pre-restore")
+                prior_documents = temporary / "documents-before-restore"
+                had_prior_documents = CASE_FILES_DIR.exists()
+                try:
+                    if had_prior_documents:
+                        CASE_FILES_DIR.replace(prior_documents)
+                    staged_documents.replace(CASE_FILES_DIR)
+                    casefile_store.restore_sqlite_bytes(verified.database_bytes)
+                    casefile_store.ensure_admin(ADMIN_ID, ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD_HASH)
+                except Exception:
+                    if CASE_FILES_DIR.exists():
+                        shutil.rmtree(CASE_FILES_DIR)
+                    if had_prior_documents and prior_documents.exists():
+                        prior_documents.replace(CASE_FILES_DIR)
+                    raise
+                else:
+                    if prior_documents.exists():
+                        shutil.rmtree(prior_documents)
+            return {
+                "ok": True,
+                "safety_backup": safety.path.name,
+                "documents_restored": len(verified.documents),
+                "backup_created_at": verified.created_at,
+            }
+    except (CompleteBackupError, ValueError, OSError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 

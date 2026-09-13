@@ -89,7 +89,7 @@ Before office testing, double-click `BACKUP_BEFORE_TESTING.bat`. After each test
 
 The complete encrypted backup is saved under `data\uat_backups\` and includes a transaction-consistent SQLite database snapshot and the shared `data\uat_documents\` directory. SQLite is the embedded database file; transaction-consistent means the snapshot is a complete valid database state even while the app is running.
 
-The `Settings → Back up database now` browser action is **database-only and does not include uploaded documents**. It is not a complete system backup.
+The preferred browser action is `Settings → Back up database + documents`. It downloads one encrypted complete backup, with a consistent SQLite snapshot and all uploaded case documents. `Settings → Database-only backup` remains only for compatibility with older database-only backup files.
 
 Complete UAT backups use Windows data protection and should be restored only by the same trusted Windows account on the server. The installer must test restoration before production use.
 

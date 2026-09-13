@@ -3444,20 +3444,33 @@ class CasefileDatabase:
             source.close()
         return output
 
-    def restore_sqlite_bytes(self, data: bytes) -> None:
-        """Validate a complete SQLite backup before atomically replacing the database."""
-        temporary = self.path.with_suffix(".restore.tmp")
+    def _validate_sqlite_backup_path(self, candidate_path: Path) -> None:
+        """Check that a candidate has the minimum Casefile database structure."""
+        candidate = sqlite3.connect(candidate_path)
+        try:
+            integrity = candidate.execute("PRAGMA integrity_check").fetchone()[0]
+            tables = {row[0] for row in candidate.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        finally:
+            candidate.close()
+        required = {"cases", "tasks", "audit_logs", "schema_migrations", "users"}
+        if integrity != "ok" or not required.issubset(tables):
+            raise ValueError("The backup is not a valid Casefile database")
+
+    def validate_sqlite_bytes(self, data: bytes) -> None:
+        """Validate a backup without changing the live database."""
+        temporary = self.path.with_name(f".{self.path.name}.{uuid.uuid4().hex}.validate.tmp")
         temporary.write_bytes(data)
         try:
-            candidate = sqlite3.connect(temporary)
-            try:
-                integrity = candidate.execute("PRAGMA integrity_check").fetchone()[0]
-                tables = {row[0] for row in candidate.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            finally:
-                candidate.close()
-            required = {"cases", "tasks", "audit_logs", "schema_migrations", "users"}
-            if integrity != "ok" or not required.issubset(tables):
-                raise ValueError("The backup is not a valid Casefile database")
+            self._validate_sqlite_backup_path(temporary)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def restore_sqlite_bytes(self, data: bytes) -> None:
+        """Validate a complete SQLite backup before atomically replacing the database."""
+        temporary = self.path.with_name(f".{self.path.name}.{uuid.uuid4().hex}.restore.tmp")
+        temporary.write_bytes(data)
+        try:
+            self._validate_sqlite_backup_path(temporary)
             with self.connect() as connection:
                 connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             temporary.replace(self.path)

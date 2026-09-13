@@ -15,7 +15,7 @@ In a paid production configuration, the `render.yaml` service would mount Render
 - `/var/data/casefile.db` — the SQLite database
 - `/var/data/files/` — case uploads and generated operational files
 - `/var/data/custom_templates/` — custom office DOCX templates
-- `/var/data/backups/` — encrypted database backups downloaded from Settings
+- `/var/data/backups/` — encrypted complete and database-only backups downloaded from Settings
 
 The active Free-plan test deployment has no persistent disk. Its filesystem is temporary, so database records, uploads, custom templates, and backup files can be lost after a restart or deployment. Do not enter real office data. The persistent-disk production configuration must remain a single instance; do not enable scaling.
 
@@ -33,7 +33,7 @@ The active Free-plan test deployment has no persistent disk. Its filesystem is t
 
 ## Backup and restore
 
-Use **Settings → Back up database now** before testing sessions and download the encrypted file to an access-controlled office location. That browser action is database-only; it does not include case uploads. On the Free plan, treat every restart as possible data loss and recreate synthetic data as needed.
+Use **Settings → Back up database + documents** before testing sessions and download the encrypted file to an access-controlled office location. It packages the database and case uploads together. The database-only action remains only for restoring older database-only files. On the Free plan, treat every restart as possible data loss and recreate synthetic data as needed.
 
 Cloud database backups use Fernet encryption, an authenticated symmetric-encryption format, with a key derived from the Render `CASEFILE_BACKUP_KEY` secret. A backup can be restored only by a deployment configured with the same secret. Do not regenerate that secret after data has been entered. Windows-local DPAPI backups and cloud backups are deliberately incompatible.
 
